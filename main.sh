@@ -78,9 +78,6 @@ prepare(){
 
     #Create the daos_agent folder
     srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_agent
-
-    #Create the daos attach info folder
-    #mkdir -p $DAOS_DIR/install/tmp/
 }
 
 #Prepare log folders for tests
