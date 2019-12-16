@@ -6,10 +6,10 @@
 #SBATCH -J test_daos1           # Job name
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
-#SBATCH -A STAR-Intel		# Project Name
-#SBATCH -p development        	# Queue (partition) name
-#SBATCH -N 4              	# Total # of nodes
-#SBATCH -n 192                	# Total # of mpi tasks (48 x  Total # of nodes)
+#SBATCH -A STAR-Intel           # Project Name
+#SBATCH -p development          # Queue (partition) name
+#SBATCH -N 4                    # Total # of nodes
+#SBATCH -n 192                  # Total # of mpi tasks (48 x  Total # of nodes)
 #SBATCH -t 1:00:00             # Run time (hh:mm:ss)
 #SBATCH --mail-user=first.last@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
@@ -17,6 +17,7 @@
 #Parameter to be updated for each sbatch
 DAOS_SERVERS=2
 DAOS_CLIENTS=1
+ACCESS_PORT=10001
 DAOS_DIR="/home1/<USER_HOME_FOLDER>/daos"
 
 #IOR Parameter
@@ -29,7 +30,6 @@ SELF_TEST_RPC=(1 16)
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-URI_FILE="uri.txt"
 DAOS_SERVER_YAML="$PWD/daos_server_psm2.yml"
 PSM2_CLIENT_PARAM="--mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --mca btl tcp,self --mca oob tcp"
 
@@ -62,7 +62,7 @@ trap cleanup EXIT
 #Create server/client hostfile.
 prepare(){
     #Create the folder for server/client logs.
-    mkdir Log/$SLURM_JOB_ID
+    mkdir -p Log/$SLURM_JOB_ID
     $SRUN_CMD create_log_dir.sh "cleanup"
 
     #Prepare DAOS server list file
@@ -72,11 +72,12 @@ prepare(){
     sed 's/$/ slots=1/' Log/$SLURM_JOB_ID/slurm_server_hostlist > Log/$SLURM_JOB_ID/daos_server_hostlist
     cat Log/$SLURM_JOB_ID/slurm_hostlist | head -$DAOS_CLIENTS > Log/$SLURM_JOB_ID/daos_client_hostlist
 
+    ACCESS_POINT=`cat Log/$SLURM_JOB_ID/slurm_server_hostlist | head -1 | grep -o -m 1 "^c[0-9\-]*"`
+
+    sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
+
     #Create the daos_agent folder
     srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_agent
-
-    #Create the daos attach info folder
-    mkdir -p $DAOS_DIR/install/tmp/
 }
 
 #Prepare log folders for tests
@@ -86,38 +87,45 @@ prepare_test_log_dir(){
 
 #Start DAOS agent
 start_agent(){
-    srun -n $SLURM_JOB_NUM_NODES $DAOS_DIR/install/bin/daos_agent -i -o $DAOS_SERVER_YAML -s /tmp/daos_agent &
+    echo -e "\nCMD: Starting agent...\n"
+    cmd="srun -n $SLURM_JOB_NUM_NODES $DAOS_DIR/install/bin/daos_agent -i -o $DAOS_SERVER_YAML -s /tmp/daos_agent"
+    echo $cmd
+    echo
+    eval $cmd &
     sleep 10
 }
 
 #Create Pool
 create_pool(){
-    daos_cmd="orterun $PSM2_CLIENT_PARAM --ompi-server file:$URI_FILE -np 1  --map-by node 
-    --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist  dmg_old create --size=42G"
-    DAOS_POOL=`$daos_cmd`
+    echo -e "\nCMD: Creating pool\n"
+    cmd="dmg -l $ACCESS_POINT:$ACCESS_PORT -i pool create --scm-size 42G"
+    echo $cmd
+    echo
+    DAOS_POOL=`$cmd`
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        echo "----DMG Create FAIL"
+        echo "DMG Create FAIL"
         exit 1
     else
-        echo "--------DMG Create Pool Success"
+        echo "DMG Create Pool Success"
     fi
 
-    POOL_UUID="$(echo "$DAOS_POOL" |  awk '{print $1}')"
-    POOL_SVC="$(echo "$DAOS_POOL" |  awk '{print $2}')"
-    echo "------------POOL INFO-----------------------------"
-    echo $POOL_UUID
-    echo $POOL_SVC
-    echo "--------------------------------------------------"
+    POOL_UUID="$(grep -o "UUID: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $2}')"
+    POOL_SVC="$(grep -o "Service replicas: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $3}')"
+    echo -e "\n====== POOL INFO ======"
+    echo POOL_UUID: $POOL_UUID
+    echo POOL_SVC : $POOL_SVC
 }
 
 #Start daos servers
 start_server(){
+    echo -e "\nCMD: Starting server...\n"
     rm -r server_output.log
     cmd="orterun  --np $DAOS_SERVERS --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist -x CPATH -x PATH -x LD_LIBRARY_PATH 
-    --report-uri $URI_FILE --enable-recovery daos_server start -i -a $DAOS_DIR/install/tmp/ -o $DAOS_SERVER_YAML  
+    --enable-recovery daos_server start -i -o $DAOS_SERVER_YAML  
     --recreate-superblocks 2>&1 | tee server_output.log"
     echo $cmd
+    echo
     eval $cmd &
     TIMEOUT=0
     while :
@@ -138,67 +146,83 @@ start_server(){
 
 #Run IOR
 run_IOR(){
+    echo -e "\nCMD: Starting IOR..."
     for size in "${TRANSFER_SIZES[@]}"; do
         for i in "${IOR_PROC_PER_CLIENT[@]}"; do
             no_of_ps=$(($DAOS_CLIENTS * $i))
-            IOR_CMD="orterun --timeout 600 $PSM2_CLIENT_PARAM --ompi-server file:$URI_FILE 
+	    echo
+            cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM 
             -np $no_of_ps --map-by node  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist ior -a DAOS -b $BL_SIZE  -w -r -i 3 -o daos:testFile 
             -t $size --daos.cont $(uuidgen) --daos.destroy --daos.group daos_server --daos.pool $POOL_UUID  --daos.svcl $POOL_SVC -vv"
-            echo $IOR_CMD
-            $IOR_CMD
-            sleep 5
+            echo $cmd
+	    echo
+            eval $cmd
+            if [ $? -ne 0 ]; then
+                echo -e "\nSTATUS: transfer_size=$size, process_per_client=$i - IOR FAIL\n"
+                exit 1
+            else
+                echo -e "\nSTATUS: transfer_size=$size, process_per_client=$i - IOR SUCCESS\n"
+            fi
+	    sleep 5
         done
     done
 }
 
 #Run daos_test
 run_daos_test(){
+    echo -e "\nCMD: Starting daos_test...\n"
     #Run daos_test from single client for now.
-    daos_cmd="orterun --timeout 1800 $PSM2_CLIENT_PARAM  --ompi-server file:$URI_FILE -np 1  --map-by node
-    --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist  daos_test -p"
-    echo $daos_cmd
-    eval $daos_cmd
+    cmd="orterun --timeout 1800 $PSM2_CLIENT_PARAM -np 1 --map-by node
+    --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist daos_test -p"
+    echo $cmd
+    echo
+    eval $cmd
     if [ $? -ne 0 ]; then
-        echo "----daos_test FAIL"
+        echo -e "\nSTATUS: daos_test FAIL\n"
 	exit 1
     else
-        echo "--------daos_test Success"
+        echo -e "\nSTATUS: daos_test SUCCESS\n"
     fi
 }
 
 #Run cart self_test
 run_cart_test(){
+    echo -e "\nCMD: Starting CaRT self_test...\n"
     END_POINTS="-`expr $DAOS_SERVERS - 1`"
     for rpc in "${SELF_TEST_RPC[@]}"; do
         for point in 0 1; do
-                daos_cmd="orterun --timeout 3600 $PSM2_CLIENT_PARAM -np 1 -ompi-server file:$URI_FILE self_test
+                cmd="orterun --timeout 3600 $PSM2_CLIENT_PARAM -np 1 self_test
 		--group-name daos_server --endpoint 0-$point:0 --master-endpoint 0$END_POINTS:0
 	        --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
         	--max-inflight-rpcs $rpc --repetitions 100"
-	        echo $daos_cmd
-        	eval $daos_cmd
+	        echo $cmd
+		echo
+        	eval $cmd
 	        if [ $? -ne 0 ]; then
-        	    echo "----CART self_test FAIL"
+        	    echo -e "\nSTATUS: CART self_test FAIL\n"
         	    exit 1
 	        else
-        	    echo "--------CART self_test Success"
+        	    echo -e "\nSTATUS: CART self_test SUCCESS\n"
 	        fi
         done
     done
 }
 
 run_mdtest(){
+    echo -e "\nCMD: Starting MDTEST...\n"
     for i in "${IOR_PROC_PER_CLIENT[@]}"; do
-        cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM --ompi-server file:$URI_FILE -np $i --map-by node
+	echo
+        cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM -np $i --map-by node
         --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist mdtest -a DFS  --dfs.destroy --dfs.pool $POOL_UUID 
         --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC -n 1000 -z  0/20  -d /"
         echo $cmd
+	echo
         eval $cmd
         if [ $? -ne 0 ]; then
-            echo "----MDTEST FAIL"
+            echo -e "\nSTATUS: process_per_client=$i - MDTEST FAIL\n"
             exit 1
         else
-            echo "--------MDTEST Success"
+            echo -e "\nSTATUS: process_per_client=$i - MDTEST SUCCESS\n"
         fi
     done
 }
@@ -207,33 +231,38 @@ run_mdtest(){
 prepare
 
 for test in "$@"; do
-    echo "Run $test Test"
+    echo "###################"
+    echo "RUN: $test Test"
+    echo "###################"
     prepare_test_log_dir $test
     case $test in
         IOR)
             start_server
-            create_pool
             start_agent
+	    create_pool
             run_IOR
             killall_proc $test
             ;;
         DAOS_TEST)
-            start_server
-            start_agent
-            run_daos_test
-            killall_proc $test
+            #start_server
+            #start_agent
+            #run_daos_test
+            #killall_proc $test
+	    echo "DAOS_TEST is temporarily disabled - TBD"
             ;;
         SELF_TEST)
-            start_server
-            run_cart_test
-            killall_proc $test
+            #start_server
+            #run_cart_test
+            #killall_proc $test
+	    echo "SELF_TEST is temporarily disabled - DAOS-3838"
             ;;
         MDTEST)
-            start_server
-            create_pool
-            start_agent
-            run_mdtest
-            killall_proc $test
+            #start_server
+            #start_agent
+	    #create_pool
+            #run_mdtest
+            #killall_proc $test
+	    echo "MDTEST is temporarily disabled - Will be enabled in DAOS-3680/3682"
             ;;  
         *)
             echo "Unknow test: Please use IOR DAOS_TEST SELF_TEST or MDTEST"
