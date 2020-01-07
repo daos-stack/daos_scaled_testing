@@ -7,7 +7,7 @@
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
-#SBATCH -p development          # Queue (partition) name
+#SBATCH -p skx-dev              # Queue (partition) name
 #SBATCH -N 4                    # Total # of nodes
 #SBATCH -n 192                  # Total # of mpi tasks (48 x  Total # of nodes)
 #SBATCH -t 1:00:00             # Run time (hh:mm:ss)
@@ -19,6 +19,7 @@ DAOS_SERVERS=2
 DAOS_CLIENTS=1
 ACCESS_PORT=10001
 DAOS_DIR="/home1/<USER_HOME_FOLDER>/daos"
+POOL_SIZE="42G"
 
 #IOR Parameter
 IOR_PROC_PER_CLIENT=(8 4 1)
@@ -98,7 +99,7 @@ start_agent(){
 #Create Pool
 create_pool(){
     echo -e "\nCMD: Creating pool\n"
-    cmd="dmg -l $ACCESS_POINT:$ACCESS_PORT -i pool create --scm-size 42G"
+    cmd="dmg -l $ACCESS_POINT:$ACCESS_PORT -i pool create --scm-size $POOL_SIZE"
     echo $cmd
     echo
     DAOS_POOL=`$cmd`
