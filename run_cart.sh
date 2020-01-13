@@ -131,7 +131,7 @@ for test in "$@"; do
             while [  $N_SERVERS -le $MAX_SERVERS ]; do
                 prepare
                 run_selftest
-                let $N_SERVERS=$(( $N_SERVERS*2 ))
+                let N_SERVERS=$(( N_SERVERS*2 ))
             done
             ;;
     esac
