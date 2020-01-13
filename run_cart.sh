@@ -128,7 +128,6 @@ for test in "$@"; do
             run_fg $N_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "${CARTDIR}/install/Linux/bin/crt_launch -e ${CARTDIR}/install/Linux/TESTING/tests/test_crt_barrier" $test
             ;;
         self_test)
-            let $N_SERVER=2
             while [  $N_SERVERS -le $MAX_SERVERS ]; do
                 prepare
                 run_selftest
