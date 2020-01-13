@@ -17,6 +17,7 @@
 #Parameter to be updated for each sbatch
 N_SERVERS=2
 N_CLIENTS=1
+MAX_SERVERS=64
 MAX_INFLIGHT=16
 CARTDIR="/home1/<PATH_TO_CART>/cart"
 
@@ -128,15 +129,11 @@ for test in "$@"; do
             ;;
         self_test)
             let $N_SERVER=2
-            until [  $N_SERVERS -gt 65 ]; do
+            until [  $N_SERVERS -ge $MAX_SERVERS ]; do
                 prepare
                 run_selftest
                 let $N_SERVERS=$(( $N_SERVERS*2 ))
             done
-
-            let $N_SERVERS=126
-            prepare
-            run_selftest
             ;;
     esac
 done
