@@ -108,35 +108,40 @@ prepare(){
     ./gen_hostlist.sh $N_SERVERS $N_CLIENTS
 }
 
-run_selftest(){
-    last_srv_index=$(( $N_SERVERS-1 ))
-    run_bg $N_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "${CARTDIR}/install/Linux/bin/crt_launch -e ${CARTDIR}/install/Linux/TESTING/tests/test_group_np_srv --name selftest_srv_grp_$N_SERVERS --cfg_path=${CARTDIR}/install/Linux/TESTING" $test
-    wait 5
-    run_st $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/bin/self_test --group-name selftest_srv_grp_$N_SERVERS --endpoint 0-$last_srv_index:0 --master-endpoint 0:0 --max-inflight-rpcs $MAX_INFLIGHT --repetitions 100 -t -n -p ${CARTDIR}/install/Linux/TESTING" $test
-    run_fg $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/TESTING/tests/test_group_np_cli --name client-group --attach_to selftest_srv_grp_$N_SERVERS --shut_only --cfg_path=${CARTDIR}/install/Linux/TESTING" $test
-}
-
 for test in "$@"; do
     print_title $test
     case $test in
         sanity)
+            let MAX_SERVERS=$N_SERVERS
             prepare
             run_fg $N_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "hostname" $test
             ;;
         barrier)
+            let MAX_SERVERS=$N_SERVERS
             prepare
             run_fg $N_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "${CARTDIR}/install/Linux/bin/crt_launch -e ${CARTDIR}/install/Linux/TESTING/tests/test_crt_barrier" $test
             ;;
         self_test)
+            prepare
+
+            run_bg $MAX_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "${CARTDIR}/install/Linux/bin/crt_launch -e ${CARTDIR}/install/Linux/TESTING/tests/test_group_np_srv --name selftest_srv_grp_$MAX_SERVERS --cfg_path=${CARTDIR}/install/Linux/TESTING" $test
+
             while [  $N_SERVERS -le $MAX_SERVERS ]; do
-                prepare
-                run_selftest
-                let N_SERVERS=$(( N_SERVERS*2 ))
+                last_srv_index=$(( $N_SERVERS-1 ))
+
+                let MAX_INFLIGHT=16
+                run_st $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/bin/self_test --group-name selftest_srv_grp_$MAX_SERVERS --endpoint 1-$last_srv_index:0 --master-endpoint 0:0 --max-inflight-rpcs $MAX_INFLIGHT --repetitions 100 -t -n -p ${CARTDIR}/install/Linux/TESTING" $test
+
+                let MAX_INFLIGHT=1
+                run_st $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/bin/self_test --group-name selftest_srv_grp_$MAX_SERVERS --endpoint 1-$last_srv_index:0 --master-endpoint 0:0 --max-inflight-rpcs $MAX_INFLIGHT --repetitions 100 -t -n -p ${CARTDIR}/install/Linux/TESTING" $test
+
+                let N_SERVERS=$(( $N_SERVERS*2 ))
             done
+
+            run_fg $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/TESTING/tests/test_group_np_cli --name client-group --attach_to selftest_srv_grp_$MAX_SERVERS --shut_only --cfg_path=${CARTDIR}/install/Linux/TESTING" $test
             ;;
     esac
 done
 
 mv *$SLURM_JOB_ID testLogs Log/$SLURM_JOB_ID
-
 
