@@ -7,9 +7,9 @@
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
-#SBATCH -p skx-dev              # Queue (partition) name
-#SBATCH -N 4                    # Total # of nodes
-#SBATCH -n 40                   # Total # of mpi tasks (48 x  Total # of nodes)
+#SBATCH -p skx-normal           # Queue (partition) name
+#SBATCH -N 10                   # Total # of nodes
+#SBATCH -n 100                  # Total # of mpi tasks (48 x  Total # of nodes)
 #SBATCH -t 1:00:00              # Run time (hh:mm:ss)
 #SBATCH --mail-user=first.last@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
@@ -17,7 +17,7 @@
 #Parameter to be updated for each sbatch
 N_SERVERS=2
 N_CLIENTS=1
-MAX_SERVERS=64
+MAX_SERVERS=8
 MAX_INFLIGHT=16
 CARTDIR="/home1/<PATH_TO_CART>/cart"
 
