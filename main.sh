@@ -66,12 +66,7 @@ prepare(){
     mkdir -p Log/$SLURM_JOB_ID
     $SRUN_CMD create_log_dir.sh "cleanup"
 
-    #Prepare DAOS server list file
-    srun -n $SLURM_JOB_NUM_NODES hostname > Log/$SLURM_JOB_ID/slurm_hostlist
-    sed -i "/$HOSTNAME/d" Log/$SLURM_JOB_ID/slurm_hostlist
-    cat Log/$SLURM_JOB_ID/slurm_hostlist | tail -$DAOS_SERVERS > Log/$SLURM_JOB_ID/slurm_server_hostlist
-    sed 's/$/ slots=1/' Log/$SLURM_JOB_ID/slurm_server_hostlist > Log/$SLURM_JOB_ID/daos_server_hostlist
-    cat Log/$SLURM_JOB_ID/slurm_hostlist | head -$DAOS_CLIENTS > Log/$SLURM_JOB_ID/daos_client_hostlist
+    ./gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
 
     ACCESS_POINT=`cat Log/$SLURM_JOB_ID/slurm_server_hostlist | head -1 | grep -o -m 1 "^c[0-9\-]*"`
 
