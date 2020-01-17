@@ -38,6 +38,9 @@ HOSTNAME=$(hostname)
 echo $HOSTNAME
 source env_daos $DAOS_DIR
 
+export PATH=~/utils/install/bin:$PATH
+export LD_LIBRARY_PATH=~/utils/install/lib:$LD_LIBRARY_PATH
+
 #Collect logs from all servers/clients
 collect_logs(){
     mkdir -p Log/$SLURM_JOB_ID/$1
