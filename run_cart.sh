@@ -17,7 +17,7 @@
 #Parameter to be updated for each sbatch
 N_SERVERS=2
 N_CLIENTS=1
-MAX_SERVERS=8
+M_SERVERS=8
 MAX_INFLIGHT=16
 CARTDIR="/home1/<PATH_TO_CART>/cart"
 
@@ -27,8 +27,8 @@ timeout=7200
 
 rm -rf testLogs
 
-export PATH=${CARTDIR}/install/Linux/bin/:$PATH
-export LD_LIBRARY_PATH=${CARTDIR}/install/Linux/lib/:$LD_LIBRARY_PATH
+export PATH=~/utils/install/bin:${CARTDIR}/install/Linux/bin/:$PATH
+export LD_LIBRARY_PATH=~/utils/install/lib:${CARTDIR}/install/Linux/lib/:$LD_LIBRARY_PATH
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -105,7 +105,7 @@ prepare(){
     #Create the folder for server/client logs.
     mkdir -p Log/$SLURM_JOB_ID
 
-    ./gen_hostlist.sh $N_SERVERS $N_CLIENTS
+    ./gen_hostlist.sh $MAX_SERVERS $N_CLIENTS
 }
 
 for test in "$@"; do
@@ -122,6 +122,7 @@ for test in "$@"; do
             run_fg $N_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "${CARTDIR}/install/Linux/bin/crt_launch -e ${CARTDIR}/install/Linux/TESTING/tests/test_crt_barrier" $test
             ;;
         self_test)
+	    let MAX_SERVERS=$M_SERVERS
             prepare
 
             run_bg $MAX_SERVERS Log/$SLURM_JOB_ID/daos_server_hostlist "${CARTDIR}/install/Linux/bin/crt_launch -e ${CARTDIR}/install/Linux/TESTING/tests/test_group_np_srv --name selftest_srv_grp_$MAX_SERVERS --cfg_path=${CARTDIR}/install/Linux/TESTING" $test
