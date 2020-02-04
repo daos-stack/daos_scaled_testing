@@ -41,9 +41,6 @@ servers:
   # Environment variable values should be supplied without encapsulating quotes.
   env_vars:                 # influence DAOS IO Server behaviour by setting env variables
   - CRT_TIMEOUT=120
-  - CRT_CREDIT_EP_CTX=0
-  - PSM2_MULTI_EP=1
-  - CRT_CTX_SHARE_ADDR=1
   - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
   - PMEM_IS_PMEM_FORCE=1
   - OFI_DOMAIN=mlx5_0
