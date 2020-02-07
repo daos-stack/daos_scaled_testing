@@ -31,8 +31,8 @@ SELF_TEST_RPC=(1 16)
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-DAOS_SERVER_YAML="$PWD/daos_server_psm2.yml"
-PSM2_CLIENT_PARAM="--mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --mca btl tcp,self --mca oob tcp"
+DAOS_SERVER_YAML="$PWD/daos_server_verbs.yml"
+#PSM2_CLIENT_PARAM="--mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --mca btl tcp,self --mca oob tcp"
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
