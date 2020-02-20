@@ -7,12 +7,13 @@
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
-#SBATCH -p skx-normal           # Queue (partition) name
+#SBATCH -p normal           # Queue (partition) name
 #SBATCH -N 10                   # Total # of nodes
 #SBATCH -n 100                  # Total # of mpi tasks (48 x  Total # of nodes)
 #SBATCH -t 1:00:00              # Run time (hh:mm:ss)
 #SBATCH --mail-user=first.last@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
+
 
 #Parameter to be updated for each sbatch
 N_SERVERS=2
@@ -52,25 +53,23 @@ function wait {
 
 # run_server np cmd
 function run_bg {
-        echo "CMD:"  
-        echo orterun --map-by node --timeout $timeout --mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=ofi+psm2 -x OFI_INTERFACE=$interface -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3
+        echo "run_bg CMD:"
+        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface -x OFI_DOMAIN=mlx5_0  -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 &"
 
-        echo "" 
+        echo $cmd 
 
-        orterun --map-by node --timeout $timeout --mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=ofi+psm2 -x OFI_INTERFACE=$interface -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 &
-
+        eval $cmd
         wait 5
 }
 
 # run_server np cmd
 function run_fg {
-        echo "CMD:"
-        echo orterun --map-by node --timeout $timeout --mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=ofi+psm2 -x OFI_INTERFACE=$interface -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3
+        echo "run_fg CMD:"
+        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface -x OFI_DOMAIN=mlx5_0  -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3"
 
-        echo ""
+        echo $cmd
 
-        orterun --map-by node --timeout $timeout --mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=ofi+psm2 -x OFI_INTERFACE=$interface -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3
-
+        eval $cmd
         ret=$?
         wait 5
         if [ $ret != 0 ]; then
@@ -83,13 +82,11 @@ function run_fg {
 
 # run_client np cmd
 function run_st {
-        echo "CMD:"  
-        echo orterun --map-by node --timeout $timeout --mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=ofi+psm2 -x OFI_INTERFACE=$interface -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 --message-sizes "b1048576,b1048576 0,0 b1048576,i2048,i2048 0,0 i2048,0"
+        echo "run_st CMD:"
+        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface  -x OFI_DOMAIN=mlx5_0 -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 --message-sizes \"b1048576,b1048576 0,0 b1048576,i2048,i2048 0,0 i2048,0\""
 
-        echo "" 
-
-        orterun --map-by node --timeout $timeout --mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=ofi+psm2 -x OFI_INTERFACE=$interface -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 --message-sizes "b1048576,b1048576 0,0 b1048576,i2048,i2048 0,0 i2048,0"
-
+        echo $cmd
+        eval $cmd
         ret=$?
         wait 5
         if [ $ret != 0 ]; then
@@ -137,6 +134,7 @@ for test in "$@"; do
                 run_st $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/bin/self_test --group-name selftest_srv_grp_$MAX_SERVERS --endpoint 1-$last_srv_index:0 --master-endpoint 0:0 --max-inflight-rpcs $MAX_INFLIGHT --repetitions 100 -t -n -p ${CARTDIR}/install/Linux/TESTING" $test
 
                 let N_SERVERS=$(( $N_SERVERS*2 ))
+                echo "========================================================================="
             done
 
             run_fg $N_CLIENTS Log/$SLURM_JOB_ID/daos_client_hostlist "${CARTDIR}/install/Linux/TESTING/tests/test_group_np_cli --name client-group --attach_to selftest_srv_grp_$MAX_SERVERS --shut_only --cfg_path=${CARTDIR}/install/Linux/TESTING" $test

@@ -17,17 +17,10 @@ CPATH=${daosdeps}/ompi/include:${daosdeps}/openpa/include:${daosdeps}/pmdk/inclu
 CPATH=${daosdeps}/pmix/include:${daosdeps}/spdk/include:$CPATH
 
 #net conf, everything below OFI_PORT is required for psm2, change others as needed
-export CRT_PHY_ADDR_STR="ofi+psm2"
+
+export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
 export OFI_INTERFACE=ib0
-export FI_PSM2_NAME_SERVER=1
-export PSM2_MULTI_EP=1
-export FI_SOCKETS_MAX_CONN_RETRY=1
-export CRT_CTX_SHARE_ADDR=1
-export CRT_TIMEOUT=120
-
-#FOR PSM2 clinet only
-#export FI_PSM2_DISCONNECT=1
-
+export OFI_DOMAIN=mlx5_0
 #deps
 ARGOBOTS=${daosdeps}/argobots
 CART=${daosdeps}/cart

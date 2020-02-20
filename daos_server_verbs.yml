@@ -1,0 +1,54 @@
+# Example configuration file for OPA
+
+name: daos_server   # map to -g daos_server
+access_points: ['replace_this_server:10001']
+port: 10001         # mgmt port
+provider: ofi+verbs;ofi_rxm  # map to CRT_PHY_ADDR_STR=ofi+psm2
+socket_dir: /tmp/daos_agent
+nr_hugepages: 4096
+control_log_mask: INFO
+control_log_file: /tmp/daos_control.log
+## uncomment to drop privileges before starting data plane
+## (if started as root to perform hardware provisioning)
+# user_name: daosuser
+# group_name: daosgroup # (optional)
+
+## Transport Credentials Specifying certificates to secure communications
+##
+#transport_config:
+#  # Specify to bypass loading certificates and use insecure communications channnels
+#  allow_insecure: false
+#  # Location where daos_server will look for Client certificates
+#  client_cert_dir: .daos/clients
+#  # Custom CA Root certificate for generated certs
+#  ca_cert: .daos/daosCA.crt
+#  # Server certificate for use in TLS handshakes
+#  cert: .daos/daos_server.crt
+#  # Key portion of Server Certificate
+#  key: .daos/daos_server.key
+
+# single server instance per config file for now
+servers:
+-
+  targets: 16                # count of storage targets per each server
+  first_core: 0             # offset of the first core for service xstreams
+  nr_xs_helpers: 1          # count of offload/helper xstreams per target
+  fabric_iface: ib0        # map to OFI_INTERFACE=ib0
+  fabric_iface_port: 31416  # map to OFI_PORT=31416
+  log_mask: ERR     # map to D_LOG_MASK=ERR
+  log_file: /tmp/daos_server.log # map to D_LOG_FILE=/tmp/server.log
+
+  # Environment variable values should be supplied without encapsulating quotes.
+  env_vars:                 # influence DAOS IO Server behaviour by setting env variables
+  - CRT_TIMEOUT=120
+  - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
+  - PMEM_IS_PMEM_FORCE=1
+  - OFI_DOMAIN=mlx5_0
+  # Storage definitions
+
+  # When scm_class is set to ram, tmpfs will be used to emulate SCM.
+  # The size of ram is specified by scm_size in GB units.
+  scm_mount: /dev/shm	# map to -s /mnt/daos
+  scm_class: ram
+  scm_size: 90
+
