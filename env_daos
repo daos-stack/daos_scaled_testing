@@ -49,7 +49,7 @@ LD_LIBRARY_PATH=:$ARGOBOTS/lib/:$CART/lib/:$CCI/lib/:$HWLOC/lib/:$LD_LIBRARY_PAT
 LD_LIBRARY_PATH=$MERCURY/lib/:$PMDK/lib/:$OMPI/lib/:$OMPI/lib/openmpi/:$OPA/lib/:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=$PMIX/lib/:$OFI/lib/:$ISAL/lib/:$SPDK/lib/:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=$PROTOBUF/lib/:$LD_LIBRARY_PATH
-LD_LIBRARY_PATH=${daospath}/lib64/:${daospath}/lib/:${daospath}/lib/daos_srv/:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${daospath}/lib64/:${daospath}/lib/:${daospath}/lib64/daos_srv/:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/
 
 #Lib for libcmocka
