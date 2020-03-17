@@ -44,6 +44,9 @@ servers:
   - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
   - PMEM_IS_PMEM_FORCE=1
   - OFI_DOMAIN=mlx5_0
+  # Disable caching
+  - FI_MR_CACHE_MAX_COUNT=0
+
   # Storage definitions
 
   # When scm_class is set to ram, tmpfs will be used to emulate SCM.

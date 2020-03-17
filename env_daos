@@ -21,6 +21,8 @@ CPATH=${daosdeps}/pmix/include:${daosdeps}/spdk/include:$CPATH
 export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
 export OFI_INTERFACE=ib0
 export OFI_DOMAIN=mlx5_0
+# Disable Caching
+export FI_MR_CACHE_MAX_COUNT=0
 #deps
 ARGOBOTS=${daosdeps}/argobots
 CART=${daosdeps}/cart
