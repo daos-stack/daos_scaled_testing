@@ -24,6 +24,7 @@ CARTDIR="/home1/<PATH_TO_CART>/cart"
 
 interface=ib0
 sep=0
+sep_cart=0
 timeout=7200
 
 rm -rf testLogs
@@ -54,7 +55,7 @@ function wait {
 # run_server np cmd
 function run_bg {
         echo "run_bg CMD:"
-        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface -x OFI_DOMAIN=mlx5_0  -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 &"
+        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface -x OFI_DOMAIN=mlx5_0  -x CRT_CTX_SHARE_ADDR=$sep_cart -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 &"
 
         echo $cmd 
 
@@ -65,7 +66,8 @@ function run_bg {
 # run_server np cmd
 function run_fg {
         echo "run_fg CMD:"
-        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface -x OFI_DOMAIN=mlx5_0  -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3"
+        let "sep++"
+        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface -x OFI_DOMAIN=mlx5_0  -x CRT_CTX_SHARE_ADDR=$sep_cart -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3"
 
         echo $cmd
 
@@ -83,7 +85,8 @@ function run_fg {
 # run_client np cmd
 function run_st {
         echo "run_st CMD:"
-        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/srv_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface  -x OFI_DOMAIN=mlx5_0 -x CRT_CTX_SHARE_ADDR=$sep -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 --message-sizes \"b1048576,b1048576 0,0 b1048576,i2048,i2048 0,0 i2048,0\""
+        let "sep++"
+        cmd="orterun --mca btl tcp,self --mca oob tcp --mca mtl ^psm2,ofi --mca pml ob1 --map-by node --timeout $timeout --np $1 --hostfile $2 --output-filename testLogs/$4/sep_$test_$sep -x D_LOG_FILE=testLogs/$4/sep_$test_$sep/client_output.log -x D_LOG_MASK=ERR -x CRT_PHY_ADDR_STR=\"ofi+verbs;ofi_rxm\" -x OFI_INTERFACE=$interface  -x OFI_DOMAIN=mlx5_0 -x CRT_CTX_SHARE_ADDR=$sep_cart -x CRT_CTX_NUM=16 -x PATH -x LD_LIBRARY_PATH $3 --message-sizes \"b1048576,b1048576 0,0 b1048576,i2048,i2048 0,0 i2048,0\""
 
         echo $cmd
         eval $cmd
