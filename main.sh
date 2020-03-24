@@ -33,6 +33,7 @@ SELF_TEST_RPC=(1 16)
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
 DAOS_SERVER_YAML="$PWD/daos_server_verbs.yml"
 #PSM2_CLIENT_PARAM="--mca mtl ^psm2,ofi -x FI_PSM2_DISCONNECT=1 --mca btl tcp,self --mca oob tcp"
+VERBS_CLIENT_PARAM=" --mca btl_openib_warn_default_gid_prefix 0 --mca pml ob1 --mca btl tcp,self --mca oob tcp"
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
@@ -150,7 +151,7 @@ run_IOR(){
         for i in "${IOR_PROC_PER_CLIENT[@]}"; do
             no_of_ps=$(($DAOS_CLIENTS * $i))
 	    echo
-            cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM 
+            cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM $VERBS_CLIENT_PARAM 
             -np $no_of_ps --map-by node  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist ior -a DAOS -b $BL_SIZE  -w -r -i 3 -o daos:testFile 
             -t $size --daos.cont $(uuidgen) --daos.destroy --daos.group daos_server --daos.pool $POOL_UUID  --daos.svcl $POOL_SVC -vv"
             echo $cmd
