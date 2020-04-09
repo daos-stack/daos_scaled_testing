@@ -21,7 +21,7 @@ M_SERVERS=8
 MAX_INFLIGHT=16
 CARTDIR="/home1/<PATH_TO_CART>/cart"
 
-interface=em1
+interface=ib0
 sep=0
 timeout=7200
 
