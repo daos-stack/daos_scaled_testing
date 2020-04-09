@@ -59,7 +59,7 @@ function run_bg {
         echo $cmd 
 
         eval $cmd
-        wait 300
+        wait 60
 }
 
 # run_server np cmd
