@@ -211,10 +211,11 @@ run_cart_test(){
 run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
     for i in "${IOR_PROC_PER_CLIENT[@]}"; do
+	no_of_ps=$(($DAOS_CLIENTS * $i))
 	echo
-        cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM -np $i --map-by node
+        cmd="orterun --timeout 600 $PSM2_CLIENT_PARAM $VERBS_CLIENT_PARAM -np $no_of_ps --map-by node
         --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist mdtest -a DFS  --dfs.destroy --dfs.pool $POOL_UUID 
-        --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC -n 1000 -z  0/20  -d /"
+        --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC -n 500  -u -L --dfs.oclass S1 -N 1 -P -d /"
         echo $cmd
 	echo
         eval $cmd
@@ -257,12 +258,11 @@ for test in "$@"; do
 	    echo "SELF_TEST is temporarily disabled - DAOS-3838"
             ;;
         MDTEST)
-            #start_server
-            #start_agent
-	    #create_pool
-            #run_mdtest
-            #killall_proc $test
-	    echo "MDTEST is temporarily disabled - Will be enabled in DAOS-3680/3682"
+            start_server
+            start_agent
+	    create_pool
+            run_mdtest
+            killall_proc $test
             ;;  
         *)
             echo "Unknow test: Please use IOR DAOS_TEST SELF_TEST or MDTEST"
