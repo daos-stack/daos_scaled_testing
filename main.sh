@@ -260,7 +260,7 @@ for test in "$@"; do
         MDTEST)
             start_server
             start_agent
-	    create_pool
+            create_pool
             run_mdtest
             killall_proc $test
             ;;  
