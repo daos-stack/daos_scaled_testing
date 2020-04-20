@@ -21,8 +21,7 @@ CPATH=${daosdeps}/pmix/include:${daosdeps}/spdk/include:$CPATH
 export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
 export OFI_INTERFACE=ib0
 export OFI_DOMAIN=mlx5_0
-# Disable Caching
-export FI_MR_CACHE_MAX_COUNT=0
+
 #deps
 ARGOBOTS=${daosdeps}/argobots
 CART=${daosdeps}/cart
@@ -67,10 +66,6 @@ export FI_SOCKETS_MAX_CONN_RETRY PSM2_MULTI_EP FI_PSM2_NAME_SERVER CRT_CTX_SHARE
 export ABT_ENV_MAX_NUM_XSTREAMS ABT_MAX_NUM_XSTREAMS
 export DAOS_PATH OMPI_PATH
 export MPI_LIB=""
-
-#To run in Singleton Mode
-export DAOS_SINGLETON_CLI=1
-export CRT_ATTACH_INFO_PATH=/$LOCATION/install/tmp/
 
 # To run DMG command manually(For daos_agent)
 export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
