@@ -1,0 +1,8 @@
+access_points: ['replace_this_server:10001']
+log_file: /tmp/daos_agent.log
+name: daos_server
+port: 10001
+runtime_dir: /tmp/daos_agent
+transport_config:
+  allow_insecure: true
+  server_name: daos_server
