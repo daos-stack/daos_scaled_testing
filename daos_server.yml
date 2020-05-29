@@ -1,4 +1,4 @@
-access_points: ['c161-053:10001']
+access_points: ['replace_this_server:10001']
 control_log_file: /tmp/daos_control.log
 control_log_mask: DEBUG
 helper_log_file: /tmp/daos_admin.log
