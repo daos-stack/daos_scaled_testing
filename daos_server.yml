@@ -1,0 +1,36 @@
+access_points: ['replace_this_server:10001']
+control_log_file: /tmp/daos_control.log
+control_log_mask: DEBUG
+helper_log_file: /tmp/daos_admin.log
+name: daos_server
+nr_hugepages: 4096
+port: 10001
+provider: ofi+verbs;ofi_rxm
+servers:
+- env_vars:
+  - ABT_ENV_MAX_NUM_XSTREAMS=100
+  - ABT_MAX_NUM_XSTREAMS=100
+  - DAOS_MD_CAP=1024
+  - CRT_CTX_SHARE_ADDR=0
+  - CRT_TIMEOUT=30
+  - FI_SOCKETS_MAX_CONN_RETRY=1
+  - FI_SOCKETS_CONN_TIMEOUT=2000
+  - DD_MASK=mgmt,io,md,epc,rebuild
+  - CRT_TIMEOUT=120
+  - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
+  - PMEM_IS_PMEM_FORCE=1
+  - OFI_DOMAIN=mlx5_0
+  fabric_iface: ib0
+  fabric_iface_port: 31416
+  first_core: 0
+  log_file: /tmp/daos_server.log
+  log_mask: ERR
+  nr_xs_helpers: 1
+  scm_class: ram
+  scm_mount: /dev/shm
+  scm_size: 90 
+  targets: 16
+socket_dir: /tmp/daos_server
+transport_config:
+  allow_insecure: true
+
