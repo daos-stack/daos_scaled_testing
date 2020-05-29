@@ -9,7 +9,7 @@
 #SBATCH -A STAR-Intel           # Project Name
 #SBATCH -p development          # Queue (partition) name
 #SBATCH -N 5                    # Total # of nodes
-#SBATCH -n 240                  # Total # of mpi tasks (48 x  Total # of nodes)
+#SBATCH -n 280                  # Total # of mpi tasks (56 x  Total # of nodes)
 #SBATCH -t 00:30:00             # Run time (hh:mm:ss)
 #SBATCH --mail-user=<first.last>@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
