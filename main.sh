@@ -18,7 +18,7 @@
 DAOS_SERVERS=4
 DAOS_CLIENTS=1
 ACCESS_PORT=10001
-DAOS_DIR="/home1/<PATH_TO_DAOS>/daos"
+DAOS_DIR="<PATH_TO_DAOS>/daos"
 POOL_SIZE="42G"
 
 #IOR Parameter
@@ -28,7 +28,7 @@ BL_SIZE="64M"
 
 #Cart Self test parameter
 ST_MAX_INFLIGHT=(1 16)
-ST_PARAMS="-x FI_MR_CACHE_MAX_COUNT=0 -x D_LOG_FILE=testLogs/output.log"
+ST_PARAMS="-x FI_MR_CACHE_MAX_COUNT=0"
 ST_MIN_SRV=2
 ST_MAX_SRV=$(( $DAOS_SERVERS ))
 ST_TIMEOUT=1800
@@ -213,8 +213,9 @@ run_cart_test(){
         for max_inflight in "${ST_MAX_INFLIGHT[@]}"; do
             cmd="orterun --timeout ${ST_TIMEOUT} -np 1 ${VERBS_CLIENT_PARAM} 
                  --map-by node  --hostfile Log/${SLURM_JOB_ID}/daos_client_hostlist
-	         --output-filename testLogs
+	         --output-filename testLogs/srv${ST_MIN_SRV}_inf${max_inflight}
 	         -x PATH -x LD_LIBRARY_PATH ${ST_PARAMS}
+		 -x D_LOG_FILE=testLogs/srv${ST_MIN_SRV}_inf${max_inflight}/output.log
 	         self_test
 	         --group-name daos_server --endpoint 0-${last_srv_index}:0
 	         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 

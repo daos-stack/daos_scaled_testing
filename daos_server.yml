@@ -28,7 +28,7 @@ servers:
   nr_xs_helpers: 1
   scm_class: ram
   scm_mount: /dev/shm
-  scm_size: 16
+  scm_size: 90 
   targets: 16
 socket_dir: /tmp/daos_server
 transport_config:
