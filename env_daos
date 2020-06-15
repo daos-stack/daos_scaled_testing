@@ -1,74 +1,27 @@
-#logs
-#export DD_SUBSYS=ALL
+export FI_MR_CACHE_MAX_COUNT=0
 export D_LOG_FILE=/tmp/daos_client.log
 export D_LOG_MASK=ERR
-#export DD_MASK=all
-
-LOCATION=$1
-
-#var
-daospath=/$LOCATION/install
-daosdeps=/$LOCATION/opt
-CPATH=${daospath}/include/:$CPATH
-CPATH=${daospath}/include/:${daosdeps}/argobots/include:${daosdeps}/cart/include:$CPATH
-CPATH=${daosdeps}/fuse/include:${daosdeps}/hwloc/include:${daosdeps}/isal/include:$CPATH
-CPATH=${daosdeps}/mercury/include:${daosdeps}/mpi4py/include:${daosdeps}/ofi/include:$CPATH
-CPATH=${daosdeps}/ompi/include:${daosdeps}/openpa/include:${daosdeps}/pmdk/include:$CPATH
-CPATH=${daosdeps}/pmix/include:${daosdeps}/spdk/include:$CPATH
-
-#net conf, everything below OFI_PORT is required for psm2, change others as needed
-
 export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
 export OFI_INTERFACE=ib0
 export OFI_DOMAIN=mlx5_0
+export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
+export DAOS_DISABLE_REQ_FWD=1
 
-#deps
-ARGOBOTS=${daosdeps}/argobots
-CART=${daosdeps}/cart
-CCI=${daosdeps}/cci
-HWLOC=${daosdeps}/hwloc
-MERCURY=${daosdeps}/mercury
-PMDK=${daosdeps}/pmdk
-OMPI=${daosdeps}/ompi
-OPA=${daosdeps}/openpa
-PMIX=${daosdeps}/pmix
-OFI=${daosdeps}/ofi
-ISAL=${daosdeps}/isal
-SPDK=${daosdeps}/spdk
-PROTOBUF=${daosdeps}/protobufc
+LOCATION=$1
 
-#these two are used by daos_bench
-DAOS_PATH=$daospath
-OMPI_PATH=$OMPI
+daospath=/$LOCATION/install
 
-#alpha/omega
-PATH=$CART/bin/:$CCI/bin/:$HWLOC/bin/:$PATH
-PATH=$MERCURY/bin/:$NVML/bin/:$OMPI/bin/:$OPA/bin/:$PMIX/bin/:$PATH
+PATH=~/.local/bin:$PATH
+PATH=~/mpich-3.3.2/install/bin:$PATH
 PATH=${daospath}/bin/:${daospath}/sbin/:$PATH
 
-LD_LIBRARY_PATH=:$ARGOBOTS/lib/:$CART/lib/:$CCI/lib/:$HWLOC/lib/:$LD_LIBRARY_PATH
-LD_LIBRARY_PATH=$MERCURY/lib/:$PMDK/lib/:$OMPI/lib/:$OMPI/lib/openmpi/:$OPA/lib/:$LD_LIBRARY_PATH
-LD_LIBRARY_PATH=$PMIX/lib/:$OFI/lib/:$ISAL/lib/:$SPDK/lib/:$LD_LIBRARY_PATH
-LD_LIBRARY_PATH=$PROTOBUF/lib/:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=~/mpich-3.3.2/install/lib:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=${daospath}/lib64/:${daospath}/lib/:${daospath}/lib64/daos_srv/:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/
 
-#Lib for libcmocka
-LD_LIBRARY_PATH=/home1/06739/samirrav/Tools/usr/lib64/:$LD_LIBRARY_PATH
+CPATH=${daospath}/include/:$CPATH
 
-export LD_LIBRARY_PATH
 export PYTHONPATH=/$LOCATION/src/tests/ftest/util:/$LOCATION/src/utils/py/:/$LOCATION/src/tests/ftest/util/apricot:/$LOCATION/install/lib/python2.7/site-packages
+export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
-#flush down
-export CPATH PATH
-export OFI_INTERFACE OFI_PORT CCI_CONFIG
-export FI_SOCKETS_MAX_CONN_RETRY PSM2_MULTI_EP FI_PSM2_NAME_SERVER CRT_CTX_SHARE_ADDR
-export ABT_ENV_MAX_NUM_XSTREAMS ABT_MAX_NUM_XSTREAMS
-export DAOS_PATH OMPI_PATH
-export MPI_LIB=""
-
-# To run DMG command manually(For daos_agent)
-export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
-
-export DAOS_DISABLE_REQ_FWD=1
-
+export PATH LD_LIBRARY_PATH CPATH PYTHONPATH
