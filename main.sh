@@ -94,7 +94,7 @@ start_agent(){
     cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
     export DAOS_DISABLE_REQ_FWD=1;
-    daos_agent -i -o $DAOS_AGENT_YAML -s /tmp/daos_agent\" "
+    daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent\" "
     echo $cmd
     echo
     eval $cmd &
@@ -114,7 +114,7 @@ dump_attach_info(){
 #Create Pool
 create_pool(){
     echo -e "\nCMD: Creating pool\n"
-    cmd="dmg -o $DAOS_CONTROL_YAML -i pool create --scm-size $POOL_SIZE"
+    cmd="dmg -o $DAOS_CONTROL_YAML pool create --scm-size $POOL_SIZE"
     echo $cmd
     echo
     DAOS_POOL=`$cmd`
@@ -146,6 +146,8 @@ start_server(){
     echo
     eval $cmd &
 
+    # Need to implement a more reliable way to ensure all servers are up
+    # maybe using dmg system query
     sleep 60;
 }
 
