@@ -7,23 +7,23 @@
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
-#SBATCH -p development          # Queue (partition) name
-#SBATCH -N 6                    # Total # of nodes
-#SBATCH -n 336                  # Total # of mpi tasks (56 x  Total # of nodes)
+#SBATCH -p daos                 # Queue (partition) name
+#SBATCH -N 40                   # Total # of nodes
+#SBATCH -n 2240                 # Total # of mpi tasks (56 x  Total # of nodes)
 #SBATCH -t 00:15:00             # Run time (hh:mm:ss)
 #SBATCH --mail-user=<first.last>@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
-DAOS_SERVERS=4
-DAOS_CLIENTS=1
+DAOS_SERVERS=32
+DAOS_CLIENTS=7
 ACCESS_PORT=10001
 DAOS_DIR="<path_to_daos>/daos"
 POOL_SIZE="42G"
 
 #IOR Parameter
-IOR_PROC_PER_CLIENT=(8 4 1)
-TRANSFER_SIZES=(256B 4K 128K 512K 1M)
+IOR_PROC_PER_CLIENT=(56)
+TRANSFER_SIZES=(1M)
 BL_SIZE="64M"
 
 #Cart Self test parameter
@@ -72,7 +72,7 @@ prepare(){
 
     ./gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
 
-    ACCESS_POINT=`cat Log/$SLURM_JOB_ID/daos_server_hostlist | head -1`
+    ACCESS_POINT=`cat Log/$SLURM_JOB_ID/slurm_server_hostlist | head -1 | grep -o -m 1 "^c[0-9\-]*"`
 
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
@@ -91,10 +91,11 @@ prepare_test_log_dir(){
 #Start DAOS agent
 start_agent(){
     echo -e "\nCMD: Starting agent...\n"
-    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
-    export DAOS_DISABLE_REQ_FWD=1;
-    daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent\" "
+    #cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist \"
+    #export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
+    #export DAOS_DISABLE_REQ_FWD=1;
+    #daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent\" "
+    cmd="srun -n $SLURM_JOB_NUM_NODES $DAOS_DIR/install/bin/daos_agent -i -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     echo $cmd
     echo
     eval $cmd &
@@ -136,12 +137,15 @@ create_pool(){
 #Start daos servers
 start_server(){
     echo -e "\nCMD: Starting server...\n"
-    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
-    export DAOS_DISABLE_REQ_FWD=1;
-    daos_server start -i -o $DAOS_SERVER_YAML  
-    --recreate-superblocks
-    \" 2>&1 "
+    #cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist \"
+    #export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
+    #export DAOS_DISABLE_REQ_FWD=1;
+    #daos_server start -i -o $DAOS_SERVER_YAML  
+    #--recreate-superblocks
+    #\" 2>&1 "
+    cmd="orterun  --np $DAOS_SERVERS --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist -x CPATH -x PATH -x LD_LIBRARY_PATH -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+    --enable-recovery daos_server start -i -o $DAOS_SERVER_YAML  
+    --recreate-superblocks 2>&1 | tee server_output.log"
     echo $cmd
     echo
     eval $cmd &
@@ -158,13 +162,16 @@ run_IOR(){
         for i in "${IOR_PROC_PER_CLIENT[@]}"; do
             no_of_ps=$(($DAOS_CLIENTS * $i))
 	    echo
-            cmd="mpirun -np $no_of_ps -map-by node 
-                 -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-                 ior
-                 -a DAOS -b $BL_SIZE  -w -r -i 3 -o daos:testFile 
-                 -t $size --daos.cont $(uuidgen) --daos.destroy
-                 --daos.group daos_server --daos.pool $POOL_UUID
-                 --daos.svcl $POOL_SVC -vv"
+            #cmd="mpirun -np $no_of_ps -map-by node 
+            #     -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+            #     ior
+            #     -a DAOS -b $BL_SIZE  -w -r -i 3 -o daos:testFile 
+            #     -t $size --daos.cont $(uuidgen) --daos.destroy
+            #     --daos.group daos_server --daos.pool $POOL_UUID
+            #     --daos.svcl $POOL_SVC -vv"
+	    cmd="orterun -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE --timeout 600 
+            -np $no_of_ps --map-by node  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist ior -a DAOS -b $BL_SIZE  -w -r -i 3 -o daos:testFile 
+            -t $size --daos.cont $(uuidgen) --daos.destroy --daos.group daos_server --daos.pool $POOL_UUID  --daos.svcl $POOL_SVC -vv"
             echo $cmd
 	    echo
             eval $cmd
