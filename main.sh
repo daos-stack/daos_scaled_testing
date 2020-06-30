@@ -8,26 +8,33 @@
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
 #SBATCH -p development          # Queue (partition) name
-#SBATCH -N 6                    # Total # of nodes
-#SBATCH -n 336                  # Total # of mpi tasks (56 x  Total # of nodes)
+#SBATCH -N 7                    # Total # of nodes
+#SBATCH -n 392                  # Total # of mpi tasks (56 x  Total # of nodes)
 #SBATCH -t 00:15:00             # Run time (hh:mm:ss)
 #SBATCH --mail-user=<first.last>@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
 DAOS_SERVERS=4
-DAOS_CLIENTS=1
+DAOS_CLIENTS=2
 ACCESS_PORT=10001
 DAOS_DIR="<path_to_daos>/daos"
-POOL_SIZE="42G"
+POOL_SIZE="60G"
+MPI="mpich" #supports openmpi or mpich
+OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
+
+if [ "$MPI" != "openmpi" ] && [ "$MPI" != "mpich" ]; then
+    echo "Unknown MPI. Please specify either openmpi or mpich"
+    exit 1
+fi
 
 #IOR Parameter
-IOR_PROC_PER_CLIENT=(8 4 1)
-TRANSFER_SIZES=(256B 4K 128K 512K 1M)
-BL_SIZE="64M"
+IOR_PROC_PER_CLIENT=(4)
+TRANSFER_SIZES=(1M)
+BL_SIZE="1G"
 
 #Cart Self test parameter
-ST_MAX_INFLIGHT=(1 16)
+ST_MAX_INFLIGHT=(16)
 ST_MIN_SRV=2
 ST_MAX_SRV=$(( $DAOS_SERVERS ))
 
@@ -41,25 +48,21 @@ HOSTNAME=$(hostname)
 echo $HOSTNAME
 source env_daos $DAOS_DIR
 
+export PATH=~/utils/install/$MPI/bin:$PATH
+export LD_LIBRARY_PATH=~/utils/install/$MPI/lib:$LD_LIBRARY_PATH
+
+echo PATH=$PATH
+echo
+echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+echo
+
 #Collect logs from all servers/clients
-collect_logs(){
+cleanup(){
     mkdir -p Log/$SLURM_JOB_ID/$1
     $SRUN_CMD copy_log_files.sh $1
     $SRUN_CMD cleanup.sh
-}
-
-#Kill all process in case of failure or end of each test runs
-killall_proc(){
-    collect_logs $1
-    $SRUN_CMD killall_proc.sh
-    sleep 10
-}
-
-#Cleanup the SCM content and kill the processes.
-cleanup (){
     mv *$SLURM_JOB_ID Log/$SLURM_JOB_ID/
     cp $DAOS_SERVER_YAML $DAOS_AGENT_YAML $DAOS_CONTROL_YAML Log/$SLURM_JOB_ID/
-    killall_proc "cleanup"
 }
 
 trap cleanup EXIT
@@ -70,9 +73,13 @@ prepare(){
     mkdir -p Log/$SLURM_JOB_ID
     $SRUN_CMD create_log_dir.sh "cleanup"
 
-    ./gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
+    if [ $MPI == "openmpi" ]; then
+        ./openmpi_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
+    else
+	./mpich_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
+    fi
 
-    ACCESS_POINT=`cat Log/$SLURM_JOB_ID/daos_server_hostlist | head -1`
+    ACCESS_POINT=`cat Log/$SLURM_JOB_ID/daos_server_hostlist | head -1 | grep -o -m 1 "^c[0-9\-]*"`
 
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
@@ -148,23 +155,41 @@ start_server(){
 
     # Need to implement a more reliable way to ensure all servers are up
     # maybe using dmg system query
-    sleep 60;
+    sleep 15;
 }
 
 #Run IOR
-run_IOR(){
+run_ior(){
     echo -e "\nCMD: Starting IOR..."
     for size in "${TRANSFER_SIZES[@]}"; do
         for i in "${IOR_PROC_PER_CLIENT[@]}"; do
             no_of_ps=$(($DAOS_CLIENTS * $i))
 	    echo
-            cmd="mpirun -np $no_of_ps -map-by node 
-                 -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-                 ior
-                 -a DAOS -b $BL_SIZE  -w -r -i 3 -o daos:testFile 
+
+	    ior_cmd="ior
+                 -a DAOS -b $BL_SIZE  -w -r -i 2 -o daos:testFile 
                  -t $size --daos.cont $(uuidgen) --daos.destroy
                  --daos.group daos_server --daos.pool $POOL_UUID
                  --daos.svcl $POOL_SVC -vv"
+
+            mpich_cmd="mpirun
+		 -np $no_of_ps -map-by node 
+                 -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+		 $ior_cmd"
+
+	    openmpi_cmd="orterun $OMPI_PARAM 
+		 -x CPATH -x PATH -x LD_LIBRARY_PATH
+		 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+                 --timeout 600 -np $no_of_ps --map-by node 
+                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+		 $ior_cmd" 
+
+	    if [ "$MPI" == "openmpi" ]; then
+		cmd=$openmpi_cmd
+	    else
+		cmd=$mpich_cmd
+	    fi
+
             echo $cmd
 	    echo
             eval $cmd
@@ -180,19 +205,36 @@ run_IOR(){
 }
 
 #Run cart self_test
-run_cart_test(){
+run_self_test(){
     echo -e "\nCMD: Starting CaRT self_test...\n"
 
     while [  ${ST_MIN_SRV} -le ${ST_MAX_SRV} ]; do
 	let last_srv_index=$(( ${ST_MIN_SRV}-1 ))
 
         for max_inflight in "${ST_MAX_INFLIGHT[@]}"; do
-            cmd="mpirun -prepend-rank -np 1 -map-by node
-                 -hostfile Log/${SLURM_JOB_ID}/daos_client_hostlist
-	         self_test
-	         --group-name daos_server --endpoint 0-${last_srv_index}:0
-	         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
-       	         --max-inflight-rpcs ${max_inflight} --repetitions 100 -t -n -p ."
+            st_cmd="self_test
+                 --group-name daos_server --endpoint 0-${last_srv_index}:0
+                 --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
+                 --max-inflight-rpcs ${max_inflight} --repetitions 100 -t -n -p ."
+
+            mpich_cmd="mpirun --prepend-rank
+                 -np 1 -map-by node 
+                 -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+                 $st_cmd"
+
+            openmpi_cmd="orterun $OMPI_PARAM 
+                 -x CPATH -x PATH -x LD_LIBRARY_PATH
+                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+                 --timeout 600 -np 1 --map-by node 
+                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+                 $st_cmd"
+
+            if [ "$MPI" == "openmpi" ]; then
+                cmd=$openmpi_cmd
+            else
+                cmd=$mpich_cmd
+            fi
+
             echo $cmd
 	    echo
        	    eval $cmd
@@ -216,12 +258,29 @@ run_mdtest(){
     for i in "${IOR_PROC_PER_CLIENT[@]}"; do
 	no_of_ps=$(($DAOS_CLIENTS * $i))
 	echo
-        cmd="mpirun -np $no_of_ps -map-by node
-             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-             mdtest
+        mdtest_cmd="mdtest
              -a DFS --dfs.destroy --dfs.pool $POOL_UUID 
              --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC
              -n 500  -u -L --dfs.oclass S1 -N 1 -P -d /"
+
+        mpich_cmd="mpirun
+             -np $no_of_ps -map-by node 
+             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+             $mdtest_cmd"
+
+        openmpi_cmd="orterun $OMPI_PARAM 
+             -x CPATH -x PATH -x LD_LIBRARY_PATH
+             -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+             --timeout 600 -np $no_of_ps --map-by node 
+             --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+             $mdtest_cmd"
+
+        if [ "$MPI" == "openmpi" ]; then
+            cmd=$openmpi_cmd
+        else
+            cmd=$mpich_cmd
+        fi
+
         echo $cmd
 	echo
         eval $cmd
@@ -247,21 +306,21 @@ for test in "$@"; do
             start_server
             start_agent
 	    create_pool
-            run_IOR
-            killall_proc $test
+            run_ior
+            #collect_logs $test
             ;;
         SELF_TEST)
             start_server
 	    dump_attach_info
-            run_cart_test
-            killall_proc $test
+            run_self_test
+            #collect_logs $test
             ;;
         MDTEST)
             start_server
             start_agent
             create_pool
             run_mdtest
-            killall_proc $test
+            #collect_logs $test
             ;;  
         *)
             echo "Unknown test: Please use IOR DAOS_TEST SELF_TEST or MDTEST"

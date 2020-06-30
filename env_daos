@@ -12,10 +12,8 @@ LOCATION=$1
 daospath=/$LOCATION/install
 
 PATH=~/.local/bin:$PATH
-PATH=~/utils/mpich/install/bin:$PATH
 PATH=${daospath}/bin/:${daospath}/sbin/:$PATH
 
-LD_LIBRARY_PATH=~/utils/mpich/install/lib:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=${daospath}/lib64/:${daospath}/lib/:${daospath}/lib64/daos_srv/:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/
 
