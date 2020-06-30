@@ -155,7 +155,7 @@ start_server(){
 
     # Need to implement a more reliable way to ensure all servers are up
     # maybe using dmg system query
-    sleep 15;
+    sleep 60;
 }
 
 #Run IOR
@@ -307,20 +307,23 @@ for test in "$@"; do
             start_agent
 	    create_pool
             run_ior
-            #collect_logs $test
+            collect_logs $test
+	    break
             ;;
         SELF_TEST)
             start_server
 	    dump_attach_info
             run_self_test
-            #collect_logs $test
+            collect_logs $test
+	    break
             ;;
         MDTEST)
             start_server
             start_agent
             create_pool
             run_mdtest
-            #collect_logs $test
+            collect_logs $test
+	    break
             ;;  
         *)
             echo "Unknown test: Please use IOR DAOS_TEST SELF_TEST or MDTEST"
