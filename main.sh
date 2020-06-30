@@ -56,13 +56,12 @@ echo
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo
 
-#Collect logs from all servers/clients
 cleanup(){
-    mkdir -p Log/$SLURM_JOB_ID/$1
-    $SRUN_CMD copy_log_files.sh $1
-    $SRUN_CMD cleanup.sh
     mv *$SLURM_JOB_ID Log/$SLURM_JOB_ID/
     cp $DAOS_SERVER_YAML $DAOS_AGENT_YAML $DAOS_CONTROL_YAML Log/$SLURM_JOB_ID/
+    mkdir -p Log/$SLURM_JOB_ID/cleanup
+    $SRUN_CMD copy_log_files.sh "cleanup"
+    $SRUN_CMD cleanup.sh
 }
 
 trap cleanup EXIT
@@ -300,21 +299,19 @@ for test in "$@"; do
     echo "###################"
     echo "RUN: $test Test"
     echo "###################"
-    prepare_test_log_dir $test
+
     case $test in
         IOR)
             start_server
             start_agent
 	    create_pool
             run_ior
-            collect_logs $test
 	    break
             ;;
         SELF_TEST)
             start_server
 	    dump_attach_info
             run_self_test
-            collect_logs $test
 	    break
             ;;
         MDTEST)
@@ -322,7 +319,6 @@ for test in "$@"; do
             start_agent
             create_pool
             run_mdtest
-            collect_logs $test
 	    break
             ;;  
         *)
