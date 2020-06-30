@@ -20,7 +20,7 @@ DAOS_CLIENTS=2
 ACCESS_PORT=10001
 DAOS_DIR="<path_to_daos>/daos"
 POOL_SIZE="60G"
-MPI="mpich" #supports openmpi or mpich
+MPI="openmpi" #supports openmpi or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
 if [ "$MPI" != "openmpi" ] && [ "$MPI" != "mpich" ]; then
