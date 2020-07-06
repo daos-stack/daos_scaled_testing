@@ -322,7 +322,7 @@ for test in "$@"; do
 	    break
             ;;  
         *)
-            echo "Unknown test: Please use IOR DAOS_TEST SELF_TEST or MDTEST"
+            echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
     esac
 done
 
