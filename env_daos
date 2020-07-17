@@ -10,6 +10,29 @@ export DAOS_DISABLE_REQ_FWD=1
 LOCATION=$1
 
 daospath=/$LOCATION/install
+prereqpath=/$LOCATION/install/prereq/dev
+
+PATH=${prereqpath}/argobots/bin:$PATH
+PATH=${prereqpath}/isal/bin:$PATH
+PATH=${prereqpath}/isal_crypto/bin:$PATH
+PATH=${prereqpath}/mercury/bin:$PATH
+PATH=${prereqpath}/ofi/bin:$PATH
+PATH=${prereqpath}/openpa/bin:$PATH
+PATH=${prereqpath}/pmdk/bin:$PATH
+PATH=${prereqpath}/protobufc/bin:$PATH
+PATH=${prereqpath}/psm2/bin:$PATH
+PATH=${prereqpath}/spdk/bin:$PATH
+
+LD_LIBRARY_PATH=${prereqpath}/argobots/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/isal/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/isal_crypto/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/mercury/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/ofi/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/openpa/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/pmdk/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/protobufc/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/psm2/lib64:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH=${prereqpath}/spdk/lib:$LD_LIBRARY_PATH
 
 PATH=~/.local/bin:$PATH
 PATH=${daospath}/bin/:${daospath}/sbin/:$PATH
@@ -23,3 +46,4 @@ export PYTHONPATH=/$LOCATION/src/tests/ftest/util:/$LOCATION/src/utils/py/:/$LOC
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
 export PATH LD_LIBRARY_PATH CPATH PYTHONPATH
+                                              
