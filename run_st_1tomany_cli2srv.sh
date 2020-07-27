@@ -5,6 +5,7 @@ export LD_LIBRARY_PATH=/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugger_2
 
 DAOS_DIR="<path_to_daos>"
 DST_DIR="<path_to_daos_scaled_testing>"
+RES_DIR="<path_to_result_dir>"
 JOBNAME="<sbatch_jobname>"
 TIMEOUT="<sbatch_timeout>"
 EMAIL="<email>"
@@ -15,7 +16,7 @@ export DAOS_DIR
 pushd $DST_DIR
 
 export TESTCASE=run_st_1tomany_cli2srv_inf16
-export LOGS=$BASE_DIR/WEEKLY_RESULTS/$(date +%Y%m%d)/$TESTCASE
+export LOGS=$RES_DIR/$(date +%Y%m%d)/$TESTCASE
 mkdir -p $LOGS
 
 sbatch $SBPARAMS -N 4 -n 4 -p normal tests.sh SELF_TEST 2 1 16
@@ -29,7 +30,7 @@ sbatch $SBPARAMS -N 258 -n 258 -p normal tests.sh SELF_TEST 256 1 16
 sbatch $SBPARAMS -N 514 -n 514 -p large tests.sh SELF_TEST 512 1 16
 
 export TESTCASE=run_st_1tomany_cli2srv_inf1
-export LOGS=$BASE_DIR/WEEKLY_RESULTS/$(date +%Y%m%d)/$TESTCASE
+export LOGS=$RES_DIR/$(date +%Y%m%d)/$TESTCASE
 mkdir -p $LOGS
 
 sbatch $SBPARAMS -N 4 -n 4 -p normal tests.sh SELF_TEST 2 1 1
