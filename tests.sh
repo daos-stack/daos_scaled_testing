@@ -7,18 +7,14 @@
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
-#SBATCH -p development          # Queue (partition) name
-#SBATCH -N 7                    # Total # of nodes
-#SBATCH -n 392                  # Total # of mpi tasks (56 x  Total # of nodes)
 #SBATCH -t 00:15:00             # Run time (hh:mm:ss)
 #SBATCH --mail-user=<first.last>@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
-DAOS_SERVERS=4
-DAOS_CLIENTS=2
+DAOS_SERVERS=$2
+DAOS_CLIENTS=$3
 ACCESS_PORT=10001
-DAOS_DIR="<path_to_daos>/daos"
 POOL_SIZE="60G"
 MPI="openmpi" #supports openmpi or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
@@ -34,8 +30,8 @@ TRANSFER_SIZES=(1M)
 BL_SIZE="1G"
 
 #Cart Self test parameter
-ST_MAX_INFLIGHT=(16)
-ST_MIN_SRV=2
+ST_MAX_INFLIGHT=($4)
+ST_MIN_SRV=$(( $DAOS_SERVERS ))
 ST_MAX_SRV=$(( $DAOS_SERVERS ))
 
 #Others
@@ -51,6 +47,9 @@ source env_daos $DAOS_DIR
 export PATH=~/utils/install/$MPI/bin:$PATH
 export LD_LIBRARY_PATH=~/utils/install/$MPI/lib:$LD_LIBRARY_PATH
 
+export PATH=$DAOS_DIR/install/ior_$MPI/bin:$PATH
+export LD_LIBRARY_PATH=$DAOS_DIR/install/ior_$MPI/lib:$LD_LIBRARY_PATH
+
 echo PATH=$PATH
 echo
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
@@ -61,7 +60,7 @@ cleanup(){
     cp $DAOS_SERVER_YAML $DAOS_AGENT_YAML $DAOS_CONTROL_YAML Log/$SLURM_JOB_ID/
     mkdir -p Log/$SLURM_JOB_ID/cleanup
     $SRUN_CMD copy_log_files.sh "cleanup"
-    $SRUN_CMD cleanup.sh
+    $SRUN_CMD cleanup.sh $DAOS_SERVERS
 }
 
 trap cleanup EXIT
@@ -104,17 +103,17 @@ start_agent(){
     echo $cmd
     echo
     eval $cmd &
-    sleep 10
+    sleep 20
 }
 
 #Dump attach info
 dump_attach_info(){
     echo -e "\nCMD: Dump attach info file...\n"
-    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o daos_server.attach_info_tmp"
+    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o Log/$SLURM_JOB_ID/daos_server.attach_info_tmp"
     echo $cmd
     echo
     eval $cmd &
-    sleep 10
+    sleep 20
 }
 
 #Create Pool
@@ -212,9 +211,10 @@ run_self_test(){
 
         for max_inflight in "${ST_MAX_INFLIGHT[@]}"; do
             st_cmd="self_test
+		 --path Log/$SLURM_JOB_ID
                  --group-name daos_server --endpoint 0-${last_srv_index}:0
                  --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
-                 --max-inflight-rpcs ${max_inflight} --repetitions 100 -t -n -p ."
+                 --max-inflight-rpcs ${max_inflight} --repetitions 100 -t -n"
 
             mpich_cmd="mpirun --prepend-rank
                  -np 1 -map-by node 
@@ -222,7 +222,7 @@ run_self_test(){
                  $st_cmd"
 
             openmpi_cmd="orterun $OMPI_PARAM 
-                 -x CPATH -x PATH -x LD_LIBRARY_PATH
+                 -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
                  -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                  --timeout 600 -np 1 --map-by node 
                  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
@@ -248,8 +248,6 @@ run_self_test(){
 
 	let ST_MIN_SRV=$(( ${ST_MIN_SRV}*2 ))
     done
-
-    mv daos_server.attach_info_tmp Log/$SLURM_JOB_ID
 }
 
 run_mdtest(){
@@ -295,34 +293,31 @@ run_mdtest(){
 #Prepare Enviornment
 prepare
 
-for test in "$@"; do
-    echo "###################"
-    echo "RUN: $test Test"
-    echo "###################"
+test=$1
 
-    case $test in
-        IOR)
-            start_server
-            start_agent
-	    create_pool
-            run_ior
-	    break
-            ;;
-        SELF_TEST)
-            start_server
-	    dump_attach_info
-            run_self_test
-	    break
-            ;;
-        MDTEST)
-            start_server
-            start_agent
-            create_pool
-            run_mdtest
-	    break
-            ;;  
-        *)
-            echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
-    esac
-done
+echo "###################"
+echo "RUN: $TESTCASE"
+echo "###################"
+
+case $test in
+    IOR)
+        start_server
+        start_agent
+        create_pool
+        run_ior
+        ;;
+    SELF_TEST)
+        start_server
+        dump_attach_info
+        run_self_test
+        ;;
+    MDTEST)
+        start_server
+        start_agent
+        create_pool
+        run_mdtest
+        ;;  
+    *)
+        echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
+esac
 
