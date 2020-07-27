@@ -7,8 +7,8 @@ DAOS_DIR="<path_to_daos>"
 DST_DIR="<path_to_daos_scaled_testing>"
 RES_DIR="<path_to_result_dir>"
 JOBNAME="<sbatch_jobname>"
-TIMEOUT="<sbatch_timeout>"
-EMAIL="<email>"
+TIMEOUT="<sbatch_timeout>" #<hh:mm:ss>
+EMAIL="<email>" #<first.last@intel.com>
 
 SBPARAMS="-J $JOBNAME -t $TIMEOUT --mail-user=$EMAIL"
 
