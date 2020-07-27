@@ -1,11 +1,11 @@
 #!/bin/sh
 
-export BASE_DIR="/home1/06753/soychan/work"
+export BASE_DIR="<BASE_DIR>"
 export DAOS_DIR="$BASE_DIR/BUILDS/latest/daos"
 export PATH=/opt/apps/xalt/xalt/bin:/opt/apps/intel19/python3/3.7.0/bin:/opt/apps/cmake/3.16.1/bin:/opt/apps/autotools/1.2/bin:/opt/apps/git/2.24.1/bin:/opt/intel/compilers_and_libraries_2019.5.281/linux/bin/intel64:/opt/apps/gcc/8.3.0/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/bin:/usr/bin:/opt/ibutils/bin:/opt/ddn/ime/bin:/opt/dell/srvadmin/bin:.
 export LD_LIBRARY_PATH=/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugger_2019/libipt/intel64/lib:/opt/intel/compilers_and_libraries_2019.5.281/linux/daal/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/tbb/lib/intel64_lin/gcc4.7:/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/ipp/lib/intel64:/opt/intel/compilers_and_libraries_2019.5.281/linux/compiler/lib/intel64_lin:/opt/apps/gcc/8.3.0/lib64:/opt/apps/gcc/8.3.0/lib:/usr/lib64/:/usr/lib64/
 
-pushd $BASE_DIR/TESTS/dst_ompi
+pushd $BASE_DIR/TESTS/daos_scaled_testing
 
 export TESTCASE=run_st_1tomany_cli2srv_inf16
 export LOGS=$BASE_DIR/WEEKLY_RESULTS/$(date +%Y%m%d)/$TESTCASE

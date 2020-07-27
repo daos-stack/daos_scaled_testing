@@ -42,6 +42,10 @@ DAOS_CONTROL_YAML="$PWD/daos_control.yml"
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
+echo
+BUILD=`ls -al $DAOS_DIR/../../latest`
+echo $BUILD
+echo
 source env_daos $DAOS_DIR
 
 export PATH=~/utils/install/$MPI/bin:$PATH
