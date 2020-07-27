@@ -3,12 +3,9 @@
 #Run daos tests like IOR/MDtest and self_test(cart)
 #----------------------------------------------------
 
-#SBATCH -J daos1                # Job name
 #SBATCH -o stdout.o%j           # Name of stdout output file
 #SBATCH -e stderr.e%j           # Name of stderr error file
 #SBATCH -A STAR-Intel           # Project Name
-#SBATCH -t 00:15:00             # Run time (hh:mm:ss)
-#SBATCH --mail-user=<first.last>@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
@@ -35,10 +32,9 @@ ST_MIN_SRV=$(( $DAOS_SERVERS ))
 ST_MAX_SRV=$(( $DAOS_SERVERS ))
 
 #Others
-SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-DAOS_SERVER_YAML="$PWD/daos_server.yml"
-DAOS_AGENT_YAML="$PWD/daos_agent.yml"
-DAOS_CONTROL_YAML="$PWD/daos_control.yml"
+DAOS_SERVER_YAML="$PWD/Log/$SLURM_JOB_ID/daos_server.yml"
+DAOS_AGENT_YAML="$PWD/Log/$SLURM_JOB_ID/daos_agent.yml"
+DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
@@ -61,7 +57,6 @@ echo
 
 cleanup(){
     mv *$SLURM_JOB_ID Log/$SLURM_JOB_ID/
-    cp $DAOS_SERVER_YAML $DAOS_AGENT_YAML $DAOS_CONTROL_YAML Log/$SLURM_JOB_ID/
     mkdir -p Log/$SLURM_JOB_ID/cleanup
     $SRUN_CMD copy_log_files.sh "cleanup"
     $SRUN_CMD cleanup.sh $DAOS_SERVERS
@@ -73,6 +68,7 @@ trap cleanup EXIT
 prepare(){
     #Create the folder for server/client logs.
     mkdir -p Log/$SLURM_JOB_ID
+    cp daos_server.yml daos_agent.yml daos_control.yml Log/$SLURM_JOB_ID/
     $SRUN_CMD create_log_dir.sh "cleanup"
 
     if [ $MPI == "openmpi" ]; then
