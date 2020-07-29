@@ -97,9 +97,10 @@ prepare_test_log_dir(){
 #Start DAOS agent
 start_agent(){
     echo -e "\nCMD: Starting agent...\n"
-    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
-    export DAOS_DISABLE_REQ_FWD=1;
+    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist
+    -f $SLURM_JOB_NUM_NODES \"
+    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
     daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent\" "
     echo $cmd
     echo
@@ -142,12 +143,11 @@ create_pool(){
 #Start daos servers
 start_server(){
     echo -e "\nCMD: Starting server...\n"
-    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; export CPATH=$CPATH;
-    export DAOS_DISABLE_REQ_FWD=1;
-    daos_server start -i -o $DAOS_SERVER_YAML  
-    --recreate-superblocks
-    \" 2>&1 "
+    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist 
+    -f $SLURM_JOB_NUM_NODES \"
+    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks \" 2>&1 "
     echo $cmd
     echo
     eval $cmd &
