@@ -1,6 +1,6 @@
 access_points: ['replace_this_server:10001']
 control_log_file: /tmp/daos_control.log
-control_log_mask: DEBUG
+control_log_mask: ERROR 
 helper_log_file: /tmp/daos_admin.log
 name: daos_server
 nr_hugepages: 4096
@@ -19,11 +19,12 @@ servers:
   - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
   - PMEM_IS_PMEM_FORCE=1
   - OFI_DOMAIN=mlx5_0
+  - FI_UNIVERSE_SIZE=16000
   fabric_iface: ib0
   fabric_iface_port: 31416
   first_core: 0
   log_file: /tmp/daos_server.log
-  log_mask: ERR
+  log_mask: ERR 
   nr_xs_helpers: 1
   scm_class: ram
   scm_mount: /dev/shm
