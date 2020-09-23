@@ -9,8 +9,8 @@
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
-DAOS_SERVERS=$2
-DAOS_CLIENTS=$3
+#DAOS_SERVERS=$2
+#DAOS_CLIENTS=$3
 ACCESS_PORT=10001
 POOL_SIZE="60G"
 MPI="openmpi" #supports openmpi or mpich
@@ -27,9 +27,9 @@ TRANSFER_SIZES=(1M)
 BL_SIZE="1G"
 
 #Cart Self test parameter
-ST_MAX_INFLIGHT=($4)
-ST_MIN_SRV=$(( $DAOS_SERVERS ))
-ST_MAX_SRV=$(( $DAOS_SERVERS ))
+#ST_MAX_INFLIGHT=($4)
+#ST_MIN_SRV=$(( $DAOS_SERVERS ))
+#ST_MAX_SRV=$(( $DAOS_SERVERS ))
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -55,6 +55,8 @@ echo PATH=$PATH
 echo
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo
+
+echo DAOS_SERVERS=$DAOS_SERVERS
 
 cleanup(){
     mv *$SLURM_JOB_ID Log/$SLURM_JOB_ID/
@@ -90,9 +92,9 @@ prepare(){
 }
 
 #Prepare log folders for tests
-prepare_test_log_dir(){
-    $SRUN_CMD create_log_dir.sh $1
-}
+#prepare_test_log_dir(){
+#    $SRUN_CMD create_log_dir.sh $1
+#}
 
 #Start DAOS agent
 start_agent(){
@@ -207,48 +209,42 @@ run_ior(){
 run_self_test(){
     echo -e "\nCMD: Starting CaRT self_test...\n"
 
-    while [  ${ST_MIN_SRV} -le ${ST_MAX_SRV} ]; do
-	let last_srv_index=$(( ${ST_MIN_SRV}-1 ))
+    let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
 
-        for max_inflight in "${ST_MAX_INFLIGHT[@]}"; do
-            st_cmd="self_test
-		 --path Log/$SLURM_JOB_ID
-                 --group-name daos_server --endpoint 0-${last_srv_index}:0
-                 --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
-                 --max-inflight-rpcs ${max_inflight} --repetitions 100 -t -n"
+    st_cmd="self_test
+        --path Log/$SLURM_JOB_ID
+        --group-name daos_server --endpoint 0-${last_srv_index}:0
+        --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
+        --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
 
-            mpich_cmd="mpirun --prepend-rank
-                 -np 1 -map-by node 
-                 -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-                 $st_cmd"
+    mpich_cmd="mpirun --prepend-rank
+        -np 1 -map-by node 
+        -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+        $st_cmd"
 
-            openmpi_cmd="orterun $OMPI_PARAM 
-                 -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
-                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-                 --timeout 600 -np 1 --map-by node 
-                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-                 $st_cmd"
+    openmpi_cmd="orterun $OMPI_PARAM 
+        -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
+        -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+        --timeout 600 -np 1 --map-by node 
+        --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+        $st_cmd"
 
-            if [ "$MPI" == "openmpi" ]; then
-                cmd=$openmpi_cmd
-            else
-                cmd=$mpich_cmd
-            fi
+    if [ "$MPI" == "openmpi" ]; then
+        cmd=$openmpi_cmd
+    else
+        cmd=$mpich_cmd
+    fi
 
-            echo $cmd
-	    echo
-       	    eval $cmd
+    echo $cmd
+    echo
+    eval $cmd
 
-            if [ $? -ne 0 ]; then
-                echo -e "\nSTATUS: CART self_test FAIL\n"
-       	        exit 1
-            else
-       	        echo -e "\nSTATUS: CART self_test SUCCESS\n"
-            fi
-	done
-
-	let ST_MIN_SRV=$(( ${ST_MIN_SRV}*2 ))
-    done
+    if [ $? -ne 0 ]; then
+        echo -e "\nSTATUS: CART self_test FAIL\n"
+        exit 1
+    else
+        echo -e "\nSTATUS: CART self_test SUCCESS\n"
+    fi
 }
 
 run_mdtest(){
