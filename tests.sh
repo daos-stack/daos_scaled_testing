@@ -9,8 +9,6 @@
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
-#DAOS_SERVERS=$2
-#DAOS_CLIENTS=$3
 ACCESS_PORT=10001
 POOL_SIZE="60G"
 MPI="openmpi" #supports openmpi or mpich
@@ -25,11 +23,6 @@ fi
 IOR_PROC_PER_CLIENT=(4)
 TRANSFER_SIZES=(1M)
 BL_SIZE="1G"
-
-#Cart Self test parameter
-#ST_MAX_INFLIGHT=($4)
-#ST_MIN_SRV=$(( $DAOS_SERVERS ))
-#ST_MAX_SRV=$(( $DAOS_SERVERS ))
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -90,11 +83,6 @@ prepare(){
     srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_agent
     srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_server
 }
-
-#Prepare log folders for tests
-#prepare_test_log_dir(){
-#    $SRUN_CMD create_log_dir.sh $1
-#}
 
 #Start DAOS agent
 start_agent(){
@@ -298,10 +286,11 @@ echo "###################"
 
 case $test in
     IOR)
-        start_server
-        start_agent
-        create_pool
-        run_ior
+        #Temporary disabled ior for automation updates
+        #start_server
+        #start_agent
+        #create_pool
+        #run_ior
         ;;
     SELF_TEST)
         start_server
@@ -309,10 +298,11 @@ case $test in
         run_self_test
         ;;
     MDTEST)
-        start_server
-        start_agent
-        create_pool
-        run_mdtest
+        #Temporary disabled mdtest for automation updates
+        #start_server
+        #start_agent
+        #create_pool
+        #run_mdtest
         ;;  
     *)
         echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"

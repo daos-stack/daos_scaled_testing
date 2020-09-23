@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export BUILD_DIR=/home1/06753/soychan/work/POC/BUILDS/
+export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 
 folder=$(date +%Y%m%d)
 rm -rf $BUILD_DIR/$folder
