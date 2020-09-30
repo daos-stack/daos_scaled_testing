@@ -11,6 +11,10 @@ mkdir -p $LOGS
 export DAOS_SERVERS
 export DAOS_CLIENTS
 export INFLIGHT
+export XFER_SIZE
+export BLOCK_SIZE
+export PPC
+export OMPI_TIMEOUT
 
 pushd $DST_DIR
 

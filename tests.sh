@@ -9,8 +9,8 @@
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
 #Parameter to be updated for each sbatch
+DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
-POOL_SIZE="60G"
 MPI="openmpi" #supports openmpi or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
@@ -18,11 +18,6 @@ if [ "$MPI" != "openmpi" ] && [ "$MPI" != "mpich" ]; then
     echo "Unknown MPI. Please specify either openmpi or mpich"
     exit 1
 fi
-
-#IOR Parameter
-IOR_PROC_PER_CLIENT=(4)
-TRANSFER_SIZES=(1M)
-BL_SIZE="1G"
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -35,6 +30,10 @@ echo $HOSTNAME
 echo
 BUILD=`ls -al $DAOS_DIR/../../latest`
 echo $BUILD
+echo
+pushd $DAOS_DIR
+git log | head -n 1
+popd
 echo
 source env_daos $DAOS_DIR
 
@@ -87,12 +86,13 @@ prepare(){
 #Start DAOS agent
 start_agent(){
     echo -e "\nCMD: Starting agent...\n"
+    daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
-    daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent\" "
-    echo $cmd
+    $daos_cmd\" "
+    echo $daos_cmd
     echo
     eval $cmd &
     sleep 20
@@ -115,12 +115,11 @@ create_pool(){
     echo $cmd
     echo
     DAOS_POOL=`$cmd`
-    exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-        echo "DMG Create FAIL"
+    if [ $? -ne 0 ]; then
+        echo "DMG pool create FAIL"
         exit 1
     else
-        echo "DMG Create Pool Success"
+        echo "DMG pool create SUCCESS"
     fi
 
     POOL_UUID="$(grep -o "UUID: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $2}')"
@@ -128,17 +127,74 @@ create_pool(){
     echo -e "\n====== POOL INFO ======"
     echo POOL_UUID: $POOL_UUID
     echo POOL_SVC : $POOL_SVC
+
+    cmd="dmg pool set-prop --pool=$POOL_UUID --name=reclaim --value=disabled -o $DAOS_CONTROL_YAML"
+    echo $cmd
+    echo
+    eval $cmd
+    if [ $? -ne 0 ]; then
+        echo "DMG pool set-prop FAIL"
+        exit 1
+    else
+        echo "DMG pool set-prop SUCCESS"
+    fi
+
+    sleep 10
+}
+
+#Create Container
+create_container(){
+    echo -e "\nCMD: Creating container\n"
+
+    CONT_UUID=$(uuidgen)
+    HOST=$(head -n 1 Log/$SLURM_JOB_ID/daos_server_hostlist)
+    echo CONT_UUID = $CONT_UUID
+    echo HOST $HOST
+    daos_cmd="daos cont create --pool=$POOL_UUID --svc=$POOL_SVC --cont $CONT_UUID --type=POSIX --properties=dedup:memcmp"
+    cmd="clush -w $HOST 
+    -f $SLURM_JOB_NUM_NODES \"
+    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
+    $daos_cmd\""
+
+    echo $daos_cmd
+    eval $cmd
+    if [ $? -ne 0 ]; then
+        echo "Daos container create FAIL"
+        exit 1
+    else
+        echo "Daos container create SUCCESS"
+    fi
+
+    daos_cmd="daos cont query --pool=$POOL_UUID --svc=$POOL_SVC --cont=$CONT_UUID"
+    cmd="clush -w $HOST
+    -f $SLURM_JOB_NUM_NODES \"
+    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
+    $daos_cmd\""
+
+    echo $daos_cmd
+    eval $cmd
+    if [ $? -ne 0 ]; then
+        echo "Daos container query FAIL"
+        exit 1
+    else
+        echo "Daos container query SUCCESS"
+    fi
 }
 
 #Start daos servers
 start_server(){
     echo -e "\nCMD: Starting server...\n"
+    daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist 
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
-    daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks \" 2>&1 "
-    echo $cmd
+    $daos_cmd \" 2>&1 "
+    echo $daos_cmd
     echo
     eval $cmd &
 
@@ -150,47 +206,43 @@ start_server(){
 #Run IOR
 run_ior(){
     echo -e "\nCMD: Starting IOR..."
-    for size in "${TRANSFER_SIZES[@]}"; do
-        for i in "${IOR_PROC_PER_CLIENT[@]}"; do
-            no_of_ps=$(($DAOS_CLIENTS * $i))
-	    echo
+    no_of_ps=$(($DAOS_CLIENTS * $PPC))
+    echo
 
-	    ior_cmd="ior
-                 -a DAOS -b $BL_SIZE  -w -r -i 2 -o daos:testFile 
-                 -t $size --daos.cont $(uuidgen) --daos.destroy
-                 --daos.group daos_server --daos.pool $POOL_UUID
-                 --daos.svcl $POOL_SVC -vv"
+    ior_cmd="ior
+             -a DFS -b $BLOCK_SIZE -w -W -r -R -g -G 27 -C -Q 1 -i 2 -s 1 -o /testFile 
+             -t $XFER_SIZE --dfs.cont $CONT_UUID
+             --daos.group daos_server --dfs.pool $POOL_UUID --dfs.oclass SX
+             --dfs.svcl $POOL_SVC -vv"
 
-            mpich_cmd="mpirun
-		 -np $no_of_ps -map-by node 
-                 -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-		 $ior_cmd"
+    mpich_cmd="mpirun
+             -np $no_of_ps -map-by node 
+             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+	     $ior_cmd"
 
-	    openmpi_cmd="orterun $OMPI_PARAM 
+    openmpi_cmd="orterun $OMPI_PARAM 
 		 -x CPATH -x PATH -x LD_LIBRARY_PATH
 		 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-                 --timeout 600 -np $no_of_ps --map-by node 
+                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node 
                  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
 		 $ior_cmd" 
 
-	    if [ "$MPI" == "openmpi" ]; then
-		cmd=$openmpi_cmd
-	    else
-		cmd=$mpich_cmd
-	    fi
+    if [ "$MPI" == "openmpi" ]; then
+        cmd=$openmpi_cmd
+    else
+	cmd=$mpich_cmd
+    fi
 
-            echo $cmd
-	    echo
-            eval $cmd
-            if [ $? -ne 0 ]; then
-                echo -e "\nSTATUS: transfer_size=$size, process_per_client=$i - IOR FAIL\n"
-                exit 1
-            else
-                echo -e "\nSTATUS: transfer_size=$size, process_per_client=$i - IOR SUCCESS\n"
-            fi
-	    sleep 5
-        done
-    done
+    echo $cmd
+    echo
+    eval $cmd
+    if [ $? -ne 0 ]; then
+        echo -e "\nSTATUS: IOR FAIL\n"
+        exit 1
+    else
+        echo -e "\nSTATUS: IOR SUCCESS\n"
+    fi
+    sleep 5
 }
 
 #Run cart self_test
@@ -213,7 +265,7 @@ run_self_test(){
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-        --timeout 600 -np 1 --map-by node 
+        --timeout $OMPI_TIMEOUT -np 1 --map-by node 
         --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
         $st_cmd"
 
@@ -253,7 +305,7 @@ run_mdtest(){
         openmpi_cmd="orterun $OMPI_PARAM 
              -x CPATH -x PATH -x LD_LIBRARY_PATH
              -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-             --timeout 600 -np $no_of_ps --map-by node 
+             --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node 
              --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
              $mdtest_cmd"
 
@@ -286,11 +338,11 @@ echo "###################"
 
 case $test in
     IOR)
-        #Temporary disabled ior for automation updates
-        #start_server
-        #start_agent
-        #create_pool
-        #run_ior
+        start_server
+        start_agent
+        create_pool
+        create_container
+        run_ior
         ;;
     SELF_TEST)
         start_server
