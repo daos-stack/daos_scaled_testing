@@ -4,6 +4,10 @@ export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 export IOR_DIR="<path_to_ior_repo>" #e.g./scratch/POC/ior-hpc
 export MPI_DIR="<path_to_mpi>" #e.g./scratch/POC/mpi
 
+# Unload modules that are not needed on Frontera
+module unload impi pmix hwloc
+module list
+
 folder=$(date +%Y%m%d)
 rm -rf $BUILD_DIR/$folder
 mkdir -p $BUILD_DIR/$folder

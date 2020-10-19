@@ -8,6 +8,10 @@
 #SBATCH -A STAR-Intel           # Project Name
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
+#Unload modules that are not needed on Frontera
+module unload impi pmix hwloc
+module list
+
 #Parameter to be updated for each sbatch
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
@@ -24,6 +28,9 @@ SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
 DAOS_SERVER_YAML="$PWD/Log/$SLURM_JOB_ID/daos_server.yml"
 DAOS_AGENT_YAML="$PWD/Log/$SLURM_JOB_ID/daos_agent.yml"
 DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
+INITIAL_BRINGUP_WAIT_TIME=60s
+WAIT_TIME=30s
+MAX_RETRY_ATTEMPTS=6
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
@@ -58,6 +65,35 @@ cleanup(){
 }
 
 trap cleanup EXIT
+
+#Wait for all the DAOS servers to start
+function wait_for_servers_to_start(){
+  TARGET_SERVERS=$((${1} - 1))
+
+  echo "Waiting for [0-${TARGET_SERVERS}] daos_servers to start (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
+  sleep ${INITIAL_BRINGUP_WAIT_TIME}
+
+  n=1
+  until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+  do
+    DMG_OUT=$(dmg -o ${DAOS_CONTROL_YAML} system query)
+    echo "${DMG_OUT}"
+
+    if echo ${DMG_OUT} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
+      break
+    fi
+    echo "Attempt ${n} failed, retrying in ${WAIT_TIME} seconds..."
+    n=$[${n} + 1]
+    sleep ${WAIT_TIME}
+  done
+
+  if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+    echo "Failed to start all the DAOS servers"
+    exit 1
+  fi
+
+  echo "Done, ${CURRENT_SERVERS_UP} DAOS servers are up and running"
+}
 
 #Create server/client hostfile.
 prepare(){
@@ -198,9 +234,7 @@ start_server(){
     echo
     eval $cmd &
 
-    # Need to implement a more reliable way to ensure all servers are up
-    # maybe using dmg system query
-    sleep 60;
+    wait_for_servers_to_start ${DAOS_SERVERS}
 }
 
 #Run IOR
