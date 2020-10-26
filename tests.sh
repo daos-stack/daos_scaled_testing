@@ -62,6 +62,7 @@ cleanup(){
     mkdir -p Log/$SLURM_JOB_ID/cleanup
     $SRUN_CMD copy_log_files.sh "cleanup"
     $SRUN_CMD cleanup.sh $DAOS_SERVERS
+    echo "End Time: $(date)"
 }
 
 trap cleanup EXIT
@@ -250,14 +251,14 @@ run_ior(){
              --dfs.svcl $POOL_SVC -vv"
 
     mpich_cmd="mpirun
-             -np $no_of_ps -map-by node 
+             -np $no_of_ps -map-by node
              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
 	     $ior_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM 
 		 -x CPATH -x PATH -x LD_LIBRARY_PATH
 		 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node 
+                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
 		 $ior_cmd" 
 
@@ -292,14 +293,14 @@ run_self_test(){
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
 
     mpich_cmd="mpirun --prepend-rank
-        -np 1 -map-by node 
+        -np 1 -map-by node
         -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
         $st_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-        --timeout $OMPI_TIMEOUT -np 1 --map-by node 
+        --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
         $st_cmd"
 
@@ -324,22 +325,22 @@ run_self_test(){
 run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
     for i in "${IOR_PROC_PER_CLIENT[@]}"; do
-	no_of_ps=$(($DAOS_CLIENTS * $i))
-	echo
+       no_of_ps=$(($DAOS_CLIENTS * $i))
+       echo
         mdtest_cmd="mdtest
-             -a DFS --dfs.destroy --dfs.pool $POOL_UUID 
+             -a DFS --dfs.destroy --dfs.pool $POOL_UUID
              --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC
              -n 500  -u -L --dfs.oclass S1 -N 1 -P -d /"
 
         mpich_cmd="mpirun
-             -np $no_of_ps -map-by node 
+             -np $no_of_ps -map-by node
              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
              $mdtest_cmd"
 
-        openmpi_cmd="orterun $OMPI_PARAM 
+        openmpi_cmd="orterun $OMPI_PARAM
              -x CPATH -x PATH -x LD_LIBRARY_PATH
              -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-             --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node 
+             --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
              --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
              $mdtest_cmd"
 
@@ -350,7 +351,7 @@ run_mdtest(){
         fi
 
         echo $cmd
-	echo
+       echo
         eval $cmd
         if [ $? -ne 0 ]; then
             echo -e "\nSTATUS: process_per_client=$i - MDTEST FAIL\n"
@@ -368,6 +369,7 @@ test=$1
 
 echo "###################"
 echo "RUN: $TESTCASE"
+echo "Start Time: $(date)"
 echo "###################"
 
 case $test in

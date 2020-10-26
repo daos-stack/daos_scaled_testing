@@ -27,7 +27,7 @@ function get_value(){
     grep -E "^${1}[[:space:]]*:\s" ${2} | cut -d ':' -f 2 | tr -d ' '
 }
 
-echo "Servers,Clients,PPC,Ranks,Scenario,Max Write (GiB/sec),Max Read (GiB/sec),Status" > ${result}
+echo "Servers,Clients,PPC,Ranks,Scenario,Max Write (GiB/sec),Max Read (GiB/sec),Start,End,Status" > ${result}
 
 # For each directory in the curret dir, if the name starts with log
 # get the run configuration parameters 
@@ -43,15 +43,17 @@ do
         RANKS=$(get_value 'tasks' ${CURRENT_FILE})
         PPC=$(get_value 'clients per node' ${CURRENT_FILE})
         SCENARIO=$(get_value 'RUN' ${CURRENT_FILE})
+        START_TIME=$(grep -E "^Start Time:\s" ${CURRENT_FILE} | sed "s/Start Time: //g")
+        END_TIME=$(grep -E "^End Time:\s" ${CURRENT_FILE} | sed "s/End Time: //g")
 
         if [ -f "$i"/stdout* ] && grep -q "Max Write" "$i"/stdout* ; then
             wr=`grep "Max Write" ./$i/stdout* | awk '{print $3}'`
             rd=`grep "Max Read" ./$i/stdout* | awk '{print $3}'`
             wr_GiB=`echo "scale=2;$wr / 1024" | bc`
             rd_GiB=`echo "scale=2;$rd / 1024" | bc`
-            echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},${wr_GiB},${rd_GiB},Passed" >> ${result}
+            echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},${wr_GiB},${rd_GiB},${START_TIME},${END_TIME},Passed" >> ${result}
         else
-            echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},0,0,Failed" >> ${result}
+            echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},0,0,${START_TIME},${END_TIME},Failed" >> ${result}
         fi
     fi
 done
