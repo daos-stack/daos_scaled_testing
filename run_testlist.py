@@ -106,6 +106,32 @@ mdtest_testlist = [{'testcase': 'mdtesteasy_1to4',
                     'bytes_write': '0',
                     'tree_depth': '0',
                     'enabled': 0
+                    },
+                   {'testcase': 'mdtesthard_1to4',
+                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
+                    'nClient': [8, 16, 32, 64, 128, 256, 512, 1024],
+                    # timeout in minutes
+                    'timeout': [15, 15, 30, 60, 90, 90, 120, 120],
+                    'ppc': 32,
+                    'pool_sz': '85G',
+                    'nFile': '12000',
+                    'bytes_read': '3901',
+                    'bytes_write': '3901',
+                    'tree_depth': '0/20',
+                    'enabled': 0
+                    },
+                   {'testcase': 'mdtesthard_c16',
+                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
+                    'nClient': [16, 16, 16, 16, 16, 16, 16, 16],
+                    # timeout in minutes
+                    'timeout': [15, 15, 15, 30, 45, 45, 60, 90],
+                    'ppc': 32,
+                    'pool_sz': '85G',
+                    'nFile': '12000',
+                    'bytes_read': '3901',
+                    'bytes_write': '3901',
+                    'tree_depth': '0/20',
+                    'enabled': 0
                     }
                    ]
 
