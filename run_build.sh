@@ -19,8 +19,6 @@ declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/dmg"
                            "ior${MPI_SUFFIX}/bin/ior"
                            "ior${MPI_SUFFIX}/bin/mdtest"
-                           "ior${MPI_SUFFIX}/bin/ior"
-                           "ior${MPI_SUFFIX}/bin/mdtest"
                            )
 
 function basic_check() {
