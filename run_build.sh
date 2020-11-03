@@ -2,6 +2,8 @@
 
 export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 export IOR_DIR="<path_to_ior_repo>" #e.g./scratch/POC/ior-hpc
+export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
+export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
 # Unload modules that are not needed on Frontera
 module unload impi pmix hwloc
@@ -11,7 +13,7 @@ CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LATEST_DAOS=${BUILD_DIR}/latest/daos/install
 folder=$(date +%Y%m%d)
 
-source ${CURRENT_DIR}/source_me.sh openmpi
+source ${CURRENT_DIR}/build_env.sh openmpi
 
 declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"
@@ -21,7 +23,7 @@ declare -a PRECIOUS_FILES=("bin/daos"
                            "ior${MPI_SUFFIX}/bin/mdtest"
                            )
 
-function basic_check() {
+function check_target_files_exist() {
   for i in "${PRECIOUS_FILES[@]}"
   do
     CURRENT_FILE=${LATEST_DAOS}/${i}
@@ -30,13 +32,27 @@ function basic_check() {
       echo "Error: missing file ${CURRENT_FILE}"
       exit 1
     fi
-
-    if ! ldd ${CURRENT_FILE} | grep -q daos ; then
-      echo "Error: file ${CURRENT_FILE} does not link DAOS libraries"
-      exit 1
-    fi
   done
 }
+
+function check_daos_linkage() {
+  if ! ldd ${1} | grep -q libdaos.so ; then
+    echo "Error: file ${1} does not link DAOS libraries"
+    exit 1
+  fi
+}
+
+function check_retcode(){
+  exit_code=${1}
+  last_command=${2}
+
+  if [ ${exit_code} -ne 0 ]; then
+    echo "${last_command} command failed with exit code ${exit_code}."
+    exit ${exit_code}
+  fi
+}
+trap 'check_retcode $? ${BASH_COMMAND}' EXIT
+set -e
 
 rm -rf $BUILD_DIR/$folder
 mkdir -p $BUILD_DIR/$folder
@@ -71,4 +87,6 @@ make install
 popd
 
 # Perform a basic revision of the built binaries
-basic_check ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/ior
+check_target_files_exist
+check_daos_linkage ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/ior
+check_daos_linkage ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/mdtest

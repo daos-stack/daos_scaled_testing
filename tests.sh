@@ -42,10 +42,8 @@ pushd $DAOS_DIR
 git log | head -n 1
 popd
 echo
-source env_daos $DAOS_DIR
-
-export PATH=~/utils/install/$MPI/bin:$PATH
-export LD_LIBRARY_PATH=~/utils/install/$MPI/lib:$LD_LIBRARY_PATH
+source ${DST_DIR}/env_daos ${DAOS_DIR}
+source ${DST_DIR}/build_env.sh ${MPI}
 
 export PATH=$DAOS_DIR/install/ior_$MPI/bin:$PATH
 export LD_LIBRARY_PATH=$DAOS_DIR/install/ior_$MPI/lib:$LD_LIBRARY_PATH
