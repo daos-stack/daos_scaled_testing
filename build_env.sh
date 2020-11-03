@@ -2,13 +2,6 @@
 
 MPI_TARGET=${1}
 
-
-# Custom parameters
-
-MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
-OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
-
-
 # Activate mpi
 
 function activate_mpi(){
