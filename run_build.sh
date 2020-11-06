@@ -13,6 +13,9 @@ CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LATEST_DAOS=${BUILD_DIR}/latest/daos/install
 folder=$(date +%Y%m%d)
 
+export PATH=~/.local/bin:$PATH
+export PYTHONPATH=$PYTHONPATH:~/.local/lib
+
 source ${CURRENT_DIR}/build_env.sh openmpi
 
 declare -a PRECIOUS_FILES=("bin/daos"
