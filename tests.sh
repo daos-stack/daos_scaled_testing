@@ -322,42 +322,43 @@ run_self_test(){
 
 run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
-    for i in "${IOR_PROC_PER_CLIENT[@]}"; do
-       no_of_ps=$(($DAOS_CLIENTS * $i))
-       echo
-        mdtest_cmd="mdtest
-             -a DFS --dfs.destroy --dfs.pool $POOL_UUID
-             --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC
-             -n 500  -u -L --dfs.oclass S1 -N 1 -P -d /"
+    no_of_ps=$(($DAOS_CLIENTS * $PPC))
+    echo
 
-        mpich_cmd="mpirun
-             -np $no_of_ps -map-by node
-             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-             $mdtest_cmd"
+    mdtest_cmd="mdtest
+                -a DFS --dfs.destroy --dfs.pool ${POOL_UUID}
+                --dfs.cont $(uuidgen) --dfs.svcl ${POOL_SVC}
+                -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
+                -n ${N_FILE} -u -L --dfs.oclass S1 -N 1 -P -d /"
 
-        openmpi_cmd="orterun $OMPI_PARAM
-             -x CPATH -x PATH -x LD_LIBRARY_PATH
-             -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-             --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
-             --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-             $mdtest_cmd"
+    mpich_cmd="mpirun
+              -np $no_of_ps -map-by node
+              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+              $mdtest_cmd"
 
-        if [ "$MPI" == "openmpi" ]; then
-            cmd=$openmpi_cmd
-        else
-            cmd=$mpich_cmd
-        fi
+    openmpi_cmd="orterun $OMPI_PARAM
+                -x CPATH -x PATH -x LD_LIBRARY_PATH
+                -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+                --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
+                --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+                $mdtest_cmd"
 
-        echo $cmd
-       echo
-        eval $cmd
-        if [ $? -ne 0 ]; then
-            echo -e "\nSTATUS: process_per_client=$i - MDTEST FAIL\n"
-            exit 1
-        else
-            echo -e "\nSTATUS: process_per_client=$i - MDTEST SUCCESS\n"
-        fi
-    done
+    if [ "$MPI" == "openmpi" ]; then
+        cmd=$openmpi_cmd
+    else
+        cmd=$mpich_cmd
+    fi
+
+    echo $cmd
+    echo
+    eval $cmd
+    if [ $? -ne 0 ]; then
+        echo -e "\nSTATUS: MDTEST FAIL\n"
+        exit 1
+    else
+        echo -e "\nSTATUS: MDTEST SUCCESS\n"
+    fi
+    sleep 5
 }
 
 #Prepare Enviornment
@@ -384,11 +385,10 @@ case $test in
         run_self_test
         ;;
     MDTEST)
-        #Temporary disabled mdtest for automation updates
-        #start_server
-        #start_agent
-        #create_pool
-        #run_mdtest
+        start_server
+        start_agent
+        create_pool
+        run_mdtest
         ;;  
     *)
         echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"

@@ -83,6 +83,34 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  }
                 ]
 
+mdtest_testlist = [{'testcase': 'mdtesteasy_1to4',
+                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
+                    'nClient': [8, 16, 32, 64, 128, 256, 512, 1024],
+                    # timeout in minutes
+                    'timeout': [15, 15, 15, 60, 120, 120, 120, 120],
+                    'ppc': 32,
+                    'pool_sz': '85G',
+                    'nFile': '12000',
+                    'bytes_read': '0',
+                    'bytes_write': '0',
+                    'tree_depth': '0',
+                    'enabled': 0
+                    },
+                   {'testcase': 'mdtesteasy_c16',
+                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
+                    'nClient': [16, 16, 16, 16, 16, 16, 16, 16],
+                    # timeout in minutes
+                    'timeout': [15, 15, 15, 30, 30, 45, 60, 60],
+                    'ppc': 32,
+                    'pool_sz': '85G',
+                    'nFile': '12000',
+                    'bytes_read': '0',
+                    'bytes_write': '0',
+                    'tree_depth': '0',
+                    'enabled': 0
+                    }
+                   ]
+
 dst_dir = os.getenv("DST_DIR")
 script = os.path.join(dst_dir, "run_sbatch.sh")
 
@@ -137,6 +165,40 @@ for test in ior_testlist:
             env['POOL_SIZE'] = test['pool_sz']
             env['XFER_SIZE'] = test['xfer_sz']
             env['BLOCK_SIZE'] = test['blk_sz']
+
+            t = test['timeout'][i] + 10
+            h = int(t / 60)
+            m = t % 60
+            s = 0
+            env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
+            env['OMPI_TIMEOUT'] = str(test['timeout'][i] * 60)
+
+            subprocess.Popen(script, env=env)
+
+for test in mdtest_testlist:
+    if test['enabled'] == 1:
+        env['TEST_GROUP'] = "MDTEST"
+        env['TESTCASE'] = test['testcase']
+        for i in range(len(test['nServer'])):
+            srv = test['nServer'][i]
+            cli = test['nClient'][i]
+            nodes = srv + cli + 1
+            cores = nodes * test['ppc']
+            if nodes <= 512:
+                env['PARTITION'] = 'normal'
+            else:
+                env['PARTITION'] = 'large'
+
+            env['DAOS_SERVERS'] = str(srv)
+            env['DAOS_CLIENTS'] = str(cli)
+            env['NNODE'] = str(nodes)
+            env['NCORE'] = str(cores)
+            env['PPC'] = str(test['ppc'])
+            env['POOL_SIZE'] = test['pool_sz']
+            env['N_FILE'] = test['nFile']
+            env['BYTES_READ'] = test['bytes_read']
+            env['BYTES_WRITE'] = test['bytes_write']
+            env['TREE_DEPTH'] = test['tree_depth']
 
             t = test['timeout'][i] + 10
             h = int(t / 60)
