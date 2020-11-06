@@ -43,6 +43,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15],
                  'ppc': 32,
+                 'segments': '1',
                  'pool_sz': '85G',
                  'xfer_sz': '1M',
                  'blk_sz': '1G',
@@ -54,6 +55,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15],
                  'ppc': 32,
+                 'segments': '1',
                  'pool_sz': '85G',
                  'xfer_sz': '1M',
                  'blk_sz': '1G',
@@ -65,6 +67,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15, 120, 120, 120, 120],
                  'ppc': 32,
+                 'segments': '2000000',
                  'pool_sz': '85G',
                  'xfer_sz': '47008',
                  'blk_sz': '47008',
@@ -76,6 +79,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15, 15, 15, 15, 15],
                  'ppc': 32,
+                 'segments': '2000000',
                  'pool_sz': '85G',
                  'xfer_sz': '47008',
                  'blk_sz': '47008',
@@ -188,6 +192,7 @@ for test in ior_testlist:
             env['NNODE'] = str(nodes)
             env['NCORE'] = str(cores)
             env['PPC'] = str(test['ppc'])
+            env['SEGMENTS'] = test['segments']
             env['POOL_SIZE'] = test['pool_sz']
             env['XFER_SIZE'] = test['xfer_sz']
             env['BLOCK_SIZE'] = test['blk_sz']
