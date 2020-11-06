@@ -31,7 +31,6 @@ DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
-OUTPUT_DIR=${LOGS}/log_${DAOS_SERVERS}
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
@@ -101,7 +100,6 @@ prepare(){
     mkdir -p Log/$SLURM_JOB_ID
     cp daos_server.yml daos_agent.yml daos_control.yml Log/$SLURM_JOB_ID/
     $SRUN_CMD create_log_dir.sh "cleanup"
-    mkdir -p ${OUTPUT_DIR}
 
     if [ $MPI == "openmpi" ]; then
         ./openmpi_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
@@ -244,45 +242,28 @@ run_ior(){
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
-    IOR_WR_CMD="ior
-             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 2
-             -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${OUTPUT_DIR}/sw.${SLURM_JOB_ID} -D 60
-             -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-             --daos.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass SX
-             --dfs.svcl ${POOL_SVC} -vvv"
+    ior_cmd="ior
+             -a DFS -b $BLOCK_SIZE -w -W -r -R -g -G 27 -C -Q 1 -i 2 -s 1 -o /testFile 
+             -t $XFER_SIZE --dfs.cont $CONT_UUID
+             --daos.group daos_server --dfs.pool $POOL_UUID --dfs.oclass SX
+             --dfs.svcl $POOL_SVC -vv"
 
-    IOR_RD_CMD="ior
-             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 2
-             -s ${SEGMENTS} -o /testFile
-             -O stoneWallingStatusFile=${OUTPUT_DIR}/sw.${SLURM_JOB_ID}
-             -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-             --daos.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass SX
-             --dfs.svcl ${POOL_SVC} -vvv"
-
-    prefix_mpich="mpirun
+    mpich_cmd="mpirun
              -np $no_of_ps -map-by node
              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-             $ior_cmd"
+	     $ior_cmd"
 
-    prefix_openmpi="orterun $OMPI_PARAM
-                 -x CPATH -x PATH -x LD_LIBRARY_PATH
-                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+    openmpi_cmd="orterun $OMPI_PARAM 
+		 -x CPATH -x PATH -x LD_LIBRARY_PATH
+		 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-                 $ior_cmd"
-
-    mpich_cmd="${prefix_mpich} ${IOR_WR_CMD}
-               ${prefix_mpich} ${IOR_RD_CMD}"
-
-    openmpi_cmd="${prefix_openmpi} ${IOR_WR_CMD}
-                 ${prefix_openmpi} ${IOR_RD_CMD}"
+		 $ior_cmd" 
 
     if [ "$MPI" == "openmpi" ]; then
         cmd=$openmpi_cmd
     else
-        cmd=$mpich_cmd
+	cmd=$mpich_cmd
     fi
 
     echo $cmd
