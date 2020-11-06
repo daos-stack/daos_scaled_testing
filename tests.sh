@@ -8,6 +8,10 @@
 #SBATCH -A STAR-Intel           # Project Name
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
+#Unload modules that are not needed on Frontera
+module unload impi pmix hwloc
+module list
+
 #Parameter to be updated for each sbatch
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
@@ -24,6 +28,9 @@ SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
 DAOS_SERVER_YAML="$PWD/Log/$SLURM_JOB_ID/daos_server.yml"
 DAOS_AGENT_YAML="$PWD/Log/$SLURM_JOB_ID/daos_agent.yml"
 DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
+INITIAL_BRINGUP_WAIT_TIME=60s
+WAIT_TIME=30s
+MAX_RETRY_ATTEMPTS=6
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
@@ -35,10 +42,8 @@ pushd $DAOS_DIR
 git log | head -n 1
 popd
 echo
-source env_daos $DAOS_DIR
-
-export PATH=~/utils/install/$MPI/bin:$PATH
-export LD_LIBRARY_PATH=~/utils/install/$MPI/lib:$LD_LIBRARY_PATH
+source ${DST_DIR}/env_daos ${DAOS_DIR}
+source ${DST_DIR}/build_env.sh ${MPI}
 
 export PATH=$DAOS_DIR/install/ior_$MPI/bin:$PATH
 export LD_LIBRARY_PATH=$DAOS_DIR/install/ior_$MPI/lib:$LD_LIBRARY_PATH
@@ -55,9 +60,39 @@ cleanup(){
     mkdir -p Log/$SLURM_JOB_ID/cleanup
     $SRUN_CMD copy_log_files.sh "cleanup"
     $SRUN_CMD cleanup.sh $DAOS_SERVERS
+    echo "End Time: $(date)"
 }
 
 trap cleanup EXIT
+
+#Wait for all the DAOS servers to start
+function wait_for_servers_to_start(){
+  TARGET_SERVERS=$((${1} - 1))
+
+  echo "Waiting for [0-${TARGET_SERVERS}] daos_servers to start (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
+  sleep ${INITIAL_BRINGUP_WAIT_TIME}
+
+  n=1
+  until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+  do
+    DMG_OUT=$(dmg -o ${DAOS_CONTROL_YAML} system query)
+    echo "${DMG_OUT}"
+
+    if echo ${DMG_OUT} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
+      break
+    fi
+    echo "Attempt ${n} failed, retrying in ${WAIT_TIME} seconds..."
+    n=$[${n} + 1]
+    sleep ${WAIT_TIME}
+  done
+
+  if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+    echo "Failed to start all the DAOS servers"
+    exit 1
+  fi
+
+  echo "Done, ${CURRENT_SERVERS_UP} DAOS servers are up and running"
+}
 
 #Create server/client hostfile.
 prepare(){
@@ -198,9 +233,7 @@ start_server(){
     echo
     eval $cmd &
 
-    # Need to implement a more reliable way to ensure all servers are up
-    # maybe using dmg system query
-    sleep 60;
+    wait_for_servers_to_start ${DAOS_SERVERS}
 }
 
 #Run IOR
@@ -216,14 +249,14 @@ run_ior(){
              --dfs.svcl $POOL_SVC -vv"
 
     mpich_cmd="mpirun
-             -np $no_of_ps -map-by node 
+             -np $no_of_ps -map-by node
              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
 	     $ior_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM 
 		 -x CPATH -x PATH -x LD_LIBRARY_PATH
 		 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node 
+                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
 		 $ior_cmd" 
 
@@ -258,14 +291,14 @@ run_self_test(){
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
 
     mpich_cmd="mpirun --prepend-rank
-        -np 1 -map-by node 
+        -np 1 -map-by node
         -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
         $st_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-        --timeout $OMPI_TIMEOUT -np 1 --map-by node 
+        --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
         $st_cmd"
 
@@ -290,22 +323,22 @@ run_self_test(){
 run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
     for i in "${IOR_PROC_PER_CLIENT[@]}"; do
-	no_of_ps=$(($DAOS_CLIENTS * $i))
-	echo
+       no_of_ps=$(($DAOS_CLIENTS * $i))
+       echo
         mdtest_cmd="mdtest
-             -a DFS --dfs.destroy --dfs.pool $POOL_UUID 
+             -a DFS --dfs.destroy --dfs.pool $POOL_UUID
              --dfs.cont $(uuidgen) --dfs.svcl $POOL_SVC
              -n 500  -u -L --dfs.oclass S1 -N 1 -P -d /"
 
         mpich_cmd="mpirun
-             -np $no_of_ps -map-by node 
+             -np $no_of_ps -map-by node
              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
              $mdtest_cmd"
 
-        openmpi_cmd="orterun $OMPI_PARAM 
+        openmpi_cmd="orterun $OMPI_PARAM
              -x CPATH -x PATH -x LD_LIBRARY_PATH
              -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-             --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node 
+             --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
              --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
              $mdtest_cmd"
 
@@ -316,7 +349,7 @@ run_mdtest(){
         fi
 
         echo $cmd
-	echo
+       echo
         eval $cmd
         if [ $? -ne 0 ]; then
             echo -e "\nSTATUS: process_per_client=$i - MDTEST FAIL\n"
@@ -334,6 +367,7 @@ test=$1
 
 echo "###################"
 echo "RUN: $TESTCASE"
+echo "Start Time: $(date)"
 echo "###################"
 
 case $test in
