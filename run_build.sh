@@ -1,9 +1,9 @@
 #!/bin/bash
 
-export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
-export IOR_DIR="<path_to_ior_repo>" #e.g./scratch/POC/ior-hpc
-export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
-export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
+export BUILD_DIR="/scratch1/07758/eduardoj/BUILDS"
+export IOR_DIR="/scratch1/07758/eduardoj/TOOLS/ior-hpc"
+export MPICH_DIR="/home1/07758/eduardoj/utils/install/mpich"
+export OPENMPI_DIR="/home1/07758/eduardoj/utils/install/openmpi"
 
 # Unload modules that are not needed on Frontera
 module unload impi pmix hwloc

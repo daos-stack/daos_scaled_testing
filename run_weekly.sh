@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DST_DIR="<path_to_daos_scaled_testing>" #/scratch/TESTS/daos_scaled_testing
+DST_DIR="/scratch1/07758/eduardoj/TESTS/daos_scaled_testing"
 
 ${DST_DIR}/run_build.sh
 if [ $? -ne 0 ]; then
