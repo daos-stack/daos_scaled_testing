@@ -263,15 +263,13 @@ run_ior(){
 
     prefix_mpich="mpirun
              -np $no_of_ps -map-by node
-             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-             $ior_cmd"
+             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist"
 
     prefix_openmpi="orterun $OMPI_PARAM
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
                  -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
-                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
-                 $ior_cmd"
+                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist"
 
     mpich_cmd="${prefix_mpich} ${IOR_WR_CMD};
                ${prefix_mpich} ${IOR_RD_CMD}"
