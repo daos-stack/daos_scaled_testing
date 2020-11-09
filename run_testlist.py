@@ -43,6 +43,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15],
                  'ppc': 32,
+                 'segments': '1',
                  'pool_sz': '85G',
                  'xfer_sz': '1M',
                  'blk_sz': '1G',
@@ -54,6 +55,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15],
                  'ppc': 32,
+                 'segments': '1',
                  'pool_sz': '85G',
                  'xfer_sz': '1M',
                  'blk_sz': '1G',
@@ -65,6 +67,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15, 120, 120, 120, 120],
                  'ppc': 32,
+                 'segments': '2000000',
                  'pool_sz': '85G',
                  'xfer_sz': '47008',
                  'blk_sz': '47008',
@@ -76,6 +79,7 @@ ior_testlist = [{'testcase': 'ioreasy_1to4',
                  # timeout in minutes
                  'timeout': [15, 15, 15, 15, 15, 15, 15, 15],
                  'ppc': 32,
+                 'segments': '2000000',
                  'pool_sz': '85G',
                  'xfer_sz': '47008',
                  'blk_sz': '47008',
@@ -107,6 +111,32 @@ mdtest_testlist = [{'testcase': 'mdtesteasy_1to4',
                     'bytes_read': '0',
                     'bytes_write': '0',
                     'tree_depth': '0',
+                    'enabled': 0
+                    },
+                   {'testcase': 'mdtesthard_1to4',
+                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
+                    'nClient': [8, 16, 32, 64, 128, 256, 512, 1024],
+                    # timeout in minutes
+                    'timeout': [15, 15, 30, 60, 90, 90, 120, 120],
+                    'ppc': 32,
+                    'pool_sz': '85G',
+                    'nFile': '12000',
+                    'bytes_read': '3901',
+                    'bytes_write': '3901',
+                    'tree_depth': '0/20',
+                    'enabled': 0
+                    },
+                   {'testcase': 'mdtesthard_c16',
+                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
+                    'nClient': [16, 16, 16, 16, 16, 16, 16, 16],
+                    # timeout in minutes
+                    'timeout': [15, 15, 15, 30, 45, 45, 60, 90],
+                    'ppc': 32,
+                    'pool_sz': '85G',
+                    'nFile': '12000',
+                    'bytes_read': '3901',
+                    'bytes_write': '3901',
+                    'tree_depth': '0/20',
                     'enabled': 0
                     }
                    ]
@@ -162,6 +192,7 @@ for test in ior_testlist:
             env['NNODE'] = str(nodes)
             env['NCORE'] = str(cores)
             env['PPC'] = str(test['ppc'])
+            env['SEGMENTS'] = test['segments']
             env['POOL_SIZE'] = test['pool_sz']
             env['XFER_SIZE'] = test['xfer_sz']
             env['BLOCK_SIZE'] = test['blk_sz']
