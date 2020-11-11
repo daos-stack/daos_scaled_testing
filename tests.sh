@@ -28,6 +28,7 @@ SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
 DAOS_SERVER_YAML="$PWD/Log/$SLURM_JOB_ID/daos_server.yml"
 DAOS_AGENT_YAML="$PWD/Log/$SLURM_JOB_ID/daos_agent.yml"
 DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
+SERVER_HOSTLIST_FILE="Log/$SLURM_JOB_ID/daos_server_hostlist"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
@@ -66,6 +67,27 @@ cleanup(){
 
 trap cleanup EXIT
 
+# Generate timestamp
+function time_stamp(){
+    date +%m/%d-%H:%M:%S
+}
+
+# Print message, timestap is prefixed
+function pmsg(){
+    echo
+    echo "$(time_stamp) ${1}"
+}
+
+# Print command and run it, timestap is prefixed
+function run_cmd(){
+    local CMD="$(echo ${1} | tr -s " ")"
+
+    echo
+    echo "$(time_stamp) CMD: ${CMD}"
+    OUTPUT_CMD="$(eval "${CMD}")"
+    echo "${OUTPUT_CMD}"
+}
+
 #Wait for all the DAOS servers to start
 function wait_for_servers_to_start(){
   TARGET_SERVERS=$((${1} - 1))
@@ -101,7 +123,6 @@ prepare(){
     mkdir -p Log/$SLURM_JOB_ID
     cp daos_server.yml daos_agent.yml daos_control.yml Log/$SLURM_JOB_ID/
     $SRUN_CMD create_log_dir.sh "cleanup"
-    mkdir -p ${OUTPUT_DIR}
 
     if [ $MPI == "openmpi" ]; then
         ./openmpi_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
@@ -109,7 +130,7 @@ prepare(){
 	./mpich_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
     fi
 
-    ACCESS_POINT=`cat Log/$SLURM_JOB_ID/daos_server_hostlist | head -1 | grep -o -m 1 "^c[0-9\-]*"`
+    ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
 
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
@@ -164,7 +185,10 @@ create_pool(){
     echo -e "\n====== POOL INFO ======"
     echo POOL_UUID: $POOL_UUID
     echo POOL_SVC : $POOL_SVC
+    sleep 10
+}
 
+setup_pool(){
     cmd="dmg pool set-prop --pool=$POOL_UUID --name=reclaim --value=disabled -o $DAOS_CONTROL_YAML"
     echo $cmd
     echo
@@ -184,7 +208,7 @@ create_container(){
     echo -e "\nCMD: Creating container\n"
 
     CONT_UUID=$(uuidgen)
-    HOST=$(head -n 1 Log/$SLURM_JOB_ID/daos_server_hostlist)
+    HOST=$(head -n 1 ${SERVER_HOSTLIST_FILE})
     echo CONT_UUID = $CONT_UUID
     echo HOST $HOST
     daos_cmd="daos cont create --pool=$POOL_UUID --svc=$POOL_SVC --cont $CONT_UUID --type=POSIX --properties=dedup:memcmp"
@@ -226,7 +250,7 @@ create_container(){
 start_server(){
     echo -e "\nCMD: Starting server...\n"
     daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
-    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_server_hostlist 
+    cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
@@ -378,36 +402,115 @@ run_mdtest(){
     sleep 5
 }
 
-#Prepare Enviornment
-prepare
+# Get a random server name from the SERVER_HOSTLIST_FILE
+# the "lucky" server name will never be the access point
+get_doom_server(){
+    local MAX_RETRY_ATTEMPTS=1000
+    local ACESS_POINT=$(cat ${SERVER_HOSTLIST_FILE} | head -1)
+
+    n=1
+    until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+    do
+        local DOOMED_SERVER=$(shuf -n 1 ${SERVER_HOSTLIST_FILE})
+
+        if [ "${ACESS_POINT}" != "${DOOMED_SERVER}" ]; then
+            break
+        fi
+
+        n=$[${n} + 1]
+    done
+
+    if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+        pmsg "hostlist too small and we have really bad lucky"
+        exit 1
+    fi
+
+    echo ${DOOMED_SERVER}
+}
+
+# Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
+kill_random_server(){
+    local DOOMED_SERVER=$(get_doom_server)
+    local MAX_RETRY_ATTEMPTS=30
+    local PROCESSES="'(daos|orteun|mpirun)'"
+
+    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
+    run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
+
+    pmsg "Waiting to kill ${DOOMED_SERVER} server in ${WAIT_TIME} seconds..."
+    sleep ${WAIT_TIME}
+    pmsg "Killing ${DOOMED_SERVER} server"
+    run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
+    run_cmd "ssh ${DOOMED_SERVER} \"pkill ${PROCESSES}\""
+    run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
+    pmsg "Killed ${DOOMED_SERVER} server"
+
+    n=1
+    until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+    do
+        run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
+        run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
+        run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query \
+                 --pool ${POOL_UUID}"
+
+        if echo "${OUTPUT_CMD}" | grep -qE "^Rebuild\sdone"; then
+            break
+        fi
+
+        pmsg "Attempt ${n} failed, retrying in 1 second..."
+        n=$[${n} + 1]
+        sleep 1
+    done
+
+    if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+        pmsg "Failed to rebuild pool ${POOL_UUID}"
+        exit 1
+      fi
+}
+
+run_testcase(){
+    #Prepare Enviornment
+    prepare
+
+    echo "###################"
+    echo "RUN: $TESTCASE"
+    echo "Start Time: $(date)"
+    echo "###################"
+
+    case ${test} in
+        STABILIZATION)
+            start_server
+            start_agent
+            create_pool
+            kill_random_server
+            ;;
+        IOR)
+            start_server
+            start_agent
+            create_pool
+            setup_pool
+            create_container
+            run_ior
+            ;;
+        SELF_TEST)
+            start_server
+            dump_attach_info
+            run_self_test
+            ;;
+        MDTEST)
+            start_server
+            start_agent
+            create_pool
+            setup_pool
+            run_mdtest
+            ;;
+        *)
+            echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
+    esac
+}
 
 test=$1
 
-echo "###################"
-echo "RUN: $TESTCASE"
-echo "Start Time: $(date)"
-echo "###################"
-
-case $test in
-    IOR)
-        start_server
-        start_agent
-        create_pool
-        create_container
-        run_ior
-        ;;
-    SELF_TEST)
-        start_server
-        dump_attach_info
-        run_self_test
-        ;;
-    MDTEST)
-        start_server
-        start_agent
-        create_pool
-        run_mdtest
-        ;;  
-    *)
-        echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
-esac
-
+mkdir -p ${OUTPUT_DIR}
+run_testcase |& tee ${OUTPUT_DIR}/output.txt
