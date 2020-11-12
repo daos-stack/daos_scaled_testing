@@ -29,10 +29,12 @@ DAOS_SERVER_YAML="$PWD/Log/$SLURM_JOB_ID/daos_server.yml"
 DAOS_AGENT_YAML="$PWD/Log/$SLURM_JOB_ID/daos_agent.yml"
 DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
 SERVER_HOSTLIST_FILE="Log/$SLURM_JOB_ID/daos_server_hostlist"
+ALL_HOSTLIST_FILE="Log/$SLURM_JOB_ID/daos_all_hostlist"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
 OUTPUT_DIR=${LOGS}/log_${DAOS_SERVERS}
+PROCESSES="'(daos|orteun|mpirun)'"
 
 HOSTNAME=$(hostname)
 echo $HOSTNAME
@@ -88,33 +90,49 @@ function run_cmd(){
     echo "${OUTPUT_CMD}"
 }
 
+function teardown_test(){
+    local CSH_PREFIX="clush --hostfile ${ALL_HOSTLIST_FILE} \
+                      -f ${SLURM_JOB_NUM_NODES}"
+    pmsg "Starting teardown"
+
+    run_cmd "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    run_cmd "${CSH_PREFIX} \"pkill ${PROCESSES}\""
+    run_cmd "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+
+    # wait for all the background commands
+    wait
+
+    pmsg "End of teardown"
+    exit 0
+}
+
 #Wait for all the DAOS servers to start
 function wait_for_servers_to_start(){
-  TARGET_SERVERS=$((${1} - 1))
+    TARGET_SERVERS=$((${1} - 1))
 
-  echo "Waiting for [0-${TARGET_SERVERS}] daos_servers to start (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
-  sleep ${INITIAL_BRINGUP_WAIT_TIME}
+    pmsg "Waiting for [0-${TARGET_SERVERS}] daos_servers to start \
+          (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
+    sleep ${INITIAL_BRINGUP_WAIT_TIME}
 
-  n=1
-  until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
-  do
-    DMG_OUT=$(dmg -o ${DAOS_CONTROL_YAML} system query)
-    echo "${DMG_OUT}"
+    n=1
+    until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+    do
+        run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
 
-    if echo ${DMG_OUT} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
-      break
+        if echo ${OUTPUT_CMD} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
+            break
+        fi
+        pmsg "Attempt ${n} failed, retrying in ${WAIT_TIME} seconds..."
+        n=$[${n} + 1]
+        sleep ${WAIT_TIME}
+    done
+
+    if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+        pmsg "Failed to start all the DAOS servers"
+        teardown_test
     fi
-    echo "Attempt ${n} failed, retrying in ${WAIT_TIME} seconds..."
-    n=$[${n} + 1]
-    sleep ${WAIT_TIME}
-  done
 
-  if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
-    echo "Failed to start all the DAOS servers"
-    exit 1
-  fi
-
-  echo "Done, ${CURRENT_SERVERS_UP} DAOS servers are up and running"
+    pmsg "Done, ${CURRENT_SERVERS_UP} DAOS servers are up and running"
 }
 
 #Create server/client hostfile.
@@ -145,7 +163,7 @@ prepare(){
 start_agent(){
     echo -e "\nCMD: Starting agent...\n"
     daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
-    cmd="clush --hostfile Log/$SLURM_JOB_ID/daos_all_hostlist
+    cmd="clush --hostfile ${ALL_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
@@ -175,7 +193,7 @@ create_pool(){
     DAOS_POOL=`$cmd`
     if [ $? -ne 0 ]; then
         echo "DMG pool create FAIL"
-        exit 1
+        teardown_test
     else
         echo "DMG pool create SUCCESS"
     fi
@@ -195,7 +213,7 @@ setup_pool(){
     eval $cmd
     if [ $? -ne 0 ]; then
         echo "DMG pool set-prop FAIL"
-        exit 1
+        teardown_test
     else
         echo "DMG pool set-prop SUCCESS"
     fi
@@ -223,7 +241,7 @@ create_container(){
     eval $cmd
     if [ $? -ne 0 ]; then
         echo "Daos container create FAIL"
-        exit 1
+        teardown_test
     else
         echo "Daos container create SUCCESS"
     fi
@@ -240,7 +258,7 @@ create_container(){
     eval $cmd
     if [ $? -ne 0 ]; then
         echo "Daos container query FAIL"
-        exit 1
+        teardown_test
     else
         echo "Daos container query SUCCESS"
     fi
@@ -312,7 +330,7 @@ run_ior(){
     eval $cmd
     if [ $? -ne 0 ]; then
         echo -e "\nSTATUS: IOR FAIL\n"
-        exit 1
+        teardown_test
     else
         echo -e "\nSTATUS: IOR SUCCESS\n"
     fi
@@ -355,7 +373,7 @@ run_self_test(){
 
     if [ $? -ne 0 ]; then
         echo -e "\nSTATUS: CART self_test FAIL\n"
-        exit 1
+        teardown_test
     else
         echo -e "\nSTATUS: CART self_test SUCCESS\n"
     fi
@@ -395,7 +413,7 @@ run_mdtest(){
     eval $cmd
     if [ $? -ne 0 ]; then
         echo -e "\nSTATUS: MDTEST FAIL\n"
-        exit 1
+        teardown_test
     else
         echo -e "\nSTATUS: MDTEST SUCCESS\n"
     fi
@@ -404,7 +422,7 @@ run_mdtest(){
 
 # Get a random server name from the SERVER_HOSTLIST_FILE
 # the "lucky" server name will never be the access point
-get_doom_server(){
+function get_doom_server(){
     local MAX_RETRY_ATTEMPTS=1000
     local ACESS_POINT=$(cat ${SERVER_HOSTLIST_FILE} | head -1)
 
@@ -422,17 +440,16 @@ get_doom_server(){
 
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
         pmsg "hostlist too small and we have really bad lucky"
-        exit 1
+        teardown_test
     fi
 
     echo ${DOOMED_SERVER}
 }
 
 # Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
-kill_random_server(){
+function kill_random_server(){
     local DOOMED_SERVER=$(get_doom_server)
     local MAX_RETRY_ATTEMPTS=30
-    local PROCESSES="'(daos|orteun|mpirun)'"
 
     run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
     run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
@@ -465,11 +482,11 @@ kill_random_server(){
 
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
         pmsg "Failed to rebuild pool ${POOL_UUID}"
-        exit 1
+        teardown_test
       fi
 }
 
-run_testcase(){
+function run_testcase(){
     #Prepare Enviornment
     prepare
 
@@ -508,6 +525,8 @@ run_testcase(){
         *)
             echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
     esac
+
+    teardown_test
 }
 
 test=$1
