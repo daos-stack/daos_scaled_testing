@@ -141,7 +141,7 @@ mdtest_testlist = [{'testcase': 'mdtesteasy_1to4',
                     }
                    ]
 
-stabilization_testlist = [{'testcase': 'pool_rebuild',
+swim_test = [{'testcase': 'pool_rebuild',
                            'nServer': [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
                            'nClient': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                            # timeout in minutes
@@ -155,9 +155,9 @@ stabilization_testlist = [{'testcase': 'pool_rebuild',
 dst_dir = os.getenv("DST_DIR")
 script = os.path.join(dst_dir, "run_sbatch.sh")
 
-for test in stabilization_testlist:
+for test in swim_test:
     if test['enabled'] == 1:
-        env['TEST_GROUP'] = "STABILIZATION"
+        env['TEST_GROUP'] = "SWIM"
         env['TESTCASE'] = test['testcase']
         for i in range(len(test['nServer'])):
             srv = test['nServer'][i]

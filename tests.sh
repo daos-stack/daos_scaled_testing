@@ -451,6 +451,11 @@ function kill_random_server(){
     local DOOMED_SERVER=$(get_doom_server)
     local MAX_RETRY_ATTEMPTS=30
 
+    pmsg "Retrieving local time of each node"
+    run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
+                   -f ${SLURM_JOB_NUM_NODES} \
+                   ${DST_DIR}/print_node_local_time.sh"
+
     run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
     run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
     run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
@@ -496,7 +501,8 @@ function run_testcase(){
     echo "###################"
 
     case ${test} in
-        STABILIZATION)
+        SWIM)
+            # Swim stabilization test by checking server fault detection
             start_server
             create_pool
             kill_random_server
