@@ -498,7 +498,6 @@ function run_testcase(){
     case ${test} in
         STABILIZATION)
             start_server
-            start_agent
             create_pool
             kill_random_server
             ;;
