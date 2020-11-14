@@ -38,7 +38,7 @@ echo "Servers,Clients,Ranks,Scenario,create(Kops/sec),stat(Kops/sec),read(Kops/s
 for i in *
 do
     if [ -d "$i" ] && [[ "$i" = log* ]]; then
-        CURRENT_FILE=${RES_DIR}/$i/stdout*
+        CURRENT_FILE=$(find ${RES_DIR}/$i -type f -name "stdout*")
         SERVERS=$(get_value "DAOS_SERVERS=" ${CURRENT_FILE} = 2)
         RANKS=$(get_value "mdtest.*was launched" ${CURRENT_FILE} ' ' 5)
         CLIENTS=$(get_value "mdtest.*was launched" ${CURRENT_FILE} ' ' 9)
@@ -46,11 +46,11 @@ do
         START_TIME=$(grep -E "^Start Time:\s" ${CURRENT_FILE} | sed "s/Start Time: //g")
         END_TIME=$(grep -E "^End Time:\s" ${CURRENT_FILE} | sed "s/End Time: //g")
 
-        if [ -f "$i"/stdout* ] && grep -q "SUMMARY rate" "$i"/stdout* ; then
-            cr=`grep -A 11 "SUMMARY rate:" ./$i/stdout* | grep "File creation" | awk '{print $6}'`
-            st=`grep -A 11 "SUMMARY rate:" ./$i/stdout* | grep "File stat" | awk '{print $6}'`
-            rd=`grep -A 11 "SUMMARY rate:" ./$i/stdout* | grep "File read" | awk '{print $6}'`
-            rl=`grep -A 11 "SUMMARY rate:" ./$i/stdout* | grep "File removal" | awk '{print $6}'`
+        if [ -f "${CURRENT_FILE}" ] && grep -q "SUMMARY rate" "${CURRENT_FILE}" ; then
+            cr=`grep -A 11 "SUMMARY rate:" ${CURRENT_FILE} | grep "File creation" | awk '{print $6}'`
+            st=`grep -A 11 "SUMMARY rate:" ${CURRENT_FILE} | grep "File stat" | awk '{print $6}'`
+            rd=`grep -A 11 "SUMMARY rate:" ${CURRENT_FILE} | grep "File read" | awk '{print $6}'`
+            rl=`grep -A 11 "SUMMARY rate:" ${CURRENT_FILE} | grep "File removal" | awk '{print $6}'`
 
             cr_Kop=`echo "scale=2;$cr / 1000" | bc`
             st_Kop=`echo "scale=2;$st / 1000" | bc`
