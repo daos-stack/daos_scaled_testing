@@ -16,7 +16,9 @@ cd $RES_DIR
 
 #Test name
 current=${PWD##*/}
-echo $current
+echo
+echo "Test Name: ${current}"
+echo
 
 #Output file
 result=${RES_DIR}/result_${current}.csv
@@ -27,8 +29,62 @@ function get_value(){
     grep -E "^${1}[[:space:]]*:\s" ${2} | cut -d ':' -f 2 | tr -d ' ' | head -1
 }
 
-echo "Servers,Clients,PPC,Ranks,Scenario,Max Write (GiB/sec),Max Read (GiB/sec),Start,End,Status" > ${result}
+function get_ior_metric(){
+    local LOG_FILE="${1}"
+    local VALUE_LABEL="${2}"
+    local op_GiB=0
 
+    if [ -f "${LOG_FILE}" ] && grep -q "${VALUE_LABEL}" ${LOG_FILE} ; then
+        local op=`grep "${VALUE_LABEL}" ${LOG_FILE} | awk '{print $3}'`
+        local op_GiB=`echo "scale=2;$op / 1024" | bc`
+    fi
+
+    echo "${op_GiB}"
+}
+
+function get_status(){
+    local MAX_READ=${1}
+    local MAX_WRITE=${2}
+
+    if (( $(echo "${MAX_WRITE} > 0" | bc -l) )) && (( $(echo "${MAX_READ} > 0" | bc -l) )); then
+        echo "Passed"
+    elif (( $(echo "${MAX_WRITE} > 0" | bc -l) )) || (( $(echo "${MAX_READ} > 0" | bc -l) )); then
+        echo "Warning"
+    else
+        echo "Failed"
+    fi
+}
+
+function get_time_stamp(){
+    local LOG_FILE="${1}"
+    local VALUE_LABEL="${2}"
+
+    local TIME=$(grep -E "^${VALUE_LABEL}:\s" ${LOG_FILE} | sed "s/${VALUE_LABEL}:\s//g")
+
+    date -d "${TIME}" +"%m/%d/%Y %H:%M:%S"
+}
+
+function update_csv(){
+    local CURRENT_FILE=${1}
+    local RESULT_FILE=${2}
+
+    echo "  reaing file: ${CURRENT_FILE}"
+
+    SERVERS=$(grep -E "^DAOS_SERVERS=" ${CURRENT_FILE} | cut -d '=' -f 2 | tr -d ' ')
+    CLIENTS=$(get_value 'nodes' ${CURRENT_FILE})
+    RANKS=$(get_value 'tasks' ${CURRENT_FILE})
+    PPC=$(get_value 'clients per node' ${CURRENT_FILE})
+    SCENARIO=$(get_value 'RUN' ${CURRENT_FILE})
+    START_TIME="$(get_time_stamp ${CURRENT_FILE} "Start Time")"
+    END_TIME="$(get_time_stamp ${CURRENT_FILE} "End Time")"
+    wr_GiB="$(get_ior_metric ${CURRENT_FILE} "Max Write")"
+    rd_GiB="$(get_ior_metric ${CURRENT_FILE} "Max Read")"
+    STATUS="$(get_status ${wr_GiB} ${rd_GiB})"
+
+    echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},${wr_GiB},${rd_GiB},${START_TIME},${END_TIME},${STATUS}" >> ${result}
+}
+
+echo "Servers,Clients,PPC,Ranks,Scenario,Max Write (GiB/sec),Max Read (GiB/sec),Start,End,Status" > ${result}
 # For each directory in the curret dir, if the name starts with log
 # get the run configuration parameters 
 # if the run was successful (i.e. have Max Write in ior output file) 
@@ -37,25 +93,18 @@ echo "Servers,Clients,PPC,Ranks,Scenario,Max Write (GiB/sec),Max Read (GiB/sec),
 for i in *
 do
     if [ -d "$i" ] && [[ "$i" = log* ]]; then
-        CURRENT_FILE=$(find ${RES_DIR}/$i -type f -name "stdout*")
-        SERVERS=$(grep -E "^DAOS_SERVERS=" ${CURRENT_FILE} | cut -d '=' -f 2 | tr -d ' ')
-        CLIENTS=$(get_value 'nodes' ${CURRENT_FILE})
-        RANKS=$(get_value 'tasks' ${CURRENT_FILE})
-        PPC=$(get_value 'clients per node' ${CURRENT_FILE})
-        SCENARIO=$(get_value 'RUN' ${CURRENT_FILE})
-        START_TIME=$(grep -E "^Start Time:\s" ${CURRENT_FILE} | sed "s/Start Time: //g")
-        END_TIME=$(grep -E "^End Time:\s" ${CURRENT_FILE} | sed "s/End Time: //g")
+        FILES=$(find ${RES_DIR}/$i -type f -name "stdout*")
 
-        if [ -f "${CURRENT_FILE}" ] && grep -q "Max Write" "${CURRENT_FILE}" ; then
-            wr=`grep "Max Write" ${CURRENT_FILE} | awk '{print $3}'`
-            rd=`grep "Max Read" ${CURRENT_FILE} | awk '{print $3}'`
-            wr_GiB=`echo "scale=2;$wr / 1024" | bc`
-            rd_GiB=`echo "scale=2;$rd / 1024" | bc`
-            echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},${wr_GiB},${rd_GiB},${START_TIME},${END_TIME},Passed" >> ${result}
-        else
-            echo "${SERVERS},${CLIENTS},${PPC},${RANKS},${SCENARIO},0,0,${START_TIME},${END_TIME},Failed" >> ${result}
-        fi
+        for j in ${FILES}
+        do
+            if [ -z ${j} ]; then
+                continue
+            fi
+
+            update_csv ${j} $result
+        done
     fi
 done
 
+echo
 echo " Done.  Results in $result"

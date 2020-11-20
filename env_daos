@@ -1,4 +1,6 @@
 export FI_MR_CACHE_MAX_COUNT=0
+export FI_UNIVERSE_SIZE=16383
+export FI_VERBS_PREFER_XRC=1
 export D_LOG_FILE=/tmp/daos_client.log
 export D_LOG_MASK=ERR
 export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"

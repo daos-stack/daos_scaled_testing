@@ -26,6 +26,30 @@ declare -a PRECIOUS_FILES=("bin/daos"
                            "ior${MPI_SUFFIX}/bin/mdtest"
                            )
 
+# List of development or test branches to be merged on top of DAOS
+# master branch
+declare -a DAOS_PATCHES=("origin/tanabarr/control-no-ipmctl-May2020"
+                         "origin/mjmac/allow-fwd-disable-20200508"
+                         )
+
+function merge_extra_daos_branches() {
+  for PATCH in "${DAOS_PATCHES[@]}"
+  do
+    echo "Merging branch: ${PATCH}"
+    git log ${PATCH} | head -n 1
+    git merge --no-edit ${PATCH}
+    echo
+  done
+}
+
+function print_repo_info() {
+  REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
+  printf '%80s\n' | tr ' ' =
+  echo "Repo: ${REPO_NAME}"
+  git log | head -n 1
+  echo
+}
+
 function check_target_files_exist() {
   for i in "${PRECIOUS_FILES[@]}"
   do
@@ -68,8 +92,8 @@ git clone https://github.com/daos-stack/daos.git
 pushd daos
 git submodule init
 git submodule update
-git merge --no-edit origin/tanabarr/control-no-ipmctl-May2020
-git merge --no-edit origin/mjmac/allow-fwd-disable-20200508
+print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
+merge_extra_daos_branches |& tee -a ${BUILD_DIR}/latest/repo_info.txt
 scons MPI_PKG=any --build-deps=yes --config=force install
 popd
 popd
@@ -78,10 +102,11 @@ popd
 
 
 pushd $IOR_DIR
+print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
 ./bootstrap
 ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
+            MPICC=${MPI_BIN}/mpicc \
             --with-daos=${LATEST_DAOS} \
-            --with-cart=${LATEST_DAOS} \
             CPPFLAGS=-I${LATEST_DAOS}/prereq/dev/mercury/include \
             LIBS=-lmpi
 make clean
