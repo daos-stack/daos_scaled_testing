@@ -20,7 +20,7 @@ env['OPENMPI_DIR']= "<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
 self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   # Number of servers, number of clients, timeout in minutes
-                  'testlist': [
+                  'testvariants': [
                       (2, 1, 15),
                       (4, 1, 15),
                       (8, 1, 15),
@@ -39,7 +39,7 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   },
                  {'testcase': 'st_1tomany_cli2srv_inf16',
                   # Number of servers, number of clients, timeout in minutes
-                  'testlist': [
+                  'testvariants': [
                       (2, 1, 15),
                       (4, 1, 15),
                       (8, 1, 15),
@@ -60,7 +60,7 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
 
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -78,7 +78,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -96,7 +96,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_1to4_2gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -114,7 +114,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_c16_2gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -132,7 +132,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_1to4_3gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (4, 16, 15),
                      (8, 32, 15),
                      (16, 64, 15)
@@ -149,7 +149,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_c16_3gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (4, 16, 15),
                      (8, 16, 15),
                      (16, 16, 15)
@@ -166,7 +166,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -188,7 +188,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_hard_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'testlist': [
+                 'testvariants': [
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -213,7 +213,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
 
 mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'testlist': [
+                    'testvariants': [
                         (2, 8, 15),
                         (4, 16, 15),
                         (8, 32, 15),
@@ -237,7 +237,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                    {'testcase': 'mdtest_easy_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'testlist': [
+                    'testvariants': [
                         (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
@@ -261,7 +261,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                    {'testcase': 'mdtest_hard_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'testlist': [
+                    'testvariants': [
                         (2, 8, 15),
                         (4, 16, 15),
                         (8, 32, 15),
@@ -285,7 +285,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                    {'testcase': 'mdtest_hard_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'testlist': [
+                    'testvariants': [
                         (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
@@ -312,7 +312,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
 
 swim_testlist = [{'testcase': 'pool_rebuild',
                   # Number of servers, number of clients, timeout in minutes
-                  'testlist': [
+                  'testvariants': [
                       (4, 1, 15),
                       (4, 1, 15),
                       (8, 1, 15),
@@ -365,8 +365,8 @@ class TestList(object):
         env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
         env['OMPI_TIMEOUT'] = str(timeout * 60)
 
-    def _expand_testcase(self, env, ppc, testcase):
-        srv, cli, timeout = testcase
+    def _expand_variant(self, env, ppc, variant):
+        srv, cli, timeout = variant
 
         nodes = srv + cli + 1
         cores = nodes * ppc
@@ -388,8 +388,8 @@ class TestList(object):
             self._expand_default_env_vars(env, test)
             self._expand_extra_env_vars(env, test)
             ppc = test['ppc']
-            for testcase in test['testlist']:
-                self._expand_testcase(env, ppc, testcase)
+            for variant in test['testvariants']:
+                self._expand_variant(env, ppc, variant)
                 subprocess.Popen(self._script, env=env)
 
 
