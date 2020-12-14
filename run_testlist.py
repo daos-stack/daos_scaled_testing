@@ -20,7 +20,7 @@ env['OPENMPI_DIR']= "<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
 self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   # Number of servers, number of clients, timeout in minutes
-                  'test_plan': [
+                  'testlist': [
                       (2, 1, 15),
                       (4, 1, 15),
                       (8, 1, 15),
@@ -39,7 +39,7 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   },
                  {'testcase': 'st_1tomany_cli2srv_inf16',
                   # Number of servers, number of clients, timeout in minutes
-                  'test_plan': [
+                  'testlist': [
                       (2, 1, 15),
                       (4, 1, 15),
                       (8, 1, 15),
@@ -60,7 +60,7 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
 
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -78,7 +78,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -96,7 +96,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_1to4_2gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -114,7 +114,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_c16_2gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -132,7 +132,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_1to4_3gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (4, 16, 15),
                      (8, 32, 15),
                      (16, 64, 15)
@@ -149,7 +149,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_easy_c16_3gx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (4, 16, 15),
                      (8, 16, 15),
                      (16, 16, 15)
@@ -166,7 +166,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -188,7 +188,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  },
                 {'testcase': 'ior_hard_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
-                 'test_plan': [
+                 'testlist': [
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -213,7 +213,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
 
 mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'test_plan': [
+                    'testlist': [
                         (2, 8, 15),
                         (4, 16, 15),
                         (8, 32, 15),
@@ -237,7 +237,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                    {'testcase': 'mdtest_easy_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'test_plan': [
+                    'testlist': [
                         (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
@@ -261,7 +261,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                    {'testcase': 'mdtest_hard_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'test_plan': [
+                    'testlist': [
                         (2, 8, 15),
                         (4, 16, 15),
                         (8, 32, 15),
@@ -285,7 +285,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                    {'testcase': 'mdtest_hard_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
-                    'test_plan': [
+                    'testlist': [
                         (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
@@ -312,7 +312,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
 
 swim_testlist = [{'testcase': 'pool_rebuild',
                   # Number of servers, number of clients, timeout in minutes
-                  'test_plan': [
+                  'testlist': [
                       (4, 1, 15),
                       (4, 1, 15),
                       (8, 1, 15),
@@ -347,7 +347,7 @@ class TestList(object):
         env['TESTCASE'] = test['testcase']
         env['PPC'] = str(test['ppc'])
 
-    def _expand_extra_end_vars(self, env, test):
+    def _expand_extra_env_vars(self, env, test):
         env_vars = test.get('env_vars', {})
         for name, value in env_vars.items():
             env[name.upper()] = str(value)
@@ -365,8 +365,8 @@ class TestList(object):
         env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
         env['OMPI_TIMEOUT'] = str(timeout * 60)
 
-    def _expand_scenario(self, env, ppc, scenario):
-        srv, cli, timeout = scenario
+    def _expand_testcase(self, env, ppc, testcase):
+        srv, cli, timeout = testcase
 
         nodes = srv + cli + 1
         cores = nodes * ppc
@@ -386,10 +386,10 @@ class TestList(object):
 
             env = self._env
             self._expand_default_env_vars(env, test)
-            self._expand_extra_end_vars(env, test)
+            self._expand_extra_env_vars(env, test)
             ppc = test['ppc']
-            for scenario in test['test_plan']:
-                self._expand_scenario(env, ppc, scenario)
+            for testcase in test['testlist']:
+                self._expand_testcase(env, ppc, testcase)
                 subprocess.Popen(self._script, env=env)
 
 
