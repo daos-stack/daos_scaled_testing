@@ -17,266 +17,424 @@ env['RES_DIR']    = "<path_to_result_dir>" #/home1/06753/soychan/work/POC/TESTS/
 env['MPICH_DIR']  = "<path_to_mpich>" #e.g./scratch/POC/mpich
 env['OPENMPI_DIR']= "<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
-slf_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
-                 'nServer': [2, 4, 8, 16, 32, 64, 128, 256, 512],
-                 'nClient': [1, 1, 1, 1, 1, 1, 1, 1, 1],
-                 # timeout in minutes
-                 'timeout': [15, 15, 15, 15, 15, 15, 15, 15, 15],
-                 'ppc': 1,
-                 'inflight': 1,
-                 'enabled': 0
+
+self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
+                  # Number of servers, number of clients, timeout in minutes
+                  'testvariants': [
+                      (2, 1, 15),
+                      (4, 1, 15),
+                      (8, 1, 15),
+                      (16, 1, 15),
+                      (32, 1, 15),
+                      (64, 1, 15),
+                      (128, 1, 15),
+                      (256, 1, 15),
+                      (512, 1, 15)
+                  ],
+                  'ppc': 1,
+                  'env_vars': {
+                      'inflight': 1
+                  },
+                  'enabled': False
+                  },
+                 {'testcase': 'st_1tomany_cli2srv_inf16',
+                  # Number of servers, number of clients, timeout in minutes
+                  'testvariants': [
+                      (2, 1, 15),
+                      (4, 1, 15),
+                      (8, 1, 15),
+                      (16, 1, 15),
+                      (32, 1, 15),
+                      (64, 1, 15),
+                      (128, 1, 15),
+                      (256, 1, 15),
+                      (512, 1, 15)
+                  ],
+                  'ppc': 1,
+                  'env_vars': {
+                      'inflight': 16
+                  },
+                  'enabled': False
+                  }
+                 ]
+
+ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 8, 15),
+                     (4, 16, 15),
+                     (8, 32, 15),
+                     (16, 64, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '1',
+                     'xfer_size': '1M',
+                     'block_size': '1G',
+                     'oclass': 'SX'
                  },
-                {'testcase': 'st_1tomany_cli2srv_inf16',
-                 'nServer': [2, 4, 8, 16, 32, 64, 128, 256, 512],
-                 'nClient': [1, 1, 1, 1, 1, 1, 1, 1, 1],
-                 # timeout in minutes
-                 'timeout': [15, 15, 15, 15, 15, 15, 15, 15, 15],
-                 'ppc': 1,
-                 'inflight': 16,
-                 'enabled': 0
+                 'enabled': False
+                 },
+                {'testcase': 'ior_easy_c16_sx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 16, 15),
+                     (4, 16, 15),
+                     (8, 16, 15),
+                     (16, 16, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '1',
+                     'xfer_size': '1M',
+                     'block_size': '1G',
+                     'oclass': 'SX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_easy_1to4_2gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 8, 15),
+                     (4, 16, 15),
+                     (8, 32, 15),
+                     (16, 64, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '1',
+                     'xfer_size': '1M',
+                     'block_size': '1G',
+                     'oclass': 'RP_2GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_easy_c16_2gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 16, 15),
+                     (4, 16, 15),
+                     (8, 16, 15),
+                     (16, 16, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '1',
+                     'xfer_size': '1M',
+                     'block_size': '1G',
+                     'oclass': 'RP_2GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_easy_1to4_3gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (4, 16, 15),
+                     (8, 32, 15),
+                     (16, 64, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '1',
+                     'xfer_size': '1M',
+                     'block_size': '1G',
+                     'oclass': 'RP_3GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_easy_c16_3gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (4, 16, 15),
+                     (8, 16, 15),
+                     (16, 16, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '1',
+                     'xfer_size': '1M',
+                     'block_size': '1G',
+                     'oclass': 'RP_3GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_hard_1to4_sx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 8, 15),
+                     (4, 16, 15),
+                     (8, 32, 15),
+                     (16, 64, 15),
+                     (32, 128, 20),
+                     (64, 256, 20),
+                     (128, 512, 20),
+                     (256, 1024, 20)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '2000000',
+                     'xfer_size': '47008',
+                     'block_size': '47008',
+                     'oclass': 'SX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_hard_c16_sx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 16, 15),
+                     (4, 16, 15),
+                     (8, 16, 15),
+                     (16, 16, 15),
+                     (32, 16, 15),
+                     (64, 16, 15),
+                     (128, 16, 15),
+                     (256, 16, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '2000000',
+                     'xfer_size': '47008',
+                     'block_size': '47008',
+                     'oclass': 'SX'
+                 },
+                 'enabled': False
                  }
                 ]
 
-ior_testlist = [{'testcase': 'ioreasy_1to4',
-                 'nServer': [2, 4, 8, 16],
-                 'nClient': [8, 16, 32, 64],
-                 # timeout in minutes
-                 'timeout': [15, 15, 15, 15],
-                 'ppc': 32,
-                 'segments': '1',
-                 'pool_sz': '85G',
-                 'xfer_sz': '1M',
-                 'blk_sz': '1G',
-                 'enabled': 0
-                 },
-                {'testcase': 'ioreasy_c16',
-                 'nServer': [2, 4, 8, 16],
-                 'nClient': [16, 16, 16, 16],
-                 # timeout in minutes
-                 'timeout': [15, 15, 15, 15],
-                 'ppc': 32,
-                 'segments': '1',
-                 'pool_sz': '85G',
-                 'xfer_sz': '1M',
-                 'blk_sz': '1G',
-                 'enabled': 0
-                 },
-                {'testcase': 'iorhard_1to4',
-                 'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
-                 'nClient': [8, 16, 32, 64, 128, 256, 512, 1024],
-                 # timeout in minutes
-                 'timeout': [15, 15, 15, 15, 120, 120, 120, 120],
-                 'ppc': 32,
-                 'segments': '2000000',
-                 'pool_sz': '85G',
-                 'xfer_sz': '47008',
-                 'blk_sz': '47008',
-                 'enabled': 0
-                 },
-                {'testcase': 'iorhard_c16',
-                 'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
-                 'nClient': [16, 16, 16, 16, 16, 16, 16, 16],
-                 # timeout in minutes
-                 'timeout': [15, 15, 15, 15, 15, 15, 15, 15],
-                 'ppc': 32,
-                 'segments': '2000000',
-                 'pool_sz': '85G',
-                 'xfer_sz': '47008',
-                 'blk_sz': '47008',
-                 'enabled': 0
-                 }
-                ]
 
-mdtest_testlist = [{'testcase': 'mdtesteasy_1to4',
-                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
-                    'nClient': [8, 16, 32, 64, 128, 256, 512, 1024],
-                    # timeout in minutes
-                    'timeout': [15, 15, 15, 60, 120, 120, 120, 120],
+mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 8, 15),
+                        (4, 16, 15),
+                        (8, 32, 15),
+                        (16, 64, 15),
+                        (32, 128, 15),
+                        (64, 256, 15),
+                        (128, 512, 20),
+                        (256, 1024, 20)
+                    ],
                     'ppc': 32,
-                    'pool_sz': '85G',
-                    'nFile': '12000',
-                    'bytes_read': '0',
-                    'bytes_write': '0',
-                    'tree_depth': '0',
-                    'enabled': 0
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '0',
+                        'bytes_write': '0',
+                        'tree_depth': '0',
+                        'dir_oclass': 'S1',
+                        'oclass': 'SX'
                     },
-                   {'testcase': 'mdtesteasy_c16',
-                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
-                    'nClient': [16, 16, 16, 16, 16, 16, 16, 16],
-                    # timeout in minutes
-                    'timeout': [15, 15, 15, 30, 30, 45, 60, 60],
-                    'ppc': 32,
-                    'pool_sz': '85G',
-                    'nFile': '12000',
-                    'bytes_read': '0',
-                    'bytes_write': '0',
-                    'tree_depth': '0',
-                    'enabled': 0
+                    'enabled': False
                     },
-                   {'testcase': 'mdtesthard_1to4',
-                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
-                    'nClient': [8, 16, 32, 64, 128, 256, 512, 1024],
-                    # timeout in minutes
-                    'timeout': [15, 15, 30, 60, 90, 90, 120, 120],
+                   {'testcase': 'mdtest_easy_c16_sx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 16, 15),
+                        (4, 16, 15),
+                        (8, 16, 15),
+                        (16, 16, 15),
+                        (32, 16, 15),
+                        (64, 16, 15),
+                        (128, 16, 15),
+                        (256, 16, 15)
+                    ],
                     'ppc': 32,
-                    'pool_sz': '85G',
-                    'nFile': '12000',
-                    'bytes_read': '3901',
-                    'bytes_write': '3901',
-                    'tree_depth': '0/20',
-                    'enabled': 0
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '0',
+                        'bytes_write': '0',
+                        'tree_depth': '0',
+                        'dir_oclass': 'S1',
+                        'oclass': 'SX'
                     },
-                   {'testcase': 'mdtesthard_c16',
-                    'nServer': [2, 4, 8, 16, 32, 64, 128, 256],
-                    'nClient': [16, 16, 16, 16, 16, 16, 16, 16],
-                    # timeout in minutes
-                    'timeout': [15, 15, 15, 30, 45, 45, 60, 90],
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_hard_1to4_sx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 8, 15),
+                        (4, 16, 15),
+                        (8, 32, 15),
+                        (16, 64, 15),
+                        (32, 128, 15),
+                        (64, 256, 15),
+                        (128, 512, 20),
+                        (256, 1024, 20)
+                    ],
                     'ppc': 32,
-                    'pool_sz': '85G',
-                    'nFile': '12000',
-                    'bytes_read': '3901',
-                    'bytes_write': '3901',
-                    'tree_depth': '0/20',
-                    'enabled': 0
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '3901',
+                        'bytes_write': '3901',
+                        'tree_depth': '0/20',
+                        'dir_oclass': 'S1',
+                        'oclass': 'SX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_hard_c16_sx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 16, 15),
+                        (4, 16, 15),
+                        (8, 16, 15),
+                        (16, 16, 15),
+                        (32, 16, 15),
+                        (64, 16, 15),
+                        (128, 16, 15),
+                        (256, 16, 15)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '3901',
+                        'bytes_write': '3901',
+                        'tree_depth': '0/20',
+                        'dir_oclass': 'S1',
+                        'oclass': 'SX'
+                    },
+                    'enabled': False
                     }
                    ]
 
-swim_test = [{'testcase': 'pool_rebuild',
-                           'nServer': [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
-                           'nClient': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                           # timeout in minutes
-                           'timeout': [15, 15, 15, 15, 15, 15, 15, 15, 15, 15],
-                           'ppc': 32,
-                           'pool_sz': '85G',
-                           'enabled': 0
-                           }
-                         ]
 
-dst_dir = os.getenv("DST_DIR")
-script = os.path.join(dst_dir, "run_sbatch.sh")
+swim_testlist = [{'testcase': 'pool_rebuild',
+                  # Number of servers, number of clients, timeout in minutes
+                  'testvariants': [
+                      (4, 1, 15),
+                      (4, 1, 15),
+                      (8, 1, 15),
+                      (16, 1, 15),
+                      (32, 1, 15),
+                      (64, 1, 15),
+                      (128, 1, 15),
+                      (256, 1, 15),
+                      (512, 1, 15),
+                      (1024, 1, 15)
+                  ],
+                  'ppc': 32,
+                  'env_vars': {
+                      'pool_size': '85G'
+                  },
+                  'enabled': False
+                  }
+                 ]
 
-for test in swim_test:
-    if test['enabled'] == 1:
-        env['TEST_GROUP'] = "SWIM"
+
+class TestList(object):
+    def __init__(self, test_group, testlist, env, script='run_sbatch.sh'):
+        self._test_group = test_group
+        self._testlist = testlist
+        self._env = env
+        self._teardown_offset = 10
+        dst_dir = os.getenv('DST_DIR')
+        self._script = os.path.join(dst_dir, script)
+
+    def _expand_default_env_vars(self, env, test):
+        env['TEST_GROUP'] = self._test_group
         env['TESTCASE'] = test['testcase']
-        for i in range(len(test['nServer'])):
-            srv = test['nServer'][i]
-            cli = test['nClient'][i]
-            nodes = srv + cli + 1
-            cores = nodes * test['ppc']
-            if nodes <= 512:
-                env['PARTITION'] = 'normal'
-            else:
-                env['PARTITION'] = 'large'
+        env['PPC'] = str(test['ppc'])
 
-            env['DAOS_SERVERS'] = str(srv)
-            env['DAOS_CLIENTS'] = str(cli)
-            env['NNODE'] = str(nodes)
-            env['NCORE'] = str(cores)
-            env['PPC'] = str(test['ppc'])
-            env['POOL_SIZE'] = test['pool_sz']
+    def _expand_extra_env_vars(self, env, test):
+        env_vars = test.get('env_vars', {})
+        for name, value in env_vars.items():
+            env[name.upper()] = str(value)
 
-            t = test['timeout'][i] + 10
-            h = int(t / 60)
-            m = t % 60
-            s = 0
-            env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-            env['OMPI_TIMEOUT'] = str(test['timeout'][i] * 60)
+    def _add_partition(self, env, nodes):
+        if nodes <= 512:
+            env['PARTITION'] = 'normal'
+        else:
+            env['PARTITION'] = 'large'
 
-            subprocess.Popen(script, env=env)
+    def _add_timeout(self, env, timeout):
+        h = (timeout + self._teardown_offset) // 60
+        m = (timeout + self._teardown_offset) % 60
+        s = 0
+        env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
+        env['OMPI_TIMEOUT'] = str(timeout * 60)
 
-for test in slf_testlist:
-    if test['enabled'] == 1:
-        env['TEST_GROUP'] = "SELF_TEST"
-        env['TESTCASE'] = test['testcase']
-        env['INFLIGHT'] = str(test['inflight'])
-        for i in range(len(test['nServer'])):
-            srv = test['nServer'][i]
-            cli = test['nClient'][i]
-            nodes = srv + cli + 1
-            cores = nodes * test['ppc']
-            if nodes <= 512:
-                env['PARTITION'] = 'normal'
-            else:
-                env['PARTITION'] = 'large'
+    def _expand_variant(self, env, ppc, variant):
+        srv, cli, timeout = variant
 
-            env['DAOS_SERVERS'] = str(srv)
-            env['DAOS_CLIENTS'] = str(cli)
-            env['NNODE'] = str(nodes)
-            env['NCORE'] = str(cores)
+        nodes = srv + cli + 1
+        cores = nodes * ppc
 
-            t = test['timeout'][i] + 10
-            h = int(t / 60)
-            m = t % 60
-            s = 0
-            env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-            env['OMPI_TIMEOUT'] = str(test['timeout'][i] * 60)
+        env['DAOS_SERVERS'] = str(srv)
+        env['DAOS_CLIENTS'] = str(cli)
+        env['NNODE'] = str(nodes)
+        env['NCORE'] = str(cores)
 
-            subprocess.Popen(script, env=env)
+        self._add_partition(env, nodes)
+        self._add_timeout(env, timeout)
 
-for test in ior_testlist:
-    if test['enabled'] == 1:
-        env['TEST_GROUP'] = "IOR"
-        env['TESTCASE'] = test['testcase']
-        for i in range(len(test['nServer'])):
-            srv = test['nServer'][i]
-            cli = test['nClient'][i]
-            nodes = srv + cli + 1
-            cores = nodes * test['ppc']
-            if nodes <= 512:
-                env['PARTITION'] = 'normal'
-            else:
-                env['PARTITION'] = 'large'
+    def run(self):
+        for test in self._testlist:
+            if not test['enabled']:
+                continue
 
-            env['DAOS_SERVERS'] = str(srv)
-            env['DAOS_CLIENTS'] = str(cli)
-            env['NNODE'] = str(nodes)
-            env['NCORE'] = str(cores)
-            env['PPC'] = str(test['ppc'])
-            env['SEGMENTS'] = test['segments']
-            env['POOL_SIZE'] = test['pool_sz']
-            env['XFER_SIZE'] = test['xfer_sz']
-            env['BLOCK_SIZE'] = test['blk_sz']
+            env = self._env
+            self._expand_default_env_vars(env, test)
+            self._expand_extra_env_vars(env, test)
+            ppc = test['ppc']
+            for variant in test['testvariants']:
+                self._expand_variant(env, ppc, variant)
+                subprocess.Popen(self._script, env=env)
 
-            t = test['timeout'][i] + 10
-            h = int(t / 60)
-            m = t % 60
-            s = 0
-            env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-            env['OMPI_TIMEOUT'] = str(test['timeout'][i] * 60)
 
-            subprocess.Popen(script, env=env)
+class SelfTestList(TestList):
+    def __init__(self, testlist):
+        super(SelfTestList, self).__init__('SELF_TEST', testlist, env)
 
-for test in mdtest_testlist:
-    if test['enabled'] == 1:
-        env['TEST_GROUP'] = "MDTEST"
-        env['TESTCASE'] = test['testcase']
-        for i in range(len(test['nServer'])):
-            srv = test['nServer'][i]
-            cli = test['nClient'][i]
-            nodes = srv + cli + 1
-            cores = nodes * test['ppc']
-            if nodes <= 512:
-                env['PARTITION'] = 'normal'
-            else:
-                env['PARTITION'] = 'large'
 
-            env['DAOS_SERVERS'] = str(srv)
-            env['DAOS_CLIENTS'] = str(cli)
-            env['NNODE'] = str(nodes)
-            env['NCORE'] = str(cores)
-            env['PPC'] = str(test['ppc'])
-            env['POOL_SIZE'] = test['pool_sz']
-            env['N_FILE'] = test['nFile']
-            env['BYTES_READ'] = test['bytes_read']
-            env['BYTES_WRITE'] = test['bytes_write']
-            env['TREE_DEPTH'] = test['tree_depth']
+class IorTestList(TestList):
+    def __init__(self, testlist):
+        super(IorTestList, self).__init__('IOR', testlist, env)
 
-            t = test['timeout'][i] + 10
-            h = int(t / 60)
-            m = t % 60
-            s = 0
-            env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-            env['OMPI_TIMEOUT'] = str(test['timeout'][i] * 60)
+    def _add_timeout(self, env, timeout):
+        # ior runs twice, read and write operations are performed separately
+        testcase_timeout = timeout * 2
+        h = (testcase_timeout + self._teardown_offset) // 60
+        m = (testcase_timeout + self._teardown_offset) % 60
+        s = 0
+        env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
+        env['OMPI_TIMEOUT'] = str(timeout * 60)
 
-            subprocess.Popen(script, env=env)
+
+class MdtestTestList(TestList):
+    def __init__(self, testlist):
+        super(MdtestTestList, self).__init__('MDTEST', testlist, env)
+
+
+class SwimTestList(TestList):
+    def __init__(self, testlist):
+        super(SwimTestList, self).__init__('SWIM', testlist, env)
+
+
+def main():
+    self_test = SelfTestList(self_testlist)
+    self_test.run()
+
+    ior_test = IorTestList(ior_testlist)
+    ior_test.run()
+
+    mdtest_test = MdtestTestList(mdtest_testlist)
+    mdtest_test.run()
+
+    swim_test = SwimTestList(swim_testlist)
+    swim_test.run()
+
+
+if __name__ == '__main__':
+    main()

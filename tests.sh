@@ -33,7 +33,7 @@ ALL_HOSTLIST_FILE="Log/$SLURM_JOB_ID/daos_all_hostlist"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
-OUTPUT_DIR=${LOGS}/log_${DAOS_SERVERS}
+RUN_DIR=${LOGS}/log_${DAOS_SERVERS}
 PROCESSES="'(daos|orteun|mpirun)'"
 
 HOSTNAME=$(hostname)
@@ -41,11 +41,10 @@ echo $HOSTNAME
 echo
 BUILD=`ls -al $DAOS_DIR/../../latest`
 echo $BUILD
-echo
-pushd $DAOS_DIR
-git log | head -n 1
-popd
-echo
+
+mkdir -p ${RUN_DIR}
+cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}
+
 source ${DST_DIR}/env_daos ${DAOS_DIR}
 source ${DST_DIR}/build_env.sh ${MPI}
 
@@ -60,14 +59,12 @@ echo
 echo DAOS_SERVERS=$DAOS_SERVERS
 
 cleanup(){
-    mv *$SLURM_JOB_ID Log/$SLURM_JOB_ID/
+    mv -v *$SLURM_JOB_ID Log/$SLURM_JOB_ID/ || true
     mkdir -p Log/$SLURM_JOB_ID/cleanup
     $SRUN_CMD copy_log_files.sh "cleanup"
     $SRUN_CMD cleanup.sh $DAOS_SERVERS
     echo "End Time: $(date)"
 }
-
-trap cleanup EXIT
 
 # Generate timestamp
 function time_stamp(){
@@ -90,19 +87,31 @@ function run_cmd(){
     echo "${OUTPUT_CMD}"
 }
 
+function get_daos_status(){
+    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
+    run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
+}
+
 function teardown_test(){
     local CSH_PREFIX="clush --hostfile ${ALL_HOSTLIST_FILE} \
                       -f ${SLURM_JOB_NUM_NODES}"
     pmsg "Starting teardown"
 
+    sleep 10
     run_cmd "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
-    run_cmd "${CSH_PREFIX} \"pkill ${PROCESSES}\""
+    run_cmd "${CSH_PREFIX} \"pkill -e ${PROCESSES}\""
     run_cmd "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+
+    cleanup
 
     # wait for all the background commands
     wait
 
     pmsg "End of teardown"
+
+    pkill -P $$
+
     exit 0
 }
 
@@ -186,16 +195,17 @@ dump_attach_info(){
 
 #Create Pool
 create_pool(){
-    echo -e "\nCMD: Creating pool\n"
+    pmsg "Creating pool"
+
     cmd="dmg -o $DAOS_CONTROL_YAML pool create --scm-size $POOL_SIZE"
     echo $cmd
     echo
     DAOS_POOL=`$cmd`
     if [ $? -ne 0 ]; then
-        echo "DMG pool create FAIL"
+        pmsg "DMG pool create FAIL"
         teardown_test
     else
-        echo "DMG pool create SUCCESS"
+        pmsg "DMG pool create SUCCESS"
     fi
 
     POOL_UUID="$(grep -o "UUID: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $2}')"
@@ -270,6 +280,8 @@ start_server(){
     daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
+    pushd ${RUN_DIR};
+    ulimit -c unlimited;
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
     $daos_cmd \" 2>&1 "
@@ -283,24 +295,27 @@ start_server(){
 #Run IOR
 run_ior(){
     echo -e "\nCMD: Starting IOR..."
+    module unload intel
+    module list
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
     IOR_WR_CMD="ior
-             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 2
+             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${OUTPUT_DIR}/sw.${SLURM_JOB_ID} -D 60
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-             --daos.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass SX
+             --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.svcl ${POOL_SVC} -vvv"
 
     IOR_RD_CMD="ior
-             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 2
+             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
-             -O stoneWallingStatusFile=${OUTPUT_DIR}/sw.${SLURM_JOB_ID}
+             -O stoneWallingWearOut=1
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-             --daos.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass SX
+             --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.svcl ${POOL_SVC} -vvv"
 
     prefix_mpich="mpirun
@@ -310,6 +325,8 @@ run_ior(){
     prefix_openmpi="orterun $OMPI_PARAM
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
                  -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+                 -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
+                 -x FI_VERBS_PREFER_XRC
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist"
 
@@ -328,12 +345,20 @@ run_ior(){
     echo $cmd
     echo
     eval $cmd
-    if [ $? -ne 0 ]; then
+    RC=$?
+
+    get_daos_status
+
+    if [ ${RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR FAIL\n"
+        module load intel
+        module list
         teardown_test
     else
         echo -e "\nSTATUS: IOR SUCCESS\n"
     fi
+    module load intel
+    module list
     sleep 5
 }
 
@@ -381,14 +406,18 @@ run_self_test(){
 
 run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
+    module unload intel
+    module list
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
     mdtest_cmd="mdtest
                 -a DFS --dfs.destroy --dfs.pool ${POOL_UUID}
                 --dfs.cont $(uuidgen) --dfs.svcl ${POOL_SVC}
+                --dfs.dir_oclass ${DIR_OCLASS} --dfs.oclass ${OCLASS}
+                -L -p 10 -F -N 1 -P -d / -W 90
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
-                -n ${N_FILE} -u -L --dfs.oclass S1 -N 1 -P -d /"
+                -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -vvv"
 
     mpich_cmd="mpirun
               -np $no_of_ps -map-by node
@@ -398,6 +427,8 @@ run_mdtest(){
     openmpi_cmd="orterun $OMPI_PARAM
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+                -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
+                -x FI_VERBS_PREFER_XRC
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
                 $mdtest_cmd"
@@ -411,12 +442,20 @@ run_mdtest(){
     echo $cmd
     echo
     eval $cmd
-    if [ $? -ne 0 ]; then
+    RC=$?
+
+    get_daos_status
+
+    if [ ${RC} -ne 0 ]; then
         echo -e "\nSTATUS: MDTEST FAIL\n"
+        module load intel
+        module list
         teardown_test
     else
         echo -e "\nSTATUS: MDTEST SUCCESS\n"
     fi
+    module load intel
+    module list
     sleep 5
 }
 
@@ -456,25 +495,20 @@ function kill_random_server(){
                    -f ${SLURM_JOB_NUM_NODES} \
                    ${DST_DIR}/print_node_local_time.sh"
 
-    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
-    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
-    run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
+    get_daos_status
 
     pmsg "Waiting to kill ${DOOMED_SERVER} server in ${WAIT_TIME} seconds..."
     sleep ${WAIT_TIME}
     pmsg "Killing ${DOOMED_SERVER} server"
     run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
-    run_cmd "ssh ${DOOMED_SERVER} \"pkill ${PROCESSES}\""
+    run_cmd "ssh ${DOOMED_SERVER} \"pkill -e ${PROCESSES}\""
     run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
     pmsg "Killed ${DOOMED_SERVER} server"
 
     n=1
     until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
     do
-        run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
-        run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
-        run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query \
-                 --pool ${POOL_UUID}"
+        get_daos_status
 
         if echo "${OUTPUT_CMD}" | grep -qE "^Rebuild\sdone"; then
             break
@@ -488,7 +522,9 @@ function kill_random_server(){
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
         pmsg "Failed to rebuild pool ${POOL_UUID}"
         teardown_test
-      fi
+    fi
+
+    pmsg "Pool rebuild completed"
 }
 
 function run_testcase(){
@@ -531,10 +567,11 @@ function run_testcase(){
             echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
     esac
 
+    pmsg "End of testscase ${TESTCASE}"
     teardown_test
 }
 
 test=$1
 
-mkdir -p ${OUTPUT_DIR}
-run_testcase |& tee ${OUTPUT_DIR}/output.txt
+mkdir -p ${RUN_DIR}
+run_testcase |& tee ${RUN_DIR}/output_${SLURM_JOB_ID}.txt
