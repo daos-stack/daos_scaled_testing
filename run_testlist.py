@@ -523,6 +523,8 @@ class TestList(object):
         self._testlist = testlist
         self._env = env
         self._teardown_offset = 10
+        self._pool_create_timeout = 5
+        self._cmd_timeout = 2
         dst_dir = os.getenv('DST_DIR')
         self._script = os.path.join(dst_dir, script)
 
@@ -548,6 +550,8 @@ class TestList(object):
         s = 0
         env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
         env['OMPI_TIMEOUT'] = str(timeout * 60)
+        env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
+        env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
 
     def _expand_variant(self, env, ppc, variant):
         srv, cli, timeout = variant
@@ -594,6 +598,8 @@ class IorTestList(TestList):
         s = 0
         env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
         env['OMPI_TIMEOUT'] = str(timeout * 60)
+        env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
+        env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
 
 
 class MdtestTestList(TestList):

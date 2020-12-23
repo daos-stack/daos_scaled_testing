@@ -5,14 +5,14 @@ export D_LOG_FILE=/tmp/daos_client.log
 export D_LOG_MASK=ERR
 export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
 export OFI_INTERFACE=ib0
-export OFI_DOMAIN=mlx5_0
+export OFI_DOMAIN=mlx5_0-xrc
 export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
 export DAOS_DISABLE_REQ_FWD=1
 
 LOCATION=$1
 
 daospath=/$LOCATION/install
-prereqpath=/$LOCATION/install/prereq/dev
+prereqpath=/$LOCATION/install/prereq/release
 
 PATH=${prereqpath}/argobots/bin:$PATH
 PATH=${prereqpath}/isal/bin:$PATH
