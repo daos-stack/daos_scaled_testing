@@ -29,7 +29,7 @@ declare -a PRECIOUS_FILES=("bin/daos"
 # List of development or test branches to be merged on top of DAOS
 # master branch
 declare -a DAOS_PATCHES=("origin/tanabarr/control-no-ipmctl-May2020"
-                         "origin/mjmac/allow-fwd-disable-20200508"
+                         "origin/mjmac/io500-frontera"
                          )
 
 function merge_extra_daos_branches() {
@@ -94,7 +94,7 @@ git submodule init
 git submodule update
 print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
 merge_extra_daos_branches |& tee -a ${BUILD_DIR}/latest/repo_info.txt
-scons MPI_PKG=any --build-deps=yes --config=force install
+scons MPI_PKG=any --build-deps=yes --config=force BUILD_TYPE=release install
 popd
 popd
 popd
@@ -107,7 +107,7 @@ print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
 ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
             MPICC=${MPI_BIN}/mpicc \
             --with-daos=${LATEST_DAOS} \
-            CPPFLAGS=-I${LATEST_DAOS}/prereq/dev/mercury/include \
+            CPPFLAGS=-I${LATEST_DAOS}/prereq/release/mercury/include \
             LIBS=-lmpi
 make clean
 make

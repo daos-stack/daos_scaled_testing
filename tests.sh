@@ -25,15 +25,15 @@ fi
 
 #Others
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-DAOS_SERVER_YAML="$PWD/Log/$SLURM_JOB_ID/daos_server.yml"
-DAOS_AGENT_YAML="$PWD/Log/$SLURM_JOB_ID/daos_agent.yml"
-DAOS_CONTROL_YAML="$PWD/Log/$SLURM_JOB_ID/daos_control.yml"
-SERVER_HOSTLIST_FILE="Log/$SLURM_JOB_ID/daos_server_hostlist"
-ALL_HOSTLIST_FILE="Log/$SLURM_JOB_ID/daos_all_hostlist"
+DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
+DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
+DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
+SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
+ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
+CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
-RUN_DIR=${LOGS}/log_${DAOS_SERVERS}
 PROCESSES="'(daos|orteun|mpirun)'"
 
 HOSTNAME=$(hostname)
@@ -59,10 +59,9 @@ echo
 echo DAOS_SERVERS=$DAOS_SERVERS
 
 cleanup(){
-    mv -v *$SLURM_JOB_ID Log/$SLURM_JOB_ID/ || true
-    mkdir -p Log/$SLURM_JOB_ID/cleanup
-    $SRUN_CMD copy_log_files.sh "cleanup"
-    $SRUN_CMD cleanup.sh $DAOS_SERVERS
+    mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}/cleanup
+    $SRUN_CMD ${DST_DIR}/copy_log_files.sh "cleanup"
+    $SRUN_CMD ${DST_DIR}/cleanup.sh ${DAOS_SERVERS}
     echo "End Time: $(date)"
 }
 
@@ -83,8 +82,13 @@ function run_cmd(){
 
     echo
     echo "$(time_stamp) CMD: ${CMD}"
-    OUTPUT_CMD="$(eval "${CMD}")"
+
+    OUTPUT_CMD="$(timeout --signal SIGKILL ${CMD_TIMEOUT} ${CMD})"
+    RC=$?
+
     echo "${OUTPUT_CMD}"
+
+    check_cmd_timeout ${RC} ${CMD}
 }
 
 function get_daos_status(){
@@ -99,9 +103,9 @@ function teardown_test(){
     pmsg "Starting teardown"
 
     sleep 10
-    run_cmd "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
-    run_cmd "${CSH_PREFIX} \"pkill -e ${PROCESSES}\""
-    run_cmd "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
 
     cleanup
 
@@ -113,6 +117,22 @@ function teardown_test(){
     pkill -P $$
 
     exit 0
+}
+
+function check_cmd_timeout(){
+    local RC=${1}
+    local CMD_NAME="${2}"
+
+    if [ ${RC} -eq 137 ]; then
+        pmsg "STATUS: ${CMD_NAME} TIMEOUT"
+        teardown_test
+    elif [ ${RC} -ne 0 ]; then
+        pmsg "STATUS: ${CMD_NAME} FAIL"
+        echo "RC: ${RC}"
+        teardown_test
+    else
+        pmsg "STATUS: ${CMD_NAME} SUCCESS"
+    fi
 }
 
 #Wait for all the DAOS servers to start
@@ -147,14 +167,14 @@ function wait_for_servers_to_start(){
 #Create server/client hostfile.
 prepare(){
     #Create the folder for server/client logs.
-    mkdir -p Log/$SLURM_JOB_ID
-    cp daos_server.yml daos_agent.yml daos_control.yml Log/$SLURM_JOB_ID/
-    $SRUN_CMD create_log_dir.sh "cleanup"
+    mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}
+    cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
+    $SRUN_CMD ${DST_DIR}/create_log_dir.sh "cleanup"
 
     if [ $MPI == "openmpi" ]; then
-        ./openmpi_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
+        ${DST_DIR}/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     else
-	./mpich_gen_hostlist.sh $DAOS_SERVERS $DAOS_CLIENTS
+        ${DST_DIR}/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     fi
 
     ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
@@ -186,7 +206,7 @@ start_agent(){
 #Dump attach info
 dump_attach_info(){
     echo -e "\nCMD: Dump attach info file...\n"
-    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o Log/$SLURM_JOB_ID/daos_server.attach_info_tmp"
+    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
     echo $cmd
     echo
     eval $cmd &
@@ -200,13 +220,9 @@ create_pool(){
     cmd="dmg -o $DAOS_CONTROL_YAML pool create --scm-size $POOL_SIZE"
     echo $cmd
     echo
-    DAOS_POOL=`$cmd`
-    if [ $? -ne 0 ]; then
-        pmsg "DMG pool create FAIL"
-        teardown_test
-    else
-        pmsg "DMG pool create SUCCESS"
-    fi
+    DAOS_POOL="$(timeout --signal SIGKILL ${POOL_CREATE_TIMEOUT} ${cmd})"
+    check_cmd_timeout $? "dmg pool create"
+    echo "${DAOS_POOL}"
 
     POOL_UUID="$(grep -o "UUID: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $2}')"
     POOL_SVC="$(grep -o "Service replicas: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $3}')"
@@ -217,16 +233,8 @@ create_pool(){
 }
 
 setup_pool(){
-    cmd="dmg pool set-prop --pool=$POOL_UUID --name=reclaim --value=disabled -o $DAOS_CONTROL_YAML"
-    echo $cmd
-    echo
-    eval $cmd
-    if [ $? -ne 0 ]; then
-        echo "DMG pool set-prop FAIL"
-        teardown_test
-    else
-        echo "DMG pool set-prop SUCCESS"
-    fi
+    pmsg "Pool set-prop"
+    run_cmd "dmg pool set-prop --pool=$POOL_UUID --name=reclaim --value=disabled -o $DAOS_CONTROL_YAML"
 
     sleep 10
 }
@@ -240,11 +248,12 @@ create_container(){
     echo CONT_UUID = $CONT_UUID
     echo HOST $HOST
     daos_cmd="daos cont create --pool=$POOL_UUID --svc=$POOL_SVC --cont $CONT_UUID --type=POSIX --properties=dedup:memcmp"
-    cmd="clush -w $HOST 
+    cmd="clush -w $HOST --command_timeout ${CMD_TIMEOUT} -S
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
     export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
+    export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     $daos_cmd\""
 
     echo $daos_cmd
@@ -257,11 +266,12 @@ create_container(){
     fi
 
     daos_cmd="daos cont query --pool=$POOL_UUID --svc=$POOL_SVC --cont=$CONT_UUID"
-    cmd="clush -w $HOST
+    cmd="clush -w $HOST --command_timeout ${CMD_TIMEOUT} -S
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
     export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
+    export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     $daos_cmd\""
 
     echo $daos_cmd
@@ -320,7 +330,7 @@ run_ior(){
 
     prefix_mpich="mpirun
              -np $no_of_ps -map-by node
-             -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist"
+             -hostfile ${CLIENT_HOSTLIST_FILE}"
 
     prefix_openmpi="orterun $OMPI_PARAM
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
@@ -328,7 +338,7 @@ run_ior(){
                  -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
                  -x FI_VERBS_PREFER_XRC
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
-                 --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist"
+                 --hostfile ${CLIENT_HOSTLIST_FILE}"
 
     mpich_cmd="${prefix_mpich} ${IOR_WR_CMD};
                ${prefix_mpich} ${IOR_RD_CMD}"
@@ -369,21 +379,21 @@ run_self_test(){
     let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
 
     st_cmd="self_test
-        --path Log/$SLURM_JOB_ID
+        --path ${RUN_DIR}/${SLURM_JOB_ID}
         --group-name daos_server --endpoint 0-${last_srv_index}:0
         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
 
     mpich_cmd="mpirun --prepend-rank
         -np 1 -map-by node
-        -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+        -hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
-        --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+        --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
 
     if [ "$MPI" == "openmpi" ]; then
@@ -421,7 +431,7 @@ run_mdtest(){
 
     mpich_cmd="mpirun
               -np $no_of_ps -map-by node
-              -hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+              -hostfile ${CLIENT_HOSTLIST_FILE}
               $mdtest_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM
@@ -430,7 +440,7 @@ run_mdtest(){
                 -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
                 -x FI_VERBS_PREFER_XRC
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
-                --hostfile Log/$SLURM_JOB_ID/daos_client_hostlist
+                --hostfile ${CLIENT_HOSTLIST_FILE}
                 $mdtest_cmd"
 
     if [ "$MPI" == "openmpi" ]; then
@@ -573,5 +583,4 @@ function run_testcase(){
 
 test=$1
 
-mkdir -p ${RUN_DIR}
 run_testcase |& tee ${RUN_DIR}/output_${SLURM_JOB_ID}.txt

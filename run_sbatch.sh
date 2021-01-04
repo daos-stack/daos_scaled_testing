@@ -6,7 +6,8 @@ export EMAIL
 export DAOS_DIR
 export TESTCASE
 export LOGS=$RES_DIR/$(date +%Y%m%d)/$TESTCASE
-mkdir -p $LOGS
+export RUN_DIR=${LOGS}/log_${DAOS_SERVERS}
+mkdir -p ${RUN_DIR}
 
 export DAOS_SERVERS
 export DAOS_CLIENTS
@@ -16,7 +17,7 @@ export BLOCK_SIZE
 export PPC
 export OMPI_TIMEOUT
 
-pushd $DST_DIR
+pushd ${RUN_DIR}
 
 echo Running $TESTCASE
-sbatch -J $JOBNAME -t $TIMEOUT --mail-user=$EMAIL -N $NNODE -n $NCORE -p $PARTITION tests.sh $TEST_GROUP
+sbatch -J $JOBNAME -t $TIMEOUT --mail-user=$EMAIL -N $NNODE -n $NCORE -p $PARTITION ${DST_DIR}/tests.sh $TEST_GROUP

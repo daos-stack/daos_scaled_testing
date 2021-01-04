@@ -18,7 +18,7 @@ servers:
   - DD_MASK=mgmt,io,md,epc,rebuild
   - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
   - PMEM_IS_PMEM_FORCE=1
-  - OFI_DOMAIN=mlx5_0
+  - OFI_DOMAIN=mlx5_0-xrc
   - FI_MR_CACHE_MAX_COUNT=0
   - FI_UNIVERSE_SIZE=16383
   - FI_VERBS_PREFER_XRC=1
