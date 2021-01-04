@@ -259,6 +259,102 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                     'enabled': False
                     },
+                   {'testcase': 'mdtest_easy_1to4_2gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 8, 15),
+                        (4, 16, 15),
+                        (8, 32, 15),
+                        (16, 64, 15),
+                        (32, 128, 15),
+                        (64, 256, 15),
+                        (128, 512, 20),
+                        (256, 1024, 20)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '0',
+                        'bytes_write': '0',
+                        'tree_depth': '0',
+                        'dir_oclass': 'S1',
+                        'oclass': 'RP_2GX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_easy_c16_2gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 16, 15),
+                        (4, 16, 15),
+                        (8, 16, 15),
+                        (16, 16, 15),
+                        (32, 16, 15),
+                        (64, 16, 15),
+                        (128, 16, 15),
+                        (256, 16, 15)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '0',
+                        'bytes_write': '0',
+                        'tree_depth': '0',
+                        'dir_oclass': 'S1',
+                        'oclass': 'RP_2GX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_easy_1to4_3gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 8, 15),
+                        (4, 16, 15),
+                        (8, 32, 15),
+                        (16, 64, 15),
+                        (32, 128, 15),
+                        (64, 256, 15),
+                        (128, 512, 20),
+                        (256, 1024, 20)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '0',
+                        'bytes_write': '0',
+                        'tree_depth': '0',
+                        'dir_oclass': 'S1',
+                        'oclass': 'RP_3GX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_easy_c16_3gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 16, 15),
+                        (4, 16, 15),
+                        (8, 16, 15),
+                        (16, 16, 15),
+                        (32, 16, 15),
+                        (64, 16, 15),
+                        (128, 16, 15),
+                        (256, 16, 15)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '0',
+                        'bytes_write': '0',
+                        'tree_depth': '0',
+                        'dir_oclass': 'S1',
+                        'oclass': 'RP_3GX'
+                    },
+                    'enabled': False
+                    },
                    {'testcase': 'mdtest_hard_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
