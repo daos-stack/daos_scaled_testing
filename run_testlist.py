@@ -207,6 +207,94 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'oclass': 'SX'
                  },
                  'enabled': False
+                 },
+                {'testcase': 'ior_hard_1to4_2gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 8, 15),
+                     (4, 16, 15),
+                     (8, 32, 15),
+                     (16, 64, 15),
+                     (32, 128, 20),
+                     (64, 256, 20),
+                     (128, 512, 20),
+                     (256, 1024, 20)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '2000000',
+                     'xfer_size': '47008',
+                     'block_size': '47008',
+                     'oclass': 'RP_2GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_hard_c16_2gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 16, 15),
+                     (4, 16, 15),
+                     (8, 16, 15),
+                     (16, 16, 15),
+                     (32, 16, 15),
+                     (64, 16, 15),
+                     (128, 16, 15),
+                     (256, 16, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '2000000',
+                     'xfer_size': '47008',
+                     'block_size': '47008',
+                     'oclass': 'RP_2GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_hard_1to4_3gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 8, 15),
+                     (4, 16, 15),
+                     (8, 32, 15),
+                     (16, 64, 15),
+                     (32, 128, 20),
+                     (64, 256, 20),
+                     (128, 512, 20),
+                     (256, 1024, 20)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '2000000',
+                     'xfer_size': '47008',
+                     'block_size': '47008',
+                     'oclass': 'RP_3GX'
+                 },
+                 'enabled': False
+                 },
+                {'testcase': 'ior_hard_c16_3gx',
+                 # Number of servers, number of clients, timeout in minutes
+                 'testvariants': [
+                     (2, 16, 15),
+                     (4, 16, 15),
+                     (8, 16, 15),
+                     (16, 16, 15),
+                     (32, 16, 15),
+                     (64, 16, 15),
+                     (128, 16, 15),
+                     (256, 16, 15)
+                 ],
+                 'ppc': 32,
+                 'env_vars': {
+                     'pool_size': '85G',
+                     'segments': '2000000',
+                     'xfer_size': '47008',
+                     'block_size': '47008',
+                     'oclass': 'RP_3GX'
+                 },
+                 'enabled': False
                  }
                 ]
 
