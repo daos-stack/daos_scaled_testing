@@ -336,7 +336,7 @@ run_ior(){
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
                  -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                  -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                 -x FI_VERBS_PREFER_XRC
+                 -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile ${CLIENT_HOSTLIST_FILE}"
 
@@ -438,7 +438,7 @@ run_mdtest(){
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                 -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                -x FI_VERBS_PREFER_XRC
+                -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                 --hostfile ${CLIENT_HOSTLIST_FILE}
                 $mdtest_cmd"
