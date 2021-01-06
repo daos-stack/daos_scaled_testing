@@ -167,7 +167,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 15)
+                     (2, 8, 60)
                      #(2, 8, 15),
                      #(4, 16, 15),
                      #(8, 32, 15),
@@ -525,7 +525,7 @@ class TestList(object):
         self._env = env
         self._teardown_offset = 10
         self._pool_create_timeout = 5
-        self._cmd_timeout = 2
+        self._cmd_timeout = 60
         dst_dir = os.getenv('DST_DIR')
         self._script = os.path.join(dst_dir, script)
 
