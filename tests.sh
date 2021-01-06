@@ -254,6 +254,10 @@ create_container(){
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
     export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
+    export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
+    export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
+    export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+    export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
     $daos_cmd\""
 
     echo $daos_cmd
@@ -272,6 +276,10 @@ create_container(){
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
     export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
+    export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
+    export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
+    export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+    export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
     $daos_cmd\""
 
     echo $daos_cmd
