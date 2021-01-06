@@ -167,14 +167,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (2, 8, 15)
+                     #(2, 8, 15),
+                     #(4, 16, 15),
+                     #(8, 32, 15),
+                     #(16, 64, 15),
+                     #(32, 128, 20),
+                     #(64, 256, 20),
+                     #(128, 512, 20),
+                     #(256, 1024, 20)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -184,7 +185,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'block_size': '47008',
                      'oclass': 'SX'
                  },
-                 'enabled': False
+                 'enabled': True
                  },
                 {'testcase': 'ior_hard_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
