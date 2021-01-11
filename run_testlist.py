@@ -149,7 +149,6 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_1to4_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
                      (16, 64, 15),
@@ -171,7 +170,6 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_c16_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
                      (16, 16, 15),
