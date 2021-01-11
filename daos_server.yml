@@ -22,6 +22,7 @@ servers:
   - FI_MR_CACHE_MAX_COUNT=0
   - FI_UNIVERSE_SIZE=16383
   - FI_VERBS_PREFER_XRC=1
+  - FI_OFI_RXM_USE_SRX=1
   fabric_iface: ib0
   fabric_iface_port: 31416
   first_core: 0
