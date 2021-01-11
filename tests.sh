@@ -91,10 +91,27 @@ function run_cmd(){
     check_cmd_timeout ${RC} ${CMD}
 }
 
+# Get a random client node name from the CLIENT_HOSTLIST_FILE and then
+# run a command
+function run_cmd_on_client(){
+    local CMD="$(echo ${1} | tr -s " ")"
+    local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
+
+    echo
+    echo "$(time_stamp) CMD: ${CMD}"
+
+    OUTPUT_CMD="$(clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S ${CMD})"
+    RC=$?
+
+    echo "${OUTPUT_CMD}"
+
+    check_cmd_timeout ${RC} ${CMD}
+}
+
 function get_daos_status(){
-    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool list"
-    run_cmd "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
-    run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query"
 }
 
 function teardown_test(){
@@ -139,6 +156,13 @@ function check_cmd_timeout(){
 function wait_for_servers_to_start(){
     TARGET_SERVERS=$((${1} - 1))
 
+    if [ "${TARGET_SERVERS}" -eq 0 ]; then
+        pmsg "Waiting for single daos_server to start (90 seconds)"
+        sleep 90
+        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query"
+        return
+    fi
+
     pmsg "Waiting for [0-${TARGET_SERVERS}] daos_servers to start \
           (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
     sleep ${INITIAL_BRINGUP_WAIT_TIME}
@@ -146,7 +170,7 @@ function wait_for_servers_to_start(){
     n=1
     until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
     do
-        run_cmd "dmg -o ${DAOS_CONTROL_YAML} system query"
+        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query"
 
         if echo ${OUTPUT_CMD} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
             break
@@ -161,7 +185,7 @@ function wait_for_servers_to_start(){
         teardown_test
     fi
 
-    pmsg "Done, ${CURRENT_SERVERS_UP} DAOS servers are up and running"
+    pmsg "Done, ${TARGET_SERVERS} DAOS servers are up and running"
 }
 
 #Create server/client hostfile.
@@ -181,7 +205,7 @@ prepare(){
 
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
-    sed -i "s/^\- .*/\- $ACCESS_POINT:$ACCESS_PORT/" $DAOS_CONTROL_YAML
+    sed -i "s/^\- .*/\- $ACCESS_POINT:$ACCESS_PORT/" ${DAOS_CONTROL_YAML}
 
     #Create the daos_agent folder
     srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_agent
@@ -192,7 +216,7 @@ prepare(){
 start_agent(){
     echo -e "\nCMD: Starting agent...\n"
     daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
-    cmd="clush --hostfile ${ALL_HOSTLIST_FILE}
+    cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
@@ -217,24 +241,43 @@ dump_attach_info(){
 create_pool(){
     pmsg "Creating pool"
 
-    cmd="dmg -o $DAOS_CONTROL_YAML pool create --scm-size $POOL_SIZE"
-    echo $cmd
-    echo
-    DAOS_POOL="$(timeout --signal SIGKILL ${POOL_CREATE_TIMEOUT} ${cmd})"
-    check_cmd_timeout $? "dmg pool create"
+    HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
+    echo HOST ${HOST}
+    dmg_cmd="dmg -o ${DAOS_CONTROL_YAML} pool create --scm-size ${POOL_SIZE}"
+    cmd="clush -w ${HOST} --command_timeout ${POOL_CREATE_TIMEOUT} -S
+        \"${dmg_cmd}\""
+
+    pmsg "CMD: ${dmg_cmd}"
+    DAOS_POOL="$(eval ${cmd})"
+    RC=$?
     echo "${DAOS_POOL}"
 
-    POOL_UUID="$(grep -o "UUID: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $2}')"
-    POOL_SVC="$(grep -o "Service replicas: [A-Za-z0-9\-]*" <<< $DAOS_POOL | awk '{print $3}')"
+    POOL_UUID=$(echo "${DAOS_POOL}" | grep "UUID" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//')
+    POOL_SVC=$(echo "${DAOS_POOL}" | grep "Service Ranks" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//' | sed 's/[][]//g')
     echo -e "\n====== POOL INFO ======"
-    echo POOL_UUID: $POOL_UUID
-    echo POOL_SVC : $POOL_SVC
+    echo POOL_UUID: ${POOL_UUID}
+    echo POOL_SVC : ${POOL_SVC}
+
+    if [ ${RC} -ne 0 ]; then
+        echo "dmg pool create FAIL"
+        teardown_test
+    else
+        echo "dmg pool create SUCCESS"
+    fi
+
     sleep 10
 }
 
 setup_pool(){
     pmsg "Pool set-prop"
-    run_cmd "dmg pool set-prop --pool=$POOL_UUID --name=reclaim --value=disabled -o $DAOS_CONTROL_YAML"
+    run_cmd_on_client "dmg pool set-prop --pool=${POOL_UUID} --name=reclaim --value=disabled -o ${DAOS_CONTROL_YAML}"
+
+    if [ ${RC} -ne 0 ]; then
+        echo "dmg pool set-prop FAIL"
+        teardown_test
+    else
+        echo "dmg pool set-prop SUCCESS"
+    fi
 
     sleep 10
 }
@@ -244,24 +287,27 @@ create_container(){
     echo -e "\nCMD: Creating container\n"
 
     CONT_UUID=$(uuidgen)
-    HOST=$(head -n 1 ${SERVER_HOSTLIST_FILE})
+    HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
     echo CONT_UUID = $CONT_UUID
-    echo HOST $HOST
-    daos_cmd="daos cont create --pool=$POOL_UUID --svc=$POOL_SVC --cont $CONT_UUID --type=POSIX --properties=dedup:memcmp"
-    cmd="clush -w $HOST --command_timeout ${CMD_TIMEOUT} -S
-    -f $SLURM_JOB_NUM_NODES \"
+    echo HOST ${HOST}
+    daos_cmd="daos container create --pool=${POOL_UUID} --cont ${CONT_UUID}
+              --sys-name=daos_server --type=POSIX --properties=dedup:memcmp"
+    cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
+    -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
-    export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
+    export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
     export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
     export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
+    export FI_OFI_RXM_USE_SRX=${FI_OFI_RXM_USE_SRX};
     $daos_cmd\""
 
-    echo $daos_cmd
-    eval $cmd
+    pmsg "CMD: ${daos_cmd}"
+    eval ${cmd}
+
     if [ $? -ne 0 ]; then
         echo "Daos container create FAIL"
         teardown_test
@@ -269,21 +315,23 @@ create_container(){
         echo "Daos container create SUCCESS"
     fi
 
-    daos_cmd="daos cont query --pool=$POOL_UUID --svc=$POOL_SVC --cont=$CONT_UUID"
-    cmd="clush -w $HOST --command_timeout ${CMD_TIMEOUT} -S
-    -f $SLURM_JOB_NUM_NODES \"
+    daos_cmd="daos container query --pool=${POOL_UUID} --cont=${CONT_UUID}"
+    cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
+    -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
-    export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR;
+    export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
     export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
     export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
+    export FI_OFI_RXM_USE_SRX=${FI_OFI_RXM_USE_SRX};
     $daos_cmd\""
 
-    echo $daos_cmd
-    eval $cmd
+    pmsg "CMD: ${daos_cmd}"
+    eval ${cmd}
+
     if [ $? -ne 0 ]; then
         echo "Daos container query FAIL"
         teardown_test
@@ -325,7 +373,7 @@ run_ior(){
              -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
-             --dfs.svcl ${POOL_SVC} -vvv"
+             --dfs.chunk_size ${CHUNK_SIZE} -vvv"
 
     IOR_RD_CMD="ior
              -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
@@ -334,7 +382,7 @@ run_ior(){
              -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
-             --dfs.svcl ${POOL_SVC} -vvv"
+             --dfs.chunk_size ${CHUNK_SIZE} -vvv"
 
     prefix_mpich="mpirun
              -np $no_of_ps -map-by node
@@ -344,7 +392,8 @@ run_ior(){
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
                  -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                  -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                 -x FI_VERBS_PREFER_XRC
+                 -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
+                 -x D_LOG_FILE -x D_LOG_MASK
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile ${CLIENT_HOSTLIST_FILE}"
 
@@ -363,20 +412,20 @@ run_ior(){
     echo $cmd
     echo
     eval $cmd
-    RC=$?
+    IOR_RC=$?
+
+    module load intel
+    module list
 
     get_daos_status
 
-    if [ ${RC} -ne 0 ]; then
+    if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR FAIL\n"
-        module load intel
-        module list
         teardown_test
     else
         echo -e "\nSTATUS: IOR SUCCESS\n"
     fi
-    module load intel
-    module list
+
     sleep 5
 }
 
@@ -400,6 +449,7 @@ run_self_test(){
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+        -x FI_UNIVERSE_SIZE -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
@@ -429,10 +479,15 @@ run_mdtest(){
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
+    CONT_UUID=$(uuidgen)
+
     mdtest_cmd="mdtest
-                -a DFS --dfs.destroy --dfs.pool ${POOL_UUID}
-                --dfs.cont $(uuidgen) --dfs.svcl ${POOL_SVC}
-                --dfs.dir_oclass ${DIR_OCLASS} --dfs.oclass ${OCLASS}
+                -a DFS
+                --dfs.pool ${POOL_UUID}
+                --dfs.group daos_server
+                --dfs.cont ${CONT_UUID}
+                --dfs.chunk_size ${CHUNK_SIZE}
+                --dfs.oclass ${OCLASS}
                 -L -p 10 -F -N 1 -P -d / -W 90
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -vvv"
@@ -446,7 +501,8 @@ run_mdtest(){
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                 -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                -x FI_VERBS_PREFER_XRC
+                -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
+                -x D_LOG_FILE -x D_LOG_MASK
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                 --hostfile ${CLIENT_HOSTLIST_FILE}
                 $mdtest_cmd"
@@ -460,20 +516,20 @@ run_mdtest(){
     echo $cmd
     echo
     eval $cmd
-    RC=$?
+    MDTEST_RC=$?
+
+    module load intel
+    module list
 
     get_daos_status
 
-    if [ ${RC} -ne 0 ]; then
+    if [ ${MDTEST_RC} -ne 0 ]; then
         echo -e "\nSTATUS: MDTEST FAIL\n"
-        module load intel
-        module list
         teardown_test
     else
         echo -e "\nSTATUS: MDTEST SUCCESS\n"
     fi
-    module load intel
-    module list
+
     sleep 5
 }
 
@@ -519,7 +575,7 @@ function kill_random_server(){
     sleep ${WAIT_TIME}
     pmsg "Killing ${DOOMED_SERVER} server"
     run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
-    run_cmd "ssh ${DOOMED_SERVER} \"pkill -e ${PROCESSES}\""
+    run_cmd "ssh ${DOOMED_SERVER} \"pkill -e --signal SIGKILL ${PROCESSES}\""
     run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
     pmsg "Killed ${DOOMED_SERVER} server"
 

@@ -61,13 +61,19 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
+                     (1, 4, 15),
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
-                     (16, 64, 15)
+                     (16, 64, 15),
+                     (32, 128, 20),
+                     (64, 256, 20),
+                     (128, 512, 20),
+                     (256, 1024, 20)
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
@@ -79,13 +85,19 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
+                     (1, 16, 15),
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
-                     (16, 16, 15)
+                     (16, 16, 15),
+                     (32, 16, 15),
+                     (64, 16, 15),
+                     (128, 16, 15),
+                     (256, 16, 15)
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
@@ -100,10 +112,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
-                     (16, 64, 15)
+                     (16, 64, 15),
+                     (32, 128, 20),
+                     (64, 256, 20),
+                     (128, 512, 20),
+                     (256, 1024, 20)
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
@@ -118,10 +135,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
-                     (16, 16, 15)
+                     (16, 16, 15),
+                     (32, 16, 15),
+                     (64, 16, 15),
+                     (128, 16, 15),
+                     (256, 16, 15)
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
@@ -135,10 +157,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  'testvariants': [
                      (4, 16, 15),
                      (8, 32, 15),
-                     (16, 64, 15)
+                     (16, 64, 15),
+                     (32, 128, 20),
+                     (64, 256, 20),
+                     (128, 512, 20),
+                     (256, 1024, 20)
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
@@ -152,10 +179,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  'testvariants': [
                      (4, 16, 15),
                      (8, 16, 15),
-                     (16, 16, 15)
+                     (16, 16, 15),
+                     (32, 16, 15),
+                     (64, 16, 15),
+                     (128, 16, 15),
+                     (256, 16, 15)
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
@@ -167,6 +199,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
+                     (1, 4, 15),
                      (2, 8, 15),
                      (4, 16, 15),
                      (8, 32, 15),
@@ -178,6 +211,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '2000000',
                      'xfer_size': '47008',
@@ -189,6 +223,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
+                     (1, 16, 15),
                      (2, 16, 15),
                      (4, 16, 15),
                      (8, 16, 15),
@@ -200,6 +235,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '2000000',
                      'xfer_size': '47008',
@@ -222,6 +258,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '2000000',
                      'xfer_size': '47008',
@@ -244,6 +281,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '2000000',
                      'xfer_size': '47008',
@@ -266,6 +304,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '2000000',
                      'xfer_size': '47008',
@@ -288,6 +327,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  ],
                  'ppc': 32,
                  'env_vars': {
+                     'chunk_size': '1048576',
                      'pool_size': '85G',
                      'segments': '2000000',
                      'xfer_size': '47008',
@@ -302,6 +342,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
 mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
+                        (1, 4, 15),
                         (2, 8, 15),
                         (4, 16, 15),
                         (8, 32, 15),
@@ -313,12 +354,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'dir_oclass': 'S1',
                         'oclass': 'SX'
                     },
                     'enabled': False
@@ -326,6 +367,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_easy_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
+                        (1, 16, 15),
                         (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
@@ -337,12 +379,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'dir_oclass': 'S1',
                         'oclass': 'SX'
                     },
                     'enabled': False
@@ -361,12 +403,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'dir_oclass': 'S1',
                         'oclass': 'RP_2GX'
                     },
                     'enabled': False
@@ -385,12 +427,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'dir_oclass': 'S1',
                         'oclass': 'RP_2GX'
                     },
                     'enabled': False
@@ -409,12 +451,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'dir_oclass': 'S1',
                         'oclass': 'RP_3GX'
                     },
                     'enabled': False
@@ -433,12 +475,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'dir_oclass': 'S1',
                         'oclass': 'RP_3GX'
                     },
                     'enabled': False
@@ -446,6 +488,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_hard_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
+                        (1, 4, 15),
                         (2, 8, 15),
                         (4, 16, 15),
                         (8, 32, 15),
@@ -457,12 +500,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'dir_oclass': 'S1',
                         'oclass': 'SX'
                     },
                     'enabled': False
@@ -470,6 +513,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_hard_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
+                        (1, 16, 15),
                         (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
@@ -481,12 +525,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     ],
                     'ppc': 32,
                     'env_vars': {
+                        'chunk_size': '1048576',
                         'pool_size': '85G',
                         'n_file': '12000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'dir_oclass': 'S1',
                         'oclass': 'SX'
                     },
                     'enabled': False
