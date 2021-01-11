@@ -258,6 +258,7 @@ create_container(){
     export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
     export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
+    export FI_OFI_RXM_USE_SRX=${FI_OFI_RXM_USE_SRX};
     $daos_cmd\""
 
     echo $daos_cmd
@@ -269,6 +270,7 @@ create_container(){
         echo "Daos container create SUCCESS"
     fi
 
+    # Temporarily disabled due to DAOS-6430
     daos_cmd="daos cont query --pool=$POOL_UUID --svc=$POOL_SVC --cont=$CONT_UUID"
     cmd="clush -w $HOST --command_timeout ${CMD_TIMEOUT} -S
     -f $SLURM_JOB_NUM_NODES \"
@@ -280,16 +282,17 @@ create_container(){
     export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
     export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
+    export FI_OFI_RXM_USE_SRX=${FI_OFI_RXM_USE_SRX};
     $daos_cmd\""
 
-    echo $daos_cmd
-    eval $cmd
-    if [ $? -ne 0 ]; then
-        echo "Daos container query FAIL"
-        teardown_test
-    else
-        echo "Daos container query SUCCESS"
-    fi
+    #echo $daos_cmd
+    #eval $cmd
+    #if [ $? -ne 0 ]; then
+    #    echo "Daos container query FAIL"
+    #    teardown_test
+    #else
+    #    echo "Daos container query SUCCESS"
+    #fi
 }
 
 #Start daos servers
@@ -344,7 +347,7 @@ run_ior(){
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
                  -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                  -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                 -x FI_VERBS_PREFER_XRC
+                 -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile ${CLIENT_HOSTLIST_FILE}"
 
@@ -400,6 +403,7 @@ run_self_test(){
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+        -x FI_UNIVERSE_SIZE -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
@@ -446,7 +450,7 @@ run_mdtest(){
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
                 -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                -x FI_VERBS_PREFER_XRC
+                -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                 --hostfile ${CLIENT_HOSTLIST_FILE}
                 $mdtest_cmd"
