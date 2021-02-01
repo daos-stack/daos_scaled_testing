@@ -59,49 +59,47 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                  ]
 
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
-                 # Number of servers, number of clients, timeout in minutes
+                 # Number of servers, number of clients, number of segments, timeout in minutes
                  'testvariants': [
-                     (1, 4, 15),
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (1, 4, 15, 4),
+                     (2, 8, 15, 4),
+                     (4, 16, 15, 4),
+                     (8, 32, 15, 4),
+                     (16, 64, 15, 4),
+                     (32, 128, 20, 4),
+                     (64, 256, 20, 4),
+                     (128, 512, 20, 4),
+                     (256, 1024, 20, 4)
                  ],
                  'ppc': 32,
                  'env_vars': {
                      'chunk_size': '1048576',
                      'pool_size': '85G',
-                     'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '134217728',
                      'oclass': 'SX'
                  },
                  'enabled': False
                  },
                 {'testcase': 'ior_easy_c16_sx',
-                 # Number of servers, number of clients, timeout in minutes
+                 # Number of servers, number of clients, number of segments, timeout in minutes
                  'testvariants': [
-                     (1, 16, 15),
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (1, 16, 15, 1),
+                     (2, 16, 15, 2),
+                     (4, 16, 15, 4),
+                     (8, 16, 15, 8),
+                     (16, 16, 15, 16),
+                     (32, 16, 15, 32),
+                     (64, 16, 15, 64),
+                     (128, 16, 15, 128),
+                     (256, 16, 15, 256)
                  ],
                  'ppc': 32,
                  'env_vars': {
                      'chunk_size': '1048576',
                      'pool_size': '85G',
-                     'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '134217728',
                      'oclass': 'SX'
                  },
                  'enabled': False
@@ -199,21 +197,20 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (1, 4, 15),
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (1, 4, 15, 14000),
+                     (2, 8, 15, 14000),
+                     (4, 16, 15, 14000),
+                     (8, 32, 15, 14000),
+                     (16, 64, 15, 14000),
+                     (32, 128, 20, 14000),
+                     (64, 256, 20, 14000),
+                     (128, 512, 20, 14000),
+                     (256, 1024, 20, 14000)
                  ],
                  'ppc': 32,
                  'env_vars': {
                      'chunk_size': '1048576',
                      'pool_size': '85G',
-                     'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
                      'oclass': 'SX'
@@ -221,23 +218,22 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_c16_sx',
-                 # Number of servers, number of clients, timeout in minutes
+                 # Number of servers, number of clients, number of segments, timeout in minutes
                  'testvariants': [
-                     (1, 16, 15),
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (1, 16, 15, 3000),
+                     (2, 16, 15, 6000),
+                     (4, 16, 15, 12000),
+                     (8, 16, 15, 24000),
+                     (16, 16, 15, 48000),
+                     (32, 16, 15, 96000),
+                     (64, 16, 15, 192000),
+                     (128, 16, 15, 384000),
+                     (256, 16, 15, 768000)
                  ],
                  'ppc': 32,
                  'env_vars': {
                      'chunk_size': '1048576',
                      'pool_size': '85G',
-                     'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
                      'oclass': 'SX'
@@ -245,7 +241,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_1to4_2gx',
-                 # Number of servers, number of clients, timeout in minutes
+                 # Number of servers, number of clients, number of segments, timeout in minutes
                  'testvariants': [
                      (2, 8, 15),
                      (4, 16, 15),
@@ -644,6 +640,21 @@ class IorTestList(TestList):
         env['OMPI_TIMEOUT'] = str(timeout * 60)
         env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
         env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
+
+    def _expand_variant(self, env, ppc, variant):
+        srv, cli, timeout, segments = variant
+
+        nodes = srv + cli + 1
+        cores = nodes * ppc
+
+        env['DAOS_SERVERS'] = str(srv)
+        env['DAOS_CLIENTS'] = str(cli)
+        env['NNODE'] = str(nodes)
+        env['NCORE'] = str(cores)
+        env['SEGMENTS'] = str(segments)
+
+        self._add_partition(env, nodes)
+        self._add_timeout(env, timeout)
 
 
 class MdtestTestList(TestList):

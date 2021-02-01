@@ -291,7 +291,7 @@ create_container(){
     echo CONT_UUID = $CONT_UUID
     echo HOST ${HOST}
     daos_cmd="daos container create --pool=${POOL_UUID} --cont ${CONT_UUID}
-              --sys-name=daos_server --type=POSIX --properties=dedup:memcmp"
+              --sys-name=daos_server --type=POSIX"
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
     -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
@@ -367,19 +367,15 @@ run_ior(){
     echo
 
     IOR_WR_CMD="ior
-             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
+             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 2
              -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -vvv"
 
     IOR_RD_CMD="ior
-             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
+             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 2
              -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -vvv"
