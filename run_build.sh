@@ -1,7 +1,6 @@
 #!/bin/bash
 
 export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
-export IOR_DIR="<path_to_ior_repo>" #e.g./scratch/POC/ior-hpc
 export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
 export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
@@ -10,8 +9,8 @@ module unload impi pmix hwloc
 module list
 
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-LATEST_DAOS=${BUILD_DIR}/latest/daos/install
-folder=$(date +%Y%m%d)
+TIMESTAMP=$(date +%Y%m%d)
+LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 
 export PATH=~/.local/bin:$PATH
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
@@ -81,28 +80,32 @@ function check_retcode(){
 trap 'check_retcode $? ${BASH_COMMAND}' EXIT
 set -e
 
-rm -rf $BUILD_DIR/$folder
-mkdir -p $BUILD_DIR/$folder
+rm -rf ${BUILD_DIR}/${TIMESTAMP}
+mkdir -p ${BUILD_DIR}/${TIMESTAMP}
 
 pushd $BUILD_DIR/
 rm -f latest
-ln -s $BUILD_DIR/$folder latest
-pushd latest
+ln -s ${BUILD_DIR}/${TIMESTAMP} latest
+pushd ${BUILD_DIR}/${TIMESTAMP}
 git clone https://github.com/daos-stack/daos.git
 pushd daos
 git submodule init
 git submodule update
-print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
-merge_extra_daos_branches |& tee -a ${BUILD_DIR}/latest/repo_info.txt
+print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 scons MPI_PKG=any --build-deps=yes --config=force BUILD_TYPE=release install
 popd
 popd
 popd
 
 
+# Build IOR/MDTEST
 
-pushd $IOR_DIR
-print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
+pushd ${BUILD_DIR}/${TIMESTAMP}
+git clone https://github.com/hpc/ior.git
+pushd ${BUILD_DIR}/${TIMESTAMP}/ior
+
+print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 ./bootstrap
 ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
             MPICC=${MPI_BIN}/mpicc \
@@ -112,6 +115,7 @@ print_repo_info |& tee -a ${BUILD_DIR}/latest/repo_info.txt
 make clean
 make
 make install
+popd
 popd
 
 # Perform a basic revision of the built binaries
