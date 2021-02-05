@@ -36,6 +36,9 @@ WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
 PROCESSES="'(daos|orteun|mpirun)'"
 
+# Time in milliseconds
+CLOCK_DRIFT_THRESHOLD=500
+
 HOSTNAME=$(hostname)
 echo $HOSTNAME
 echo
@@ -134,6 +137,25 @@ function teardown_test(){
     pkill -P $$
 
     exit 0
+}
+
+function check_clock_sync(){
+    pmsg "Retrieving local time of each node"
+    run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
+                   -f ${SLURM_JOB_NUM_NODES} \
+                   ${DST_DIR}/print_node_local_time.sh"
+
+    pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
+    clush -S --hostfile ${ALL_HOSTLIST_FILE} \
+          -f ${SLURM_JOB_NUM_NODES} --groupbase \
+          "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
+
+    if [ $? -ne 0 ]; then
+        pmsg "Error clock drift is too high"
+        teardown_test
+    else
+        pmsg "Clock drift test Pass"
+    fi
 }
 
 function check_cmd_timeout(){
@@ -366,20 +388,20 @@ run_ior(){
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
-    IOR_WR_CMD="ior
+    IOR_WR_CMD="${IOR_BIN}
              -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -vvv"
 
-    IOR_RD_CMD="ior
+    IOR_RD_CMD="${IOR_BIN}
              -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -vvv"
@@ -481,14 +503,14 @@ run_mdtest(){
 
     CONT_UUID=$(uuidgen)
 
-    mdtest_cmd="mdtest
+    mdtest_cmd="${MDTEST_BIN}
                 -a DFS
                 --dfs.pool ${POOL_UUID}
                 --dfs.group daos_server
                 --dfs.cont ${CONT_UUID}
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
-                -L -p 10 -F -N 1 -P -d / -W 90
+                -L -p 10 -F -N 1 -P -d / -W 40
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -vvv"
 
@@ -564,11 +586,6 @@ function kill_random_server(){
     local DOOMED_SERVER=$(get_doom_server)
     local MAX_RETRY_ATTEMPTS=30
 
-    pmsg "Retrieving local time of each node"
-    run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
-                   -f ${SLURM_JOB_NUM_NODES} \
-                   ${DST_DIR}/print_node_local_time.sh"
-
     get_daos_status
 
     pmsg "Waiting to kill ${DOOMED_SERVER} server in ${WAIT_TIME} seconds..."
@@ -602,13 +619,15 @@ function kill_random_server(){
 }
 
 function run_testcase(){
-    #Prepare Enviornment
-    prepare
-
     echo "###################"
-    echo "RUN: $TESTCASE"
+    echo "RUN: ${TESTCASE}"
     echo "Start Time: $(date)"
     echo "###################"
+
+    # Prepare Enviornment
+    prepare
+    # System sanity check
+    check_clock_sync
 
     case ${test} in
         SWIM)

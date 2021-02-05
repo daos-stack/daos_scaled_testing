@@ -2,6 +2,9 @@
 
 MPI_TARGET=${1}
 
+export IOR_BIN=artifact_01
+export MDTEST_BIN=artifact_02
+
 # Activate mpi
 
 function activate_mpi(){
