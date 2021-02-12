@@ -1,7 +1,7 @@
 access_points: ['replace_this_server:10001']
-control_log_file: /tmp/daos_control.log
+control_log_file: /tmp/daos_logs/daos_control.log
 control_log_mask: ERROR
-helper_log_file: /tmp/daos_admin.log
+helper_log_file: /tmp/daos_logs/daos_admin.log
 name: daos_server
 nr_hugepages: 4096
 port: 10001
@@ -26,7 +26,7 @@ servers:
   fabric_iface: ib0
   fabric_iface_port: 31416
   first_core: 0
-  log_file: /tmp/daos_server.log
+  log_file: /tmp/daos_logs/daos_server.log
   log_mask: ERR
   nr_xs_helpers: 1
   scm_class: ram
