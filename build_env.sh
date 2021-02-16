@@ -2,8 +2,8 @@
 
 MPI_TARGET=${1}
 
-export IOR_BIN=artifact_01
-export MDTEST_BIN=artifact_02
+export IOR_BIN=daosior
+export MDTEST_BIN=daosmdt
 
 # Activate mpi
 
