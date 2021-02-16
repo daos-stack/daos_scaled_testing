@@ -21,8 +21,8 @@ declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"
                            "bin/daos_agent"
                            "bin/dmg"
-                           "ior${MPI_SUFFIX}/bin/ior"
-                           "ior${MPI_SUFFIX}/bin/mdtest"
+                           "ior${MPI_SUFFIX}/bin/${IOR_BIN}"
+                           "ior${MPI_SUFFIX}/bin/${MDTEST_BIN}"
                            )
 
 # List of development or test branches to be merged on top of DAOS
@@ -115,10 +115,16 @@ print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 make clean
 make
 make install
+
+pushd ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin
+mv -v ior ${IOR_BIN}
+mv -v mdtest ${MDTEST_BIN}
+popd
+
 popd
 popd
 
 # Perform a basic revision of the built binaries
 check_target_files_exist
-check_daos_linkage ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/ior
-check_daos_linkage ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/mdtest
+check_daos_linkage ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/${IOR_BIN}
+check_daos_linkage ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin/${MDTEST_BIN}

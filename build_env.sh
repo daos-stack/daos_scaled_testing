@@ -2,6 +2,9 @@
 
 MPI_TARGET=${1}
 
+export IOR_BIN=daosior
+export MDTEST_BIN=daosmdt
+
 # Activate mpi
 
 function activate_mpi(){

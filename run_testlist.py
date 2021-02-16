@@ -61,15 +61,15 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (1, 4, 15),
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (1, 4, 5),
+                     (2, 8, 5),
+                     (4, 16, 5),
+                     (8, 32, 5),
+                     (16, 64, 5),
+                     (32, 128, 5),
+                     (64, 256, 5),
+                     (128, 512, 5),
+                     (256, 1024, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -85,15 +85,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (1, 16, 15),
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (1, 16, 5),
+                     (2, 16, 5),
+                     (4, 16, 5),
+                     (8, 16, 5),
+                     (16, 16, 5),
+                     (32, 16, 5),
+                     (64, 16, 5),
+                     (128, 16, 5),
+                     (256, 16, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -109,14 +109,14 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_1to4_2gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (2, 8, 5),
+                     (4, 16, 5),
+                     (8, 32, 5),
+                     (16, 64, 5),
+                     (32, 128, 5),
+                     (64, 256, 5),
+                     (128, 512, 5),
+                     (256, 1024, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -132,14 +132,14 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_c16_2gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (2, 16, 5),
+                     (4, 16, 5),
+                     (8, 16, 5),
+                     (16, 16, 5),
+                     (32, 16, 5),
+                     (64, 16, 5),
+                     (128, 16, 5),
+                     (256, 16, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -155,13 +155,13 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_1to4_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (4, 16, 5),
+                     (8, 32, 5),
+                     (16, 64, 5),
+                     (32, 128, 5),
+                     (64, 256, 5),
+                     (128, 512, 5),
+                     (256, 1024, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -177,13 +177,13 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_easy_c16_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (4, 16, 5),
+                     (8, 16, 5),
+                     (16, 16, 5),
+                     (32, 16, 5),
+                     (64, 16, 5),
+                     (128, 16, 5),
+                     (256, 16, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -199,15 +199,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (1, 4, 15),
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (1, 4, 5),
+                     (2, 8, 5),
+                     (4, 16, 5),
+                     (8, 32, 5),
+                     (16, 64, 5),
+                     (32, 128, 5),
+                     (64, 256, 5),
+                     (128, 512, 5),
+                     (256, 1024, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -223,15 +223,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (1, 16, 15),
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (1, 16, 5),
+                     (2, 16, 5),
+                     (4, 16, 5),
+                     (8, 16, 5),
+                     (16, 16, 5),
+                     (32, 16, 5),
+                     (64, 16, 5),
+                     (128, 16, 5),
+                     (256, 16, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -247,14 +247,14 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_2gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (2, 8, 5),
+                     (4, 16, 5),
+                     (8, 32, 5),
+                     (16, 64, 5),
+                     (32, 128, 5),
+                     (64, 256, 5),
+                     (128, 512, 5),
+                     (256, 1024, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -270,14 +270,14 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_c16_2gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (2, 16, 5),
+                     (4, 16, 5),
+                     (8, 16, 5),
+                     (16, 16, 5),
+                     (32, 16, 5),
+                     (64, 16, 5),
+                     (128, 16, 5),
+                     (256, 16, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -293,14 +293,14 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 15),
-                     (4, 16, 15),
-                     (8, 32, 15),
-                     (16, 64, 15),
-                     (32, 128, 20),
-                     (64, 256, 20),
-                     (128, 512, 20),
-                     (256, 1024, 20)
+                     (2, 8, 5),
+                     (4, 16, 5),
+                     (8, 32, 5),
+                     (16, 64, 5),
+                     (32, 128, 5),
+                     (64, 256, 5),
+                     (128, 512, 5),
+                     (256, 1024, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -316,14 +316,14 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_c16_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 16, 15),
-                     (4, 16, 15),
-                     (8, 16, 15),
-                     (16, 16, 15),
-                     (32, 16, 15),
-                     (64, 16, 15),
-                     (128, 16, 15),
-                     (256, 16, 15)
+                     (2, 16, 5),
+                     (4, 16, 5),
+                     (8, 16, 5),
+                     (16, 16, 5),
+                     (32, 16, 5),
+                     (64, 16, 5),
+                     (128, 16, 5),
+                     (256, 16, 5)
                  ],
                  'ppc': 32,
                  'env_vars': {
@@ -342,15 +342,15 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
 mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 4, 15),
-                        (2, 8, 15),
-                        (4, 16, 15),
-                        (8, 32, 15),
-                        (16, 64, 15),
-                        (32, 128, 15),
-                        (64, 256, 15),
-                        (128, 512, 20),
-                        (256, 1024, 20)
+                        (1, 4, 5),
+                        (2, 8, 5),
+                        (4, 16, 5),
+                        (8, 32, 5),
+                        (16, 64, 5),
+                        (32, 128, 5),
+                        (64, 256, 5),
+                        (128, 512, 5),
+                        (256, 1024, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -360,22 +360,22 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'SX'
+                        'oclass': 'S1'
                     },
                     'enabled': False
                     },
                    {'testcase': 'mdtest_easy_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 16, 15),
-                        (2, 16, 15),
-                        (4, 16, 15),
-                        (8, 16, 15),
-                        (16, 16, 15),
-                        (32, 16, 15),
-                        (64, 16, 15),
-                        (128, 16, 15),
-                        (256, 16, 15)
+                        (1, 16, 5),
+                        (2, 16, 5),
+                        (4, 16, 5),
+                        (8, 16, 5),
+                        (16, 16, 5),
+                        (32, 16, 5),
+                        (64, 16, 5),
+                        (128, 16, 5),
+                        (256, 16, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -385,21 +385,21 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'SX'
+                        'oclass': 'S1'
                     },
                     'enabled': False
                     },
                    {'testcase': 'mdtest_easy_1to4_2gx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 8, 15),
-                        (4, 16, 15),
-                        (8, 32, 15),
-                        (16, 64, 15),
-                        (32, 128, 15),
-                        (64, 256, 15),
-                        (128, 512, 20),
-                        (256, 1024, 20)
+                        (2, 8, 5),
+                        (4, 16, 5),
+                        (8, 32, 5),
+                        (16, 64, 5),
+                        (32, 128, 5),
+                        (64, 256, 5),
+                        (128, 512, 5),
+                        (256, 1024, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -416,14 +416,14 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_easy_c16_2gx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 16, 15),
-                        (4, 16, 15),
-                        (8, 16, 15),
-                        (16, 16, 15),
-                        (32, 16, 15),
-                        (64, 16, 15),
-                        (128, 16, 15),
-                        (256, 16, 15)
+                        (2, 16, 5),
+                        (4, 16, 5),
+                        (8, 16, 5),
+                        (16, 16, 5),
+                        (32, 16, 5),
+                        (64, 16, 5),
+                        (128, 16, 5),
+                        (256, 16, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -440,14 +440,14 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_easy_1to4_3gx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 8, 15),
-                        (4, 16, 15),
-                        (8, 32, 15),
-                        (16, 64, 15),
-                        (32, 128, 15),
-                        (64, 256, 15),
-                        (128, 512, 20),
-                        (256, 1024, 20)
+                        (2, 8, 5),
+                        (4, 16, 5),
+                        (8, 32, 5),
+                        (16, 64, 5),
+                        (32, 128, 5),
+                        (64, 256, 5),
+                        (128, 512, 5),
+                        (256, 1024, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -488,15 +488,15 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_hard_1to4_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 4, 15),
-                        (2, 8, 15),
-                        (4, 16, 15),
-                        (8, 32, 15),
-                        (16, 64, 15),
-                        (32, 128, 15),
-                        (64, 256, 15),
-                        (128, 512, 20),
-                        (256, 1024, 20)
+                        (1, 4, 5),
+                        (2, 8, 5),
+                        (4, 16, 5),
+                        (8, 32, 5),
+                        (16, 64, 5),
+                        (32, 128, 5),
+                        (64, 256, 5),
+                        (128, 512, 5),
+                        (256, 1024, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -506,22 +506,22 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'SX'
+                        'oclass': 'S1'
                     },
                     'enabled': False
                     },
                    {'testcase': 'mdtest_hard_c16_sx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 16, 15),
-                        (2, 16, 15),
-                        (4, 16, 15),
-                        (8, 16, 15),
-                        (16, 16, 15),
-                        (32, 16, 15),
-                        (64, 16, 15),
-                        (128, 16, 15),
-                        (256, 16, 15)
+                        (1, 16, 5),
+                        (2, 16, 5),
+                        (4, 16, 5),
+                        (8, 16, 5),
+                        (16, 16, 5),
+                        (32, 16, 5),
+                        (64, 16, 5),
+                        (128, 16, 5),
+                        (256, 16, 5)
                     ],
                     'ppc': 32,
                     'env_vars': {
@@ -531,7 +531,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'SX'
+                        'oclass': 'S1'
                     },
                     'enabled': False
                     }
@@ -566,8 +566,9 @@ class TestList(object):
         self._test_group = test_group
         self._testlist = testlist
         self._env = env
-        self._teardown_offset = 10
-        self._pool_create_timeout = 5
+        self._setup_offset = 10
+        self._teardown_offset = 5
+        self._pool_create_timeout = 3
         self._cmd_timeout = 2
         dst_dir = os.getenv('DST_DIR')
         self._script = os.path.join(dst_dir, script)
@@ -588,12 +589,13 @@ class TestList(object):
         else:
             env['PARTITION'] = 'large'
 
-    def _add_timeout(self, env, timeout):
-        h = (timeout + self._teardown_offset) // 60
-        m = (timeout + self._teardown_offset) % 60
+    def _add_timeout(self, env, test_timeout):
+        timeout = self._setup_offset + test_timeout + self._teardown_offset
+        h = timeout // 60
+        m = timeout % 60
         s = 0
         env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-        env['OMPI_TIMEOUT'] = str(timeout * 60)
+        env['OMPI_TIMEOUT'] = str(test_timeout * 60)
         env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
         env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
 
@@ -634,14 +636,14 @@ class IorTestList(TestList):
     def __init__(self, testlist):
         super(IorTestList, self).__init__('IOR', testlist, env)
 
-    def _add_timeout(self, env, timeout):
+    def _add_timeout(self, env, test_timeout):
         # ior runs twice, read and write operations are performed separately
-        testcase_timeout = timeout * 2
-        h = (testcase_timeout + self._teardown_offset) // 60
-        m = (testcase_timeout + self._teardown_offset) % 60
+        timeout = self._setup_offset + (test_timeout * 2) + self._teardown_offset
+        h = timeout // 60
+        m = timeout % 60
         s = 0
         env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-        env['OMPI_TIMEOUT'] = str(timeout * 60)
+        env['OMPI_TIMEOUT'] = str(test_timeout * 60)
         env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
         env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
 
