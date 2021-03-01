@@ -8,7 +8,7 @@ port: 10001
 provider: ofi+verbs;ofi_rxm
 crt_timeout: 180
 crt_ctx_share_addr: 0
-servers:
+engines:
 - env_vars:
   - ABT_ENV_MAX_NUM_XSTREAMS=100
   - ABT_MAX_NUM_XSTREAMS=100
