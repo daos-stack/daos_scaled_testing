@@ -1,5 +1,7 @@
 #!/bin/bash
 
+EXTRA_BUILD="${1}"
+
 export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
 export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
@@ -93,7 +95,7 @@ git submodule init
 git submodule update
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-scons MPI_PKG=any --build-deps=yes --config=force BUILD_TYPE=release install
+scons MPI_PKG=any --build-deps=yes --config=force BUILD_TYPE=release install ${EXTRA_BUILD}
 popd
 popd
 popd

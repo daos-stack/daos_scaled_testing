@@ -97,18 +97,23 @@ function run_cmd(){
 # Get a random client node name from the CLIENT_HOSTLIST_FILE and then
 # run a command
 function run_cmd_on_client(){
-    local CMD="$(echo ${1} | tr -s " ")"
+    local DAOS_CMD="$(echo ${1} | tr -s " ")"
     local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
     echo
-    echo "$(time_stamp) CMD: ${CMD}"
+    echo "$(time_stamp) CMD: ${DAOS_CMD}"
 
-    OUTPUT_CMD="$(clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S ${CMD})"
+    CMD="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S \"
+         export PATH=${PATH};
+         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+         ${DAOS_CMD} \" "
+
+    OUTPUT_CMD="$(eval ${CMD})"
     RC=$?
 
     echo "${OUTPUT_CMD}"
 
-    check_cmd_timeout ${RC} ${CMD}
+    check_cmd_timeout ${RC} ${DAOS_CMD}
 }
 
 function get_daos_status(){
@@ -241,7 +246,8 @@ start_agent(){
     cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    export CPATH=${CPATH};
+    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     $daos_cmd\" "
     echo $daos_cmd
     echo
@@ -267,7 +273,8 @@ create_pool(){
     echo HOST ${HOST}
     dmg_cmd="dmg -o ${DAOS_CONTROL_YAML} pool create --scm-size ${POOL_SIZE}"
     cmd="clush -w ${HOST} --command_timeout ${POOL_CREATE_TIMEOUT} -S
-        \"${dmg_cmd}\""
+        \"export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+        ${dmg_cmd}\""
 
     pmsg "CMD: ${dmg_cmd}"
     DAOS_POOL="$(eval ${cmd})"
@@ -317,7 +324,8 @@ create_container(){
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
     -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    export CPATH=${CPATH};
+    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
@@ -341,7 +349,8 @@ create_container(){
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
     -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    export CPATH=${CPATH};
+    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
@@ -370,8 +379,9 @@ start_server(){
     -f $SLURM_JOB_NUM_NODES \"
     pushd ${RUN_DIR};
     ulimit -c unlimited;
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-    export CPATH=$CPATH; export DAOS_DISABLE_REQ_FWD=1;
+    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+    export CPATH=${CPATH};
+    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     $daos_cmd \" 2>&1 "
     echo $daos_cmd
     echo
@@ -395,7 +405,7 @@ run_ior(){
              -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
-             --dfs.chunk_size ${CHUNK_SIZE} -vvv"
+             --dfs.chunk_size ${CHUNK_SIZE} -v"
 
     IOR_RD_CMD="${IOR_BIN}
              -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
@@ -404,7 +414,7 @@ run_ior(){
              -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
-             --dfs.chunk_size ${CHUNK_SIZE} -vvv"
+             --dfs.chunk_size ${CHUNK_SIZE} -v"
 
     prefix_mpich="mpirun
              -np $no_of_ps -map-by node
@@ -512,7 +522,7 @@ run_mdtest(){
                 --dfs.oclass ${OCLASS}
                 -L -p 10 -F -N 1 -P -d / -W 40
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
-                -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -vvv"
+                -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
     mpich_cmd="mpirun
               -np $no_of_ps -map-by node
