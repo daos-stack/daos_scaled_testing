@@ -31,6 +31,7 @@ DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
 SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
 ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
 CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
+DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
@@ -241,6 +242,7 @@ function wait_for_servers_to_start(){
 function prepare(){
     #Create the folder for server/client logs.
     mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}
+    mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test}
     cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
     ${SRUN_CMD} ${DST_DIR}/create_log_dir.sh
 
@@ -267,7 +269,7 @@ function start_agent(){
     daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
     -f ${SLURM_JOB_NUM_NODES} \"
-    pushd ${RUN_DIR};
+    pushd ${DUMP_DIR}/agent;
     ulimit -c unlimited;
     export PATH=${PATH};
     export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
@@ -402,7 +404,7 @@ function start_server(){
     daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
-    pushd ${RUN_DIR};
+    pushd ${DUMP_DIR}/server;
     ulimit -c unlimited;
     export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
     export CPATH=${CPATH};
@@ -470,7 +472,7 @@ function run_ior(){
     echo
 
     # Enable core dump creation
-    pushd ${RUN_DIR}
+    pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
     eval $cmd
     IOR_RC=$?
@@ -526,7 +528,7 @@ function run_self_test(){
     echo
 
     # Enable core dump creation
-    pushd ${RUN_DIR}
+    pushd ${DUMP_DIR}/self_test
     ulimit -c unlimited
     eval $cmd
     popd
@@ -584,7 +586,7 @@ function run_mdtest(){
     echo
 
     # Enable core dump creation
-    pushd ${RUN_DIR}
+    pushd ${DUMP_DIR}/mdtest
     ulimit -c unlimited
     eval $cmd
     MDTEST_RC=$?
