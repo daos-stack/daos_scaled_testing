@@ -1,10 +1,10 @@
 #!/bin/bash
 
-HOSTNAME=$(hostname)
-TMP="$HOSTNAME"
-mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}/$1/${TMP}
+LOG_DIR=${RUN_DIR}/${SLURM_JOB_ID}/logs/$(hostname)
+
+mkdir -p ${LOG_DIR}
 
 pushd /tmp
 rm -f daos_logs
-ln -s ${RUN_DIR}/${SLURM_JOB_ID}/$1/${TMP} daos_logs
+ln -s ${LOG_DIR} daos_logs
 popd

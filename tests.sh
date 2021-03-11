@@ -31,6 +31,7 @@ DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
 SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
 ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
 CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
+DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
 INITIAL_BRINGUP_WAIT_TIME=60s
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
@@ -61,13 +62,6 @@ echo
 
 echo DAOS_SERVERS=$DAOS_SERVERS
 
-cleanup(){
-    mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}/cleanup
-    $SRUN_CMD ${DST_DIR}/copy_log_files.sh "cleanup"
-    $SRUN_CMD ${DST_DIR}/cleanup.sh ${DAOS_SERVERS}
-    echo "End Time: $(date)"
-}
-
 # Generate timestamp
 function time_stamp(){
     date +%m/%d-%H:%M:%S
@@ -77,6 +71,30 @@ function time_stamp(){
 function pmsg(){
     echo
     echo "$(time_stamp) ${1}"
+}
+
+function cleanup(){
+    pmsg "Removing temporary files"
+    ${SRUN_CMD} ${DST_DIR}/cleanup.sh
+    echo "End Time: $(date)"
+}
+
+function collect_test_logs(){
+    pmsg "Collecting metrics and logs"
+
+    # Server nodes
+    clush --hostfile ${SERVER_HOSTLIST_FILE} \
+    --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
+    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
+    export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
+    ${DST_DIR}/copy_log_files.sh server "
+
+    # Client nodes
+    clush --hostfile ${CLIENT_HOSTLIST_FILE} \
+    --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
+    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
+    export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
+    ${DST_DIR}/copy_log_files.sh client "
 }
 
 # Print command and run it, timestap is prefixed
@@ -127,9 +145,14 @@ function teardown_test(){
                       -f ${SLURM_JOB_NUM_NODES}"
     pmsg "Starting teardown"
 
-    sleep 10
+    collect_test_logs
+
+    pmsg "List test processes to be killed"
     eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    pmsg "Killing test processes"
     eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    sleep 1
+    pmsg "List surviving processes"
     eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
 
     cleanup
@@ -139,7 +162,7 @@ function teardown_test(){
 
     pmsg "End of teardown"
 
-    pkill -P $$
+    pkill -e -P $$
 
     exit 0
 }
@@ -216,11 +239,12 @@ function wait_for_servers_to_start(){
 }
 
 #Create server/client hostfile.
-prepare(){
+function prepare(){
     #Create the folder for server/client logs.
     mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}
+    mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test}
     cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
-    $SRUN_CMD ${DST_DIR}/create_log_dir.sh "cleanup"
+    ${SRUN_CMD} ${DST_DIR}/create_log_dir.sh
 
     if [ $MPI == "openmpi" ]; then
         ${DST_DIR}/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
@@ -240,12 +264,15 @@ prepare(){
 }
 
 #Start DAOS agent
-start_agent(){
+function start_agent(){
     echo -e "\nCMD: Starting agent...\n"
     daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
-    -f $SLURM_JOB_NUM_NODES \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+    -f ${SLURM_JOB_NUM_NODES} \"
+    pushd ${DUMP_DIR}/agent;
+    ulimit -c unlimited;
+    export PATH=${PATH};
+    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
     export CPATH=${CPATH};
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     $daos_cmd\" "
@@ -256,7 +283,7 @@ start_agent(){
 }
 
 #Dump attach info
-dump_attach_info(){
+function dump_attach_info(){
     echo -e "\nCMD: Dump attach info file...\n"
     cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
     echo $cmd
@@ -266,7 +293,7 @@ dump_attach_info(){
 }
 
 #Create Pool
-create_pool(){
+function create_pool(){
     pmsg "Creating pool"
 
     HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
@@ -297,7 +324,7 @@ create_pool(){
     sleep 10
 }
 
-setup_pool(){
+function setup_pool(){
     pmsg "Pool set-prop"
     run_cmd_on_client "dmg pool set-prop --pool=${POOL_UUID} --name=reclaim --value=disabled -o ${DAOS_CONTROL_YAML}"
 
@@ -312,7 +339,7 @@ setup_pool(){
 }
 
 #Create Container
-create_container(){
+function create_container(){
     echo -e "\nCMD: Creating container\n"
 
     CONT_UUID=$(uuidgen)
@@ -372,12 +399,12 @@ create_container(){
 }
 
 #Start daos servers
-start_server(){
+function start_server(){
     echo -e "\nCMD: Starting server...\n"
     daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
     -f $SLURM_JOB_NUM_NODES \"
-    pushd ${RUN_DIR};
+    pushd ${DUMP_DIR}/server;
     ulimit -c unlimited;
     export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
     export CPATH=${CPATH};
@@ -391,7 +418,7 @@ start_server(){
 }
 
 #Run IOR
-run_ior(){
+function run_ior(){
     echo -e "\nCMD: Starting IOR..."
     module unload intel
     module list
@@ -443,8 +470,13 @@ run_ior(){
 
     echo $cmd
     echo
+
+    # Enable core dump creation
+    pushd ${DUMP_DIR}/ior
+    ulimit -c unlimited
     eval $cmd
     IOR_RC=$?
+    popd
 
     module load intel
     module list
@@ -462,7 +494,7 @@ run_ior(){
 }
 
 #Run cart self_test
-run_self_test(){
+function run_self_test(){
     echo -e "\nCMD: Starting CaRT self_test...\n"
 
     let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
@@ -494,7 +526,12 @@ run_self_test(){
 
     echo $cmd
     echo
+
+    # Enable core dump creation
+    pushd ${DUMP_DIR}/self_test
+    ulimit -c unlimited
     eval $cmd
+    popd
 
     if [ $? -ne 0 ]; then
         echo -e "\nSTATUS: CART self_test FAIL\n"
@@ -504,7 +541,7 @@ run_self_test(){
     fi
 }
 
-run_mdtest(){
+function run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
     module unload intel
     module list
@@ -547,8 +584,13 @@ run_mdtest(){
 
     echo $cmd
     echo
+
+    # Enable core dump creation
+    pushd ${DUMP_DIR}/mdtest
+    ulimit -c unlimited
     eval $cmd
     MDTEST_RC=$?
+    popd
 
     module load intel
     module list

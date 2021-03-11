@@ -1,6 +1,6 @@
 access_points: ['replace_this_server:10001']
 control_log_file: /tmp/daos_logs/daos_control.log
-control_log_mask: ERROR
+control_log_mask: INFO
 helper_log_file: /tmp/daos_logs/daos_admin.log
 name: daos_server
 nr_hugepages: 4096

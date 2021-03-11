@@ -293,7 +293,6 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_1to4_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 8, 5),
                      (4, 16, 5),
                      (8, 32, 5),
                      (16, 64, 5),
@@ -316,7 +315,6 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 {'testcase': 'ior_hard_c16_3gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
-                     (2, 16, 5),
                      (4, 16, 5),
                      (8, 16, 5),
                      (16, 16, 5),
@@ -440,7 +438,6 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_easy_1to4_3gx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 8, 5),
                         (4, 16, 5),
                         (8, 32, 5),
                         (16, 64, 5),
@@ -464,7 +461,6 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    {'testcase': 'mdtest_easy_c16_3gx',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 16, 15),
                         (4, 16, 15),
                         (8, 16, 15),
                         (16, 16, 15),
@@ -532,6 +528,100 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'S1'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_hard_1to4_2gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 8, 5),
+                        (4, 16, 5),
+                        (8, 32, 5),
+                        (16, 64, 5),
+                        (32, 128, 5),
+                        (64, 256, 5),
+                        (128, 512, 5),
+                        (256, 1024, 5)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'chunk_size': '1048576',
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '3901',
+                        'bytes_write': '3901',
+                        'tree_depth': '0/20',
+                        'oclass': 'RP_2GX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_hard_c16_2gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (2, 16, 5),
+                        (4, 16, 5),
+                        (8, 16, 5),
+                        (16, 16, 5),
+                        (32, 16, 5),
+                        (64, 16, 5),
+                        (128, 16, 5),
+                        (256, 16, 5)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'chunk_size': '1048576',
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '3901',
+                        'bytes_write': '3901',
+                        'tree_depth': '0/20',
+                        'oclass': 'RP_2GX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_hard_1to4_3gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (4, 16, 5),
+                        (8, 32, 5),
+                        (16, 64, 5),
+                        (32, 128, 5),
+                        (64, 256, 5),
+                        (128, 512, 5),
+                        (256, 1024, 5)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'chunk_size': '1048576',
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '3901',
+                        'bytes_write': '3901',
+                        'tree_depth': '0/20',
+                        'oclass': 'RP_3GX'
+                    },
+                    'enabled': False
+                    },
+                   {'testcase': 'mdtest_hard_c16_3gx',
+                    # Number of servers, number of clients, timeout in minutes
+                    'testvariants': [
+                        (4, 16, 5),
+                        (8, 16, 5),
+                        (16, 16, 5),
+                        (32, 16, 5),
+                        (64, 16, 5),
+                        (128, 16, 5),
+                        (256, 16, 5)
+                    ],
+                    'ppc': 32,
+                    'env_vars': {
+                        'chunk_size': '1048576',
+                        'pool_size': '85G',
+                        'n_file': '12000',
+                        'bytes_read': '3901',
+                        'bytes_write': '3901',
+                        'tree_depth': '0/20',
+                        'oclass': 'RP_3GX'
                     },
                     'enabled': False
                     }
