@@ -80,6 +80,10 @@ function pmsg(){
     echo "$(time_stamp) ${1}"
 }
 
+function print_line() {
+    printf '%80s\n' | tr ' ' =
+}
+
 function cleanup(){
     pmsg "Removing temporary files"
     ${SRUN_CMD} ${DST_DIR}/cleanup.sh
@@ -340,6 +344,49 @@ function setup_pool(){
     fi
 
     sleep 10
+}
+
+function query_pools(){
+    pmsg "Query all pools"
+
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    local ALL_POOLS="$(echo "${OUTPUT_CMD}" | grep -Eo -- "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")"
+    local NUMBER_OF_POOLS=$(echo "${ALL_POOLS}" | wc -l)
+    echo
+
+    if [ -z "${ALL_POOLS}" ] ; then
+        pmsg "Zero Pools found!!"
+        return
+    fi
+
+    pmsg "Total Pools: ${NUMBER_OF_POOLS}"
+
+    local n=1
+    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
+    do
+        print_line
+        pmsg "Query pool ${n} of ${NUMBER_OF_POOLS}"
+        local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
+        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${CURRENT_POOL}"
+        n=$[${n} + 1]
+    done
+
+    pmsg "Done, ${NUMBER_OF_POOLS} were queried"
+}
+
+function create_multiple_pools(){
+    pmsg "Creating ${NUMBER_OF_POOLS} pools"
+
+    local n=1
+    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
+    do
+        pmsg "Creating pool ${n} of ${NUMBER_OF_POOLS}"
+        create_pool
+        n=$[${n} + 1]
+    done
+
+    pmsg "Done, ${NUMBER_OF_POOLS} were created"
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
 }
 
 #Create Container
@@ -643,6 +690,18 @@ function get_doom_server(){
     echo ${DOOMED_SERVER}
 }
 
+function run_cmd_quiet(){
+    local DAOS_CMD="$(echo ${1} | tr -s " ")"
+    local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
+
+    CMD="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S \"
+         export PATH=${PATH};
+         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+         ${DAOS_CMD} \" "
+
+    OUTPUT_CMD="$(eval ${CMD})"
+}
+
 # Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
 function kill_random_server(){
     local DOOMED_SERVER=$(get_doom_server)
@@ -653,23 +712,32 @@ function kill_random_server(){
     pmsg "Waiting to kill ${DOOMED_SERVER} server in ${WAIT_TIME} seconds..."
     sleep ${WAIT_TIME}
     pmsg "Killing ${DOOMED_SERVER} server"
-    run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
-    run_cmd "ssh ${DOOMED_SERVER} \"pkill -e --signal SIGKILL ${PROCESSES}\""
-    run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
+
+    local CSH_PREFIX="clush -w ${DOOMED_SERVER} -S -f 1"
+
+    pmsg "pgrep -a ${PROCESSES}"
+    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    pmsg "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    pmsg "pgrep -a ${PROCESSES}"
+    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+
     pmsg "Killed ${DOOMED_SERVER} server"
 
     n=1
     until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
     do
-        get_daos_status
+        run_cmd_quiet "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
 
-        if echo "${OUTPUT_CMD}" | grep -qE "^Rebuild\sdone"; then
+        echo "${OUTPUT_CMD}"
+
+        if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             break
         fi
 
-        pmsg "Attempt ${n} failed, retrying in 1 second..."
+        pmsg "Attempt ${n} of ${MAX_RETRY_ATTEMPTS} failed, retrying in 5 seconds..."
         n=$[${n} + 1]
-        sleep 1
+        sleep 5
     done
 
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
@@ -678,6 +746,11 @@ function kill_random_server(){
     fi
 
     pmsg "Pool rebuild completed"
+    pmsg "Waiting for other pools to rebuild 30s"
+    sleep 30
+    pmsg "end of waiting"
+
+    query_pools
 }
 
 function run_testcase(){
@@ -695,7 +768,18 @@ function run_testcase(){
         SWIM)
             # Swim stabilization test by checking server fault detection
             start_server
+            create_multiple_pools
+            kill_random_server
+            ;;
+        SWIM_IOR)
+            # Swim stabilization test by checking server fault detection
+            start_server
+            start_agent
             create_pool
+            setup_pool
+            create_container
+            query_container
+            run_ior_write
             kill_random_server
             ;;
         IOR)

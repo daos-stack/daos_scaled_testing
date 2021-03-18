@@ -664,27 +664,53 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                    ]
 
 
-swim_testlist = [{'testcase': 'pool_rebuild',
+swim_testlist = [{'testcase': 'single_pool_rebuild',
                   # Number of servers, number of clients, timeout in minutes
                   'testvariants': [
-                      (4, 1, 15),
-                      (4, 1, 15),
-                      (8, 1, 15),
-                      (16, 1, 15),
-                      (32, 1, 15),
-                      (64, 1, 15),
-                      (128, 1, 15),
-                      (256, 1, 15),
-                      (512, 1, 15),
-                      (1024, 1, 15)
+                      (8, 1, 10),
                   ],
                   'ppc': 32,
                   'env_vars': {
-                      'pool_size': '85G'
+                      'pool_size': '85G',
+                      'number_of_pools': '1'
+                  },
+                  'enabled': False
+                  },
+                  {'testcase': 'multi_pool_rebuild',
+                  # Number of servers, number of clients, timeout in minutes
+                  'testvariants': [
+                      (8, 1, 30),
+                  ],
+                  'ppc': 32,
+                  'env_vars': {
+                      'pool_size': '10G',
+                      'number_of_pools': '5'
                   },
                   'enabled': False
                   }
                  ]
+
+
+swim_ior_testlist = [{'testcase': 'pool_rebuild_50_load',
+                      # Number of servers, number of clients, timeout in minutes
+                      'testvariants': [
+                          (8, 4, 30),
+                      ],
+                      'ppc': 32,
+                      'env_vars': {
+                          'pool_size': '85G',
+                          'number_of_pools': '1',
+                          'chunk_size': '1048576',
+                          'segments': '1',
+                          'xfer_size': '1M',
+                          'block_size': '2656M',
+                          'oclass': 'SX',
+                          'iterations': '1'
+                      },
+                      'enabled': False
+                      }
+                     ]
+
 
 
 class TestList(object):
@@ -784,6 +810,11 @@ class SwimTestList(TestList):
         super(SwimTestList, self).__init__('SWIM', testlist, env)
 
 
+class SwimIORTestList(TestList):
+    def __init__(self, testlist):
+        super(SwimIORTestList, self).__init__('SWIM_IOR', testlist, env)
+
+
 def main():
     self_test = SelfTestList(self_testlist)
     self_test.run()
@@ -796,6 +827,9 @@ def main():
 
     swim_test = SwimTestList(swim_testlist)
     swim_test.run()
+
+    swim_ior_test = SwimIORTestList(swim_ior_testlist)
+    swim_ior_test.run()
 
 
 if __name__ == '__main__':
