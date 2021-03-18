@@ -24,7 +24,7 @@ pushd ${RUN_DIR}
 # Get TACC usage status
 /usr/local/etc/taccinfo > ${RUN_DIR}/tacc_usage_status.txt 2>&1
 
-SLURM_JOB="$(sbatch -J $JOBNAME -t $TIMEOUT --mail-user=$EMAIL -N $NNODE -n $NCORE -p $PARTITION ${DST_DIR}/tests.sh $TEST_GROUP)"
+SLURM_JOB="$(sbatch -J $JOBNAME -t $TIMEOUT --mail-user=$EMAIL -N $NNODE -n $NCORE -p $PARTITION ${DST_DIR}/sbatch_me.txt $TEST_GROUP)"
 
 echo "$(printf '%80s\n' | tr ' ' =)
 Running ${TESTCASE} with ${DAOS_SERVERS} servers and ${DAOS_CLIENTS} clients
