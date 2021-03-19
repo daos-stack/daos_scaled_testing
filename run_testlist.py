@@ -77,7 +77,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '150G',
                      'oclass': 'SX'
                  },
                  'enabled': False
@@ -101,7 +101,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '150G',
                      'oclass': 'SX'
                  },
                  'enabled': False
@@ -124,7 +124,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '150G',
                      'oclass': 'RP_2GX'
                  },
                  'enabled': False
@@ -147,7 +147,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '150G',
                      'oclass': 'RP_2GX'
                  },
                  'enabled': False
@@ -169,7 +169,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '150G',
                      'oclass': 'RP_3GX'
                  },
                  'enabled': False
@@ -191,7 +191,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'pool_size': '85G',
                      'segments': '1',
                      'xfer_size': '1M',
-                     'block_size': '1G',
+                     'block_size': '150G',
                      'oclass': 'RP_3GX'
                  },
                  'enabled': False

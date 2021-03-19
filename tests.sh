@@ -415,7 +415,7 @@ function run_ior(){
              -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -v"
@@ -424,7 +424,7 @@ function run_ior(){
              -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -v"
