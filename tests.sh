@@ -347,7 +347,6 @@ function create_container(){
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-    export OFI_INTERFACE=${OFI_INTERFACE};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
     $daos_cmd\""
 
@@ -369,7 +368,6 @@ function create_container(){
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-    export OFI_INTERFACE=${OFI_INTERFACE};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
     $daos_cmd\""
 
@@ -435,7 +433,6 @@ function run_ior(){
 
     prefix_openmpi="orterun $OMPI_PARAM
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
-                 -x CRT_PHY_ADDR_STR -x OFI_INTERFACE
                  -x FI_UNIVERSE_SIZE
                  -x D_LOG_FILE -x D_LOG_MASK
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
@@ -497,7 +494,6 @@ function run_self_test(){
 
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH
-        -x CRT_PHY_ADDR_STR -x OFI_INTERFACE
         -x FI_UNIVERSE_SIZE
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
@@ -553,7 +549,6 @@ function run_mdtest(){
 
     openmpi_cmd="orterun $OMPI_PARAM
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
-                -x CRT_PHY_ADDR_STR -x OFI_INTERFACE
                 -x FI_UNIVERSE_SIZE
                 -x D_LOG_FILE -x D_LOG_MASK
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node

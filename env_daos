@@ -1,8 +1,6 @@
 export FI_UNIVERSE_SIZE=16383
 export D_LOG_FILE=/tmp/daos_logs/daos_client.log
 export D_LOG_MASK=ERR
-export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
-export OFI_INTERFACE=ib0
 export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
 export DAOS_DISABLE_REQ_FWD=1
 
