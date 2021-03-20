@@ -538,7 +538,7 @@ function run_mdtest(){
                 --dfs.cont ${CONT_UUID}
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
-                -L -p 10 -F -N 1 -P -d / -W 40
+                -L -p 10 -F -N 1 -P -d / -W 60
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
