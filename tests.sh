@@ -3,11 +3,6 @@
 #Run daos tests like IOR/MDtest and self_test(cart)
 #----------------------------------------------------
 
-#SBATCH -o stdout.o%j           # Name of stdout output file
-#SBATCH -e stderr.e%j           # Name of stderr error file
-#SBATCH -A STAR-Intel           # Project Name
-#SBATCH --mail-type=all         # Send email at begin and end of job
-
 #Unload modules that are not needed on Frontera
 module unload impi pmix hwloc
 module list
@@ -157,12 +152,9 @@ function teardown_test(){
 
     cleanup
 
-    # wait for all the background commands
-    wait
+    pkill -e --signal SIGKILL -P $$
 
     pmsg "End of teardown"
-
-    pkill -e -P $$
 
     exit 0
 }
@@ -355,11 +347,7 @@ function create_container(){
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-    export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
-    export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-    export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
-    export FI_OFI_RXM_USE_SRX=${FI_OFI_RXM_USE_SRX};
     $daos_cmd\""
 
     pmsg "CMD: ${daos_cmd}"
@@ -380,11 +368,7 @@ function create_container(){
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-    export OFI_DOMAIN=${OFI_DOMAIN}; export OFI_INTERFACE=${OFI_INTERFACE};
-    export FI_MR_CACHE_MAX_COUNT=${FI_MR_CACHE_MAX_COUNT};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-    export FI_VERBS_PREFER_XRC=${FI_VERBS_PREFER_XRC};
-    export FI_OFI_RXM_USE_SRX=${FI_OFI_RXM_USE_SRX};
     $daos_cmd\""
 
     pmsg "CMD: ${daos_cmd}"
@@ -429,7 +413,7 @@ function run_ior(){
              -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -v"
@@ -438,7 +422,7 @@ function run_ior(){
              -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
              -s ${SEGMENTS} -o /testFile
              -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 40
+             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -v"
@@ -449,9 +433,7 @@ function run_ior(){
 
     prefix_openmpi="orterun $OMPI_PARAM
                  -x CPATH -x PATH -x LD_LIBRARY_PATH
-                 -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-                 -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                 -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
+                 -x FI_UNIVERSE_SIZE
                  -x D_LOG_FILE -x D_LOG_MASK
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile ${CLIENT_HOSTLIST_FILE}"
@@ -511,9 +493,9 @@ function run_self_test(){
         $st_cmd"
 
     openmpi_cmd="orterun $OMPI_PARAM 
-        -x CPATH -x PATH -x LD_LIBRARY_PATH -x FI_MR_CACHE_MAX_COUNT
+        -x CPATH -x PATH -x LD_LIBRARY_PATH
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-        -x FI_UNIVERSE_SIZE -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
+        -x FI_UNIVERSE_SIZE
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
@@ -557,7 +539,7 @@ function run_mdtest(){
                 --dfs.cont ${CONT_UUID}
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
-                -L -p 10 -F -N 1 -P -d / -W 40
+                -L -p 10 -F -N 1 -P -d / -W 60
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
@@ -568,9 +550,7 @@ function run_mdtest(){
 
     openmpi_cmd="orterun $OMPI_PARAM
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
-                -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-                -x FI_MR_CACHE_MAX_COUNT -x FI_UNIVERSE_SIZE
-                -x FI_VERBS_PREFER_XRC -x FI_OFI_RXM_USE_SRX
+                -x FI_UNIVERSE_SIZE
                 -x D_LOG_FILE -x D_LOG_MASK
                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                 --hostfile ${CLIENT_HOSTLIST_FILE}
@@ -718,4 +698,4 @@ function run_testcase(){
 
 test=$1
 
-run_testcase |& tee ${RUN_DIR}/output_${SLURM_JOB_ID}.txt
+run_testcase

@@ -13,16 +13,10 @@ engines:
   - ABT_ENV_MAX_NUM_XSTREAMS=100
   - ABT_MAX_NUM_XSTREAMS=100
   - DAOS_MD_CAP=1024
-  - FI_SOCKETS_MAX_CONN_RETRY=1
-  - FI_SOCKETS_CONN_TIMEOUT=2000
   - DD_MASK=mgmt,io,md,epc,rebuild
   - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
   - PMEM_IS_PMEM_FORCE=1
-  - OFI_DOMAIN=mlx5_0
-  - FI_MR_CACHE_MAX_COUNT=0
   - FI_UNIVERSE_SIZE=16383
-  - FI_VERBS_PREFER_XRC=1
-  - FI_OFI_RXM_USE_SRX=1
   fabric_iface: ib0
   fabric_iface_port: 31416
   first_core: 0
