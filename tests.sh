@@ -494,6 +494,7 @@ function run_self_test(){
 
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH
+        -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
         -x FI_UNIVERSE_SIZE
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
