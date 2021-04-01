@@ -78,7 +78,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '1',
                      'xfer_size': '1M',
                      'block_size': '150G',
-                     'oclass': 'SX'
+                     'oclass': 'SX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -102,7 +104,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '1',
                      'xfer_size': '1M',
                      'block_size': '150G',
-                     'oclass': 'SX'
+                     'oclass': 'SX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -125,7 +129,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '1',
                      'xfer_size': '1M',
                      'block_size': '150G',
-                     'oclass': 'RP_2GX'
+                     'oclass': 'RP_2GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -148,7 +154,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '1',
                      'xfer_size': '1M',
                      'block_size': '150G',
-                     'oclass': 'RP_2GX'
+                     'oclass': 'RP_2GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -170,7 +178,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '1',
                      'xfer_size': '1M',
                      'block_size': '150G',
-                     'oclass': 'RP_3GX'
+                     'oclass': 'RP_3GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -192,7 +202,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '1',
                      'xfer_size': '1M',
                      'block_size': '150G',
-                     'oclass': 'RP_3GX'
+                     'oclass': 'RP_3GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -216,7 +228,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
-                     'oclass': 'SX'
+                     'oclass': 'SX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -240,7 +254,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
-                     'oclass': 'SX'
+                     'oclass': 'SX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -263,7 +279,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
-                     'oclass': 'RP_2GX'
+                     'oclass': 'RP_2GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -286,7 +304,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
-                     'oclass': 'RP_2GX'
+                     'oclass': 'RP_2GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -308,7 +328,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
-                     'oclass': 'RP_3GX'
+                     'oclass': 'RP_3GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  },
@@ -330,7 +352,9 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      'segments': '2000000',
                      'xfer_size': '47008',
                      'block_size': '47008',
-                     'oclass': 'RP_3GX'
+                     'oclass': 'RP_3GX',
+                     'sw_time': '60',
+                     'iterations': '1'
                  },
                  'enabled': False
                  }
@@ -358,7 +382,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'S1'
+                        'oclass': 'S1',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -383,7 +408,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'S1'
+                        'oclass': 'S1',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -407,7 +433,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_2GX'
+                        'oclass': 'RP_2GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -431,7 +458,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_2GX'
+                        'oclass': 'RP_2GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -454,7 +482,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_3GX'
+                        'oclass': 'RP_3GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -477,7 +506,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_3GX'
+                        'oclass': 'RP_3GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -502,7 +532,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'S1'
+                        'oclass': 'S1',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -527,7 +558,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'S1'
+                        'oclass': 'S1',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -551,7 +583,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_2GX'
+                        'oclass': 'RP_2GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -575,7 +608,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_2GX'
+                        'oclass': 'RP_2GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -598,7 +632,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_3GX'
+                        'oclass': 'RP_3GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     },
@@ -621,7 +656,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_3GX'
+                        'oclass': 'RP_3GX',
+                        'sw_time': '60'
                     },
                     'enabled': False
                     }

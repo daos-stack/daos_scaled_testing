@@ -409,20 +409,24 @@ function run_ior(){
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
+    if [ -z ${SW_TIME+x} ]; then
+        SW_CMD=""
+    else
+        SW_CMD="-O stoneWallingWearOut=1
+                -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID}
+                -D ${SW_TIME}"
+    fi
+
     IOR_WR_CMD="${IOR_BIN}
-             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
-             -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
+             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i ${ITERATIONS}
+             -s ${SEGMENTS} -o /testFile ${SW_CMD}
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -v"
 
     IOR_RD_CMD="${IOR_BIN}
-             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
-             -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
+             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i ${ITERATIONS}
+             -s ${SEGMENTS} -o /testFile ${SW_CMD}
              -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
              --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
              --dfs.chunk_size ${CHUNK_SIZE} -v"
@@ -438,39 +442,49 @@ function run_ior(){
                  --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
                  --hostfile ${CLIENT_HOSTLIST_FILE}"
 
-    mpich_cmd="${prefix_mpich} ${IOR_WR_CMD};
-               ${prefix_mpich} ${IOR_RD_CMD}"
-
-    openmpi_cmd="${prefix_openmpi} ${IOR_WR_CMD};
-                 ${prefix_openmpi} ${IOR_RD_CMD}"
-
     if [ "$MPI" == "openmpi" ]; then
-        cmd=$openmpi_cmd
+        wr_cmd="${prefix_openmpi} ${IOR_WR_CMD}"
+        rd_cmd="${prefix_openmpi} ${IOR_RD_CMD}"
     else
-        cmd=$mpich_cmd
+        wr_cmd="${prefix_mpich} ${IOR_WR_CMD}"
+        rd_cmd="${prefix_mpich} ${IOR_RD_CMD}"
     fi
 
-    echo $cmd
+    echo ${wr_cmd}
+    echo ${rd_cmd}
     echo
 
     # Enable core dump creation
     pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
-    eval $cmd
+    eval ${wr_cmd}
+    IOR_RC=$?
+
+    if [ ${IOR_RC} -ne 0 ]; then
+        echo -e "\nSTATUS: IOR WRITE FAIL\n"
+        popd
+        module load intel
+        module list
+        teardown_test
+    else
+        echo -e "\nSTATUS: IOR WRITE SUCCESS\n"
+    fi
+
+    eval ${rd_cmd}
     IOR_RC=$?
     popd
 
     module load intel
     module list
 
-    get_daos_status
-
     if [ ${IOR_RC} -ne 0 ]; then
-        echo -e "\nSTATUS: IOR FAIL\n"
+        echo -e "\nSTATUS: IOR READ FAIL\n"
         teardown_test
     else
-        echo -e "\nSTATUS: IOR SUCCESS\n"
+        echo -e "\nSTATUS: IOR READ SUCCESS\n"
     fi
+
+    get_daos_status
 
     sleep 5
 }
@@ -539,7 +553,7 @@ function run_mdtest(){
                 --dfs.cont ${CONT_UUID}
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
-                -L -p 10 -F -N 1 -P -d / -W 60
+                -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
