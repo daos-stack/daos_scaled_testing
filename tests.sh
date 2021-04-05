@@ -35,6 +35,18 @@ PROCESSES="'(daos|orteun|mpirun)'"
 # Time in milliseconds
 CLOCK_DRIFT_THRESHOLD=500
 
+no_of_ps=$(($DAOS_CLIENTS * $PPC))
+PREFIX_MPICH="mpirun
+              -np ${no_of_ps} -map-by node
+              -hostfile ${CLIENT_HOSTLIST_FILE}"
+
+PREFIX_OPENMPI="orterun ${OMPI_PARAM}
+                -x CPATH -x PATH -x LD_LIBRARY_PATH
+                -x FI_UNIVERSE_SIZE
+                -x D_LOG_FILE -x D_LOG_MASK
+                --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
+                --hostfile ${CLIENT_HOSTLIST_FILE}"
+
 HOSTNAME=$(hostname)
 echo $HOSTNAME
 echo
@@ -66,6 +78,10 @@ function time_stamp(){
 function pmsg(){
     echo
     echo "$(time_stamp) ${1}"
+}
+
+function print_line() {
+    printf '%80s\n' | tr ' ' =
 }
 
 function cleanup(){
@@ -330,6 +346,49 @@ function setup_pool(){
     sleep 10
 }
 
+function query_pools(){
+    pmsg "Query all pools"
+
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    local ALL_POOLS="$(echo "${OUTPUT_CMD}" | grep -Eo -- "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")"
+    local NUMBER_OF_POOLS=$(echo "${ALL_POOLS}" | wc -l)
+    echo
+
+    if [ -z "${ALL_POOLS}" ] ; then
+        pmsg "Zero Pools found!!"
+        return
+    fi
+
+    pmsg "Total Pools: ${NUMBER_OF_POOLS}"
+
+    local n=1
+    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
+    do
+        print_line
+        pmsg "Query pool ${n} of ${NUMBER_OF_POOLS}"
+        local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
+        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${CURRENT_POOL}"
+        n=$[${n} + 1]
+    done
+
+    pmsg "Done, ${NUMBER_OF_POOLS} were queried"
+}
+
+function create_multiple_pools(){
+    pmsg "Creating ${NUMBER_OF_POOLS} pools"
+
+    local n=1
+    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
+    do
+        pmsg "Creating pool ${n} of ${NUMBER_OF_POOLS}"
+        create_pool
+        n=$[${n} + 1]
+    done
+
+    pmsg "Done, ${NUMBER_OF_POOLS} were created"
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
+}
+
 #Create Container
 function create_container(){
     echo -e "\nCMD: Creating container\n"
@@ -359,7 +418,13 @@ function create_container(){
     else
         echo "Daos container create SUCCESS"
     fi
+}
 
+#Query Container
+function query_container(){
+    echo -e "\nCMD: Query container\n"
+
+    HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
     daos_cmd="daos container query --pool=${POOL_UUID} --cont=${CONT_UUID}"
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
     -f ${SLURM_JOB_NUM_NODES} \"
@@ -404,75 +469,99 @@ function start_server(){
 #Run IOR
 function run_ior(){
     echo -e "\nCMD: Starting IOR..."
-    module unload intel
-    module list
-    no_of_ps=$(($DAOS_CLIENTS * $PPC))
-    echo
 
-    IOR_WR_CMD="${IOR_BIN}
-             -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k -i 1
-             -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
-             -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-             --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
-             --dfs.chunk_size ${CHUNK_SIZE} -v"
-
-    IOR_RD_CMD="${IOR_BIN}
-             -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k -i 1
-             -s ${SEGMENTS} -o /testFile
-             -O stoneWallingWearOut=1
-             -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID} -D 60
-             -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-             --dfs.group daos_server --dfs.pool ${POOL_UUID} --dfs.oclass ${OCLASS}
-             --dfs.chunk_size ${CHUNK_SIZE} -v"
-
-    prefix_mpich="mpirun
-             -np $no_of_ps -map-by node
-             -hostfile ${CLIENT_HOSTLIST_FILE}"
-
-    prefix_openmpi="orterun $OMPI_PARAM
-                 -x CPATH -x PATH -x LD_LIBRARY_PATH
-                 -x FI_UNIVERSE_SIZE
-                 -x D_LOG_FILE -x D_LOG_MASK
-                 --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
-                 --hostfile ${CLIENT_HOSTLIST_FILE}"
-
-    mpich_cmd="${prefix_mpich} ${IOR_WR_CMD};
-               ${prefix_mpich} ${IOR_RD_CMD}"
-
-    openmpi_cmd="${prefix_openmpi} ${IOR_WR_CMD};
-                 ${prefix_openmpi} ${IOR_RD_CMD}"
-
-    if [ "$MPI" == "openmpi" ]; then
-        cmd=$openmpi_cmd
+    if [ -z ${SW_TIME+x} ]; then
+        SW_CMD=""
     else
-        cmd=$mpich_cmd
+        SW_CMD="-O stoneWallingWearOut=1
+                -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID}
+                -D ${SW_TIME}"
     fi
 
-    echo $cmd
+    run_ior_write
+    run_ior_read
+}
+
+function run_ior_write(){
+    module unload intel
+    module list
+
+    IOR_WR_CMD="${IOR_BIN}
+                -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k
+                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
+                -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
+                --dfs.group daos_server --dfs.pool ${POOL_UUID}
+                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
+
+    if [ "${MPI}" == "openmpi" ]; then
+        wr_cmd="${PREFIX_OPENMPI} ${IOR_WR_CMD}"
+    else
+        wr_cmd="${PREFIX_MPICH} ${IOR_WR_CMD}"
+    fi
+
+    echo ${wr_cmd}
     echo
 
     # Enable core dump creation
     pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
-    eval $cmd
+    eval ${wr_cmd}
     IOR_RC=$?
     popd
 
     module load intel
     module list
 
-    get_daos_status
-
     if [ ${IOR_RC} -ne 0 ]; then
-        echo -e "\nSTATUS: IOR FAIL\n"
+        echo -e "\nSTATUS: IOR WRITE FAIL\n"
         teardown_test
     else
-        echo -e "\nSTATUS: IOR SUCCESS\n"
+        echo -e "\nSTATUS: IOR WRITE SUCCESS\n"
     fi
 
-    sleep 5
+    query_container
+    get_daos_status
+}
+
+function run_ior_read(){
+    module unload intel
+    module list
+
+    IOR_RD_CMD="${IOR_BIN}
+               -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k
+               -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
+               -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
+               --dfs.group daos_server --dfs.pool ${POOL_UUID}
+               --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
+
+    if [ "${MPI}" == "openmpi" ]; then
+        rd_cmd="${PREFIX_OPENMPI} ${IOR_RD_CMD}"
+    else
+        rd_cmd="${PREFIX_MPICH} ${IOR_RD_CMD}"
+    fi
+
+    echo ${rd_cmd}
+    echo
+
+    # Enable core dump creation
+    pushd ${DUMP_DIR}/ior
+    ulimit -c unlimited
+    eval ${rd_cmd}
+    IOR_RC=$?
+    popd
+
+    module load intel
+    module list
+
+    if [ ${IOR_RC} -ne 0 ]; then
+        echo -e "\nSTATUS: IOR READ FAIL\n"
+        teardown_test
+    else
+        echo -e "\nSTATUS: IOR READ SUCCESS\n"
+    fi
+
+    query_container
+    get_daos_status
 }
 
 #Run cart self_test
@@ -539,27 +628,14 @@ function run_mdtest(){
                 --dfs.cont ${CONT_UUID}
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
-                -L -p 10 -F -N 1 -P -d / -W 60
+                -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
-    mpich_cmd="mpirun
-              -np $no_of_ps -map-by node
-              -hostfile ${CLIENT_HOSTLIST_FILE}
-              $mdtest_cmd"
-
-    openmpi_cmd="orterun $OMPI_PARAM
-                -x CPATH -x PATH -x LD_LIBRARY_PATH
-                -x FI_UNIVERSE_SIZE
-                -x D_LOG_FILE -x D_LOG_MASK
-                --timeout $OMPI_TIMEOUT -np $no_of_ps --map-by node
-                --hostfile ${CLIENT_HOSTLIST_FILE}
-                $mdtest_cmd"
-
-    if [ "$MPI" == "openmpi" ]; then
-        cmd=$openmpi_cmd
+    if [ "${MPI}" == "openmpi" ]; then
+        cmd="${PREFIX_OPENMPI} ${mdtest_cmd}"
     else
-        cmd=$mpich_cmd
+        cmd="${PREFIX_MPICH} ${mdtest_cmd}"
     fi
 
     echo $cmd
@@ -584,7 +660,8 @@ function run_mdtest(){
         echo -e "\nSTATUS: MDTEST SUCCESS\n"
     fi
 
-    sleep 5
+    query_container
+    get_daos_status
 }
 
 # Get a random server name from the SERVER_HOSTLIST_FILE
@@ -613,6 +690,18 @@ function get_doom_server(){
     echo ${DOOMED_SERVER}
 }
 
+function run_cmd_quiet(){
+    local DAOS_CMD="$(echo ${1} | tr -s " ")"
+    local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
+
+    CMD="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S \"
+         export PATH=${PATH};
+         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+         ${DAOS_CMD} \" "
+
+    OUTPUT_CMD="$(eval ${CMD})"
+}
+
 # Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
 function kill_random_server(){
     local DOOMED_SERVER=$(get_doom_server)
@@ -623,23 +712,32 @@ function kill_random_server(){
     pmsg "Waiting to kill ${DOOMED_SERVER} server in ${WAIT_TIME} seconds..."
     sleep ${WAIT_TIME}
     pmsg "Killing ${DOOMED_SERVER} server"
-    run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
-    run_cmd "ssh ${DOOMED_SERVER} \"pkill -e --signal SIGKILL ${PROCESSES}\""
-    run_cmd "ssh ${DOOMED_SERVER} \"pgrep -a ${PROCESSES}\""
+
+    local CSH_PREFIX="clush -w ${DOOMED_SERVER} -S -f 1"
+
+    pmsg "pgrep -a ${PROCESSES}"
+    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    pmsg "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    pmsg "pgrep -a ${PROCESSES}"
+    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+
     pmsg "Killed ${DOOMED_SERVER} server"
 
     n=1
     until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
     do
-        get_daos_status
+        run_cmd_quiet "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
 
-        if echo "${OUTPUT_CMD}" | grep -qE "^Rebuild\sdone"; then
+        echo "${OUTPUT_CMD}"
+
+        if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             break
         fi
 
-        pmsg "Attempt ${n} failed, retrying in 1 second..."
+        pmsg "Attempt ${n} of ${MAX_RETRY_ATTEMPTS} failed, retrying in 5 seconds..."
         n=$[${n} + 1]
-        sleep 1
+        sleep 5
     done
 
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
@@ -648,6 +746,11 @@ function kill_random_server(){
     fi
 
     pmsg "Pool rebuild completed"
+    pmsg "Waiting for other pools to rebuild 30s"
+    sleep 30
+    pmsg "end of waiting"
+
+    query_pools
 }
 
 function run_testcase(){
@@ -665,7 +768,18 @@ function run_testcase(){
         SWIM)
             # Swim stabilization test by checking server fault detection
             start_server
+            create_multiple_pools
+            kill_random_server
+            ;;
+        SWIM_IOR)
+            # Swim stabilization test by checking server fault detection
+            start_server
+            start_agent
             create_pool
+            setup_pool
+            create_container
+            query_container
+            run_ior_write
             kill_random_server
             ;;
         IOR)
@@ -674,6 +788,7 @@ function run_testcase(){
             create_pool
             setup_pool
             create_container
+            query_container
             run_ior
             ;;
         SELF_TEST)
