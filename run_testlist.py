@@ -378,12 +378,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'S1',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -404,12 +404,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'S1',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -429,12 +429,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_2GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -454,12 +454,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_2GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -478,12 +478,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_3GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -502,12 +502,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_3GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -528,12 +528,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'S1',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -554,12 +554,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'S1',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -579,12 +579,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_2GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -604,12 +604,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_2GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -628,12 +628,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_3GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     },
@@ -652,12 +652,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '12000',
+                        'n_file': '200000',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_3GX',
-                        'sw_time': '60'
+                        'sw_time': '90'
                     },
                     'enabled': False
                     }
