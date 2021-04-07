@@ -42,7 +42,7 @@ PREFIX_MPICH="mpirun
 
 PREFIX_OPENMPI="orterun ${OMPI_PARAM}
                 -x CPATH -x PATH -x LD_LIBRARY_PATH
-                -x FI_UNIVERSE_SIZE
+                -x FI_UNIVERSE_SIZE -x CRT_MRC_ENABLE
                 -x D_LOG_FILE -x D_LOG_MASK
                 --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
                 --hostfile ${CLIENT_HOSTLIST_FILE}"
@@ -407,6 +407,7 @@ function create_container(){
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+    export CRT_MRC_ENABLE=${CRT_MRC_ENABLE};
     $daos_cmd\""
 
     pmsg "CMD: ${daos_cmd}"
@@ -434,6 +435,7 @@ function query_container(){
     export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
     export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
     export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+    export CRT_MRC_ENABLE=${CRT_MRC_ENABLE};
     $daos_cmd\""
 
     pmsg "CMD: ${daos_cmd}"
@@ -584,7 +586,7 @@ function run_self_test(){
     openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
-        -x FI_UNIVERSE_SIZE
+        -x FI_UNIVERSE_SIZE -x CRT_MRC_ENABLE
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"

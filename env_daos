@@ -6,6 +6,7 @@ export OFI_INTERFACE=ib0
 export OFI_DOMAIN=mlx5_0
 export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
 export DAOS_DISABLE_REQ_FWD=1
+export CRT_MRC_ENABLE=1
 
 LOCATION=$1
 
