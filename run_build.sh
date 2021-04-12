@@ -5,6 +5,7 @@ EXTRA_BUILD="${1}"
 export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
 export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
+export MVAPICH2_DIR="/opt/apps/intel19/mvapich2-x/2.3"
 
 # Unload modules that are not needed on Frontera
 module unload impi pmix hwloc
@@ -17,7 +18,7 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 export PATH=~/.local/bin:$PATH
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
-source ${CURRENT_DIR}/build_env.sh openmpi
+source ${CURRENT_DIR}/build_env.sh mvapich2
 
 declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"
@@ -95,7 +96,12 @@ git submodule init
 git submodule update
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-scons MPI_PKG=any --build-deps=yes --config=force BUILD_TYPE=release install ${EXTRA_BUILD}
+scons MPI_PKG=any \
+      ENV_SCRIPT="${CURRENT_DIR}/.scons_localrc" \
+      --build-deps=yes \
+      --config=force \
+      BUILD_TYPE=release \
+      install ${EXTRA_BUILD}
 popd
 popd
 popd

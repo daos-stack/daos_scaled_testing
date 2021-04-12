@@ -10,11 +10,11 @@ module list
 #Parameter to be updated for each sbatch
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
-MPI="openmpi" #supports openmpi or mpich
+MPI="mvapich2" #supports mvapich2, openmpi, or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
-if [ "$MPI" != "openmpi" ] && [ "$MPI" != "mpich" ]; then
-    echo "Unknown MPI. Please specify either openmpi or mpich"
+if [ "$MPI" != "mvapich2" ] && [ "$MPI" != "openmpi" ] && [ "$MPI" != "mpich" ]; then
+    echo "Unknown MPI. Please specify either mvapich2, openmpi, or mpich"
     exit 1
 fi
 
@@ -36,6 +36,10 @@ PROCESSES="'(daos|orteun|mpirun)'"
 CLOCK_DRIFT_THRESHOLD=500
 
 no_of_ps=$(($DAOS_CLIENTS * $PPC))
+PREFIX_MVAPICH2="mpirun
+              -np ${no_of_ps} -map-by node
+              -hostfile ${CLIENT_HOSTLIST_FILE}"
+
 PREFIX_MPICH="mpirun
               -np ${no_of_ps} -map-by node
               -hostfile ${CLIENT_HOSTLIST_FILE}"
@@ -254,7 +258,9 @@ function prepare(){
     cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
     ${SRUN_CMD} ${DST_DIR}/create_log_dir.sh
 
-    if [ $MPI == "openmpi" ]; then
+    if [ $MPI == "mvapich2" ]; then
+        ${DST_DIR}/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
+    elif [ $MPI == "openmpi" ]; then
         ${DST_DIR}/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     else
         ${DST_DIR}/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
@@ -493,7 +499,9 @@ function run_ior_write(){
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
                 --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI}" == "openmpi" ]; then
+    if [ "${MPI}" == "mvapich2" ]; then
+        wr_cmd="${PREFIX_MVAPICH2} ${IOR_WR_CMD}"
+    elif [ "${MPI}" == "openmpi" ]; then
         wr_cmd="${PREFIX_OPENMPI} ${IOR_WR_CMD}"
     else
         wr_cmd="${PREFIX_MPICH} ${IOR_WR_CMD}"
@@ -534,7 +542,9 @@ function run_ior_read(){
                --dfs.group daos_server --dfs.pool ${POOL_UUID}
                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI}" == "openmpi" ]; then
+    if [ "${MPI}" == "mvapich2" ]; then
+        rd_cmd="${PREFIX_MVAPICH2} ${IOR_RD_CMD}"
+    elif [ "${MPI}" == "openmpi" ]; then
         rd_cmd="${PREFIX_OPENMPI} ${IOR_RD_CMD}"
     else
         rd_cmd="${PREFIX_MPICH} ${IOR_RD_CMD}"
@@ -576,6 +586,11 @@ function run_self_test(){
         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
 
+    mvapich2_cmd="mpirun --prepend-rank
+        -np 1 -map-by node
+        -hostfile ${CLIENT_HOSTLIST_FILE}
+        $st_cmd"
+
     mpich_cmd="mpirun --prepend-rank
         -np 1 -map-by node
         -hostfile ${CLIENT_HOSTLIST_FILE}
@@ -589,7 +604,9 @@ function run_self_test(){
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
 
-    if [ "$MPI" == "openmpi" ]; then
+    if [ "$MPI" == "mvapich2" ]; then
+        cmd=$mvapich2_cmd
+    elif [ "$MPI" == "openmpi" ]; then
         cmd=$openmpi_cmd
     else
         cmd=$mpich_cmd
@@ -632,7 +649,9 @@ function run_mdtest(){
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
-    if [ "${MPI}" == "openmpi" ]; then
+    if [ "${MPI}" == "mvapich2" ]; then
+        cmd="${PREFIX_MVAPICH2} ${mdtest_cmd}"
+    elif [ "${MPI}" == "openmpi" ]; then
         cmd="${PREFIX_OPENMPI} ${mdtest_cmd}"
     else
         cmd="${PREFIX_MPICH} ${mdtest_cmd}"
