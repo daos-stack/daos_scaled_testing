@@ -68,7 +68,7 @@ function update_csv(){
     local CURRENT_FILE=${1}
     local RESULT_FILE=${2}
 
-    echo "  reaing file: ${CURRENT_FILE}"
+    echo "  reading file: ${CURRENT_FILE}"
 
     SERVERS=$(grep -E "^DAOS_SERVERS=" ${CURRENT_FILE} | cut -d '=' -f 2 | tr -d ' ')
     CLIENTS=$(get_value 'nodes' ${CURRENT_FILE})

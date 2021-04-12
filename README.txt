@@ -6,7 +6,7 @@ Modify Slurm related variables
 #SBATCH --mail-user=first.last@intel.com
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
-Modiy DAOS related parameters
+Modify DAOS related parameters
 DAOS_SERVERS=4					# Number of DAOS servers
 DAOS_CLIENTS=2					# Number of DAOS clients
 ACCESS_PORT=10001 				# Access port
