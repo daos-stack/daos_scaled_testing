@@ -42,7 +42,7 @@ function update_csv(){
     local CURRENT_FILE=${1}
     local RESULT_FILE=${2}
 
-    echo "  reaing file: ${CURRENT_FILE}"
+    echo "  reading file: ${CURRENT_FILE}"
 
     SERVERS=$(get_value "DAOS_SERVERS=" ${CURRENT_FILE} = 2)
     RANKS=$(get_value "mdtest.*was launched" ${CURRENT_FILE} ' ' 5)
