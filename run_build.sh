@@ -5,7 +5,6 @@ EXTRA_BUILD="${1}"
 export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
 export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
-export MVAPICH2_DIR="/opt/apps/intel19/mvapich2-x/2.3"
 
 # Unload modules that are not needed on Frontera
 module unload impi pmix hwloc
@@ -31,15 +30,15 @@ declare -a PRECIOUS_FILES=("bin/daos"
 # List of development or test branches to be merged on top of DAOS
 # master branch
 declare -a DAOS_PATCHES=("origin/tanabarr/control-no-ipmctl-May2020"
-                         "origin/mjmac/io500-frontera"
+                         "origin/mjmac/io500-202104"
                          )
 
 function merge_extra_daos_branches() {
   for PATCH in "${DAOS_PATCHES[@]}"
   do
     echo "Merging branch: ${PATCH}"
-    git log ${PATCH} | head -n 1
-    git merge --no-edit ${PATCH}
+    git log ${PATCH} | head -n 1 || return
+    git merge --no-edit ${PATCH} || return
     echo
   done
 }

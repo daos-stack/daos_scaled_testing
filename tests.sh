@@ -112,6 +112,22 @@ function collect_test_logs(){
     ${DST_DIR}/copy_log_files.sh client "
 }
 
+# Unload intel if not using mvapich2
+function module_unload_intel(){
+    if [ "$MPI" != "mvapich2" ]; then
+        module unload intel
+    fi
+    module list
+}
+
+# Load intel if not using mvapich2
+function module_load_intel(){
+    if [ "$MPI" != "mvapich2" ]; then
+        module load intel
+    fi
+    module list
+}
+
 # Print command and run it, timestap is prefixed
 function run_cmd(){
     local CMD="$(echo ${1} | tr -s " ")"
@@ -489,8 +505,7 @@ function run_ior(){
 }
 
 function run_ior_write(){
-    module unload intel
-    module list
+    module_unload_intel
 
     IOR_WR_CMD="${IOR_BIN}
                 -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k
@@ -517,8 +532,7 @@ function run_ior_write(){
     IOR_RC=$?
     popd
 
-    module load intel
-    module list
+    module_load_intel
 
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR WRITE FAIL\n"
@@ -532,8 +546,7 @@ function run_ior_write(){
 }
 
 function run_ior_read(){
-    module unload intel
-    module list
+    module_unload_intel
 
     IOR_RD_CMD="${IOR_BIN}
                -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k
@@ -560,8 +573,7 @@ function run_ior_read(){
     IOR_RC=$?
     popd
 
-    module load intel
-    module list
+    module_load_intel
 
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR READ FAIL\n"
@@ -631,8 +643,7 @@ function run_self_test(){
 
 function run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
-    module unload intel
-    module list
+    module_unload_intel
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
@@ -667,8 +678,7 @@ function run_mdtest(){
     MDTEST_RC=$?
     popd
 
-    module load intel
-    module list
+    module_load_intel
 
     get_daos_status
 
