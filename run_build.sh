@@ -96,7 +96,6 @@ git submodule update
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 scons MPI_PKG=any \
-      ENV_SCRIPT="${CURRENT_DIR}/.scons_localrc" \
       --build-deps=yes \
       --config=force \
       BUILD_TYPE=release \

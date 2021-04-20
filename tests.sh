@@ -4,7 +4,7 @@
 #----------------------------------------------------
 
 #Unload modules that are not needed on Frontera
-module unload impi pmix hwloc
+module unload impi pmix hwloc intel
 module list
 
 #Parameter to be updated for each sbatch
@@ -110,22 +110,6 @@ function collect_test_logs(){
     export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
     export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
     ${DST_DIR}/copy_log_files.sh client "
-}
-
-# Unload intel if not using mvapich2
-function module_unload_intel(){
-    if [ "$MPI" != "mvapich2" ]; then
-        module unload intel
-    fi
-    module list
-}
-
-# Load intel if not using mvapich2
-function module_load_intel(){
-    if [ "$MPI" != "mvapich2" ]; then
-        module load intel
-    fi
-    module list
 }
 
 # Print command and run it, timestap is prefixed
@@ -505,8 +489,6 @@ function run_ior(){
 }
 
 function run_ior_write(){
-    module_unload_intel
-
     IOR_WR_CMD="${IOR_BIN}
                 -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k
                 -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
@@ -532,8 +514,6 @@ function run_ior_write(){
     IOR_RC=$?
     popd
 
-    module_load_intel
-
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR WRITE FAIL\n"
         teardown_test
@@ -546,8 +526,6 @@ function run_ior_write(){
 }
 
 function run_ior_read(){
-    module_unload_intel
-
     IOR_RD_CMD="${IOR_BIN}
                -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k
                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
@@ -572,8 +550,6 @@ function run_ior_read(){
     eval ${rd_cmd}
     IOR_RC=$?
     popd
-
-    module_load_intel
 
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR READ FAIL\n"
@@ -643,7 +619,6 @@ function run_self_test(){
 
 function run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
-    module_unload_intel
     no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
@@ -677,8 +652,6 @@ function run_mdtest(){
     eval $cmd
     MDTEST_RC=$?
     popd
-
-    module_load_intel
 
     get_daos_status
 

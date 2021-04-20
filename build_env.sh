@@ -29,7 +29,9 @@ fi
 
 case ${MPI_TARGET} in
   mvapich2)
-    module load mvapich2-x
+    module unload intel
+    module load gcc/9.1.0
+    module load mvapich2-x/2.3
     export MPI_SUFFIX=_${MPI_TARGET}
     export MPI_BIN=$(dirname $(which mpicc))
     VER=`mpichversion | grep "MVAPICH2 Version:" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
