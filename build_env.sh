@@ -23,11 +23,20 @@ function activate_mpi(){
 }
 
 if [ -z "${MPI_TARGET}" ]; then
-  MPI_TARGET=openmpi
+  MPI_TARGET=mvapich2
   echo "Using default option: ${MPI_TARGET}"
 fi
 
 case ${MPI_TARGET} in
+  mvapich2)
+    module unload intel
+    module load gcc/9.1.0
+    module load mvapich2-x/2.3
+    export MPI_SUFFIX=_${MPI_TARGET}
+    export MPI_BIN=$(dirname $(which mpicc))
+    VER=`mpichversion | grep "MVAPICH2 Version:" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
+    echo "MVAPICH2 Version: ${VER}"
+    ;;
   openmpi)
     activate_mpi ${MPI_TARGET} ${OPENMPI_DIR}
     VER=`ompi_info | grep "Open MPI:" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'`
@@ -39,5 +48,5 @@ case ${MPI_TARGET} in
     echo "MPICH Version: ${VER}"
     ;;
   *)
-    echo "Error unknown target \"${MPI_TARGET}\": openmpi or mpich"
+    echo "Error unknown target \"${MPI_TARGET}\": mvapich2, openmpi, or mpich"
 esac

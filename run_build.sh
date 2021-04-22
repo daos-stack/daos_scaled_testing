@@ -17,7 +17,7 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 export PATH=~/.local/bin:$PATH
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
-source ${CURRENT_DIR}/build_env.sh openmpi
+source ${CURRENT_DIR}/build_env.sh mvapich2
 
 declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"
@@ -30,15 +30,15 @@ declare -a PRECIOUS_FILES=("bin/daos"
 # List of development or test branches to be merged on top of DAOS
 # master branch
 declare -a DAOS_PATCHES=("origin/tanabarr/control-no-ipmctl-May2020"
-                         "origin/mjmac/io500-frontera"
+                         "origin/mjmac/io500-202104"
                          )
 
 function merge_extra_daos_branches() {
   for PATCH in "${DAOS_PATCHES[@]}"
   do
     echo "Merging branch: ${PATCH}"
-    git log ${PATCH} | head -n 1
-    git merge --no-edit ${PATCH}
+    git log ${PATCH} | head -n 1 || return
+    git merge --no-edit ${PATCH} || return
     echo
   done
 }
@@ -95,7 +95,11 @@ git submodule init
 git submodule update
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-scons MPI_PKG=any --build-deps=yes --config=force BUILD_TYPE=release install ${EXTRA_BUILD}
+scons MPI_PKG=any \
+      --build-deps=yes \
+      --config=force \
+      BUILD_TYPE=release \
+      install ${EXTRA_BUILD}
 popd
 popd
 popd
