@@ -33,6 +33,12 @@ declare -a DAOS_PATCHES=("origin/tanabarr/control-no-ipmctl-May2020"
                          "origin/mjmac/io500-202104"
                          )
 
+# List of development or test branches to be merged on top of DAOS
+# release/1.2 branch
+#declare -a DAOS_PATCHES=(
+#                         "origin/mjmac/io500-frontera"
+#                         )
+
 function merge_extra_daos_branches() {
   for PATCH in "${DAOS_PATCHES[@]}"
   do
@@ -89,7 +95,10 @@ pushd $BUILD_DIR/
 rm -f latest
 ln -s ${BUILD_DIR}/${TIMESTAMP} latest
 pushd ${BUILD_DIR}/${TIMESTAMP}
+# Clone the master branch
 git clone https://github.com/daos-stack/daos.git
+# Clone the release/1.2 branch
+#git clone https://github.com/daos-stack/daos.git -b release/1.2
 pushd daos
 git submodule init
 git submodule update
