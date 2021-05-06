@@ -234,45 +234,62 @@ def array_sort(arr, col, col_type=str):
 class CsvBase():
     """Class for generating a CSV with results."""
 
-    def __init__(self, csv_file_path, header):
-        """Initialize a CSV object.
-
-        Args:
-            csv_file_path (str): Path the the CSV file.
-            header (list): Header row.
-        """
-        self.csv_file_path = csv_file_path
-        self.csv_writer = None
-        self.header = header
+    def __init__(self):
+        """Initialize a CSV object."""
+        self.csv_file_path = None
         self.rows = []
+
+        # Dictionary template for adding new rows
+        # Also servers as the header row
+        self.row_template = {}
+
+        # Dictionary keys to order the rows on write
+        self.row_order = []
 
         # Array of [col_i, col_type] to pass to array_sort.
         self.row_sort = []
 
-    def add_row(self, row):
-        """Internally add a CSV row.
-        
-        Args:
-            row (list): List of row values
+    def new_row(self):
+        """Add a new row.
+
+        Returns:
+            dict: The new row.
         """
-        if len(row) != len(self.header):
-            raise ValueError
-        new_row = [i if i else "-" for i in row]
-        self.rows.append(new_row)
+        row = dict.fromkeys(self.row_template.keys())
+        self.rows.append(row)
+        return row
+
+    def sort_rows(self):
+        """Sort the rows.
+
+        Uses bubble sort, which is stable.
+        """
+        if not self.row_sort:
+            return
+        num_rows = len(self.rows)
+        for key, typ in reversed(self.row_sort):
+            swap = True
+            while (swap):
+                swap = False
+                for row in range(1, num_rows):
+                    if typ(self.rows[row-1][key]) > typ(self.rows[row][key]):
+                        tmp = self.rows[row-1]
+                        self.rows[row-1] = self.rows[row]
+                        self.rows[row] = tmp
+                        swap = True
 
     def write(self):
         """Write the internal data to CSV."""
+        print("Sorting rows...", end="", flush=True)
+        self.sort_rows()
+        print("Done", flush=True)
+
+        print("Writing rows...", end="", flush=True)
         with open(self.csv_file_path, 'w', newline='') as csv_file:
-            csv_writer = csv.writer(csv_file)
-            if self.row_sort:
-                # Sort in reverse so it is stable.
-                # I.e. the end result is that the rows are sorted by
-                # 0, and then subsorted by 1, and so on.
-                print("Sorting rows...", end="", flush=True)
-                for col_i, col_type in reversed(self.row_sort):
-                    array_sort(self.rows, col_i, col_type)
-                print("Done", flush=True)
-            csv_writer.writerows([self.header] + self.rows)
+            writer = csv.DictWriter(csv_file, self.row_order,
+                                    extrasaction="ignore")
+            writer.writerows([self.row_template] + self.rows)
+        print("Done", flush=True)
 
 class CsvIor(CsvBase):
     """Class for generating a CSV with IOR results."""
@@ -283,26 +300,31 @@ class CsvIor(CsvBase):
         Args:
             csv_file_path (str): Path the the CSV file.
         """
-        header = [
-            "Scenario",
-            "Date",
-            "Commit",
-            "Oclass",
-            "Num_Servers",
-            "Clients",
-            "PPC",
-            "Ranks",
-            "Write (GiB/sec)",
-            "1.0 Write", # placeholder
-            "Read (GiB/sec)",
-            "1.0 Read",  # placeholder
-            "ETA (min)",
-            "End",
-            "Status"]
-        super().__init__(csv_file_path, header)
+        super().__init__()
+        self.row_template = {
+            "scenario":     "Scenario",
+            "start_time":   "Date",
+            "daos_commit":  "Commit",
+            "oclass":       "Oclass",
+            "num_servers":  "Num_Servers",
+            "num_clients":  "Clients",
+            "ppc":          "PPC",
+            "ranks":        "Ranks",
+            "write_gib":    "Write (GiB/sec)",
+            "read_gib":     "Read (GiB/sec)",
+            "eta_min":      "ETA (min)",
+            "end_time":     "End",
+            "status":       "Status",
+            "write_10":     "1.0 Write", # placeholder
+            "read_10":      "1.0 Read"   # placeholder
+        }
+        self.row_order = ["scenario", "start_time", "daos_commit", "oclass",
+                          "num_servers", "num_clients", "ppc", "ranks",
+                          "write_gib", "write_10", "read_gib", "read_10",
+                          "eta_min", "end_time", "status"]
+        self.csv_file_path = csv_file_path
 
-        # Sorted by Scenario, Num_Servers
-        self.row_sort = [[0, str], [4, int]]
+        self.row_sort = [["scenario", str], ["num_servers", int]]
 
     def process_result_file(self, file_path):
         """Extract results from an IOR result file.
@@ -313,46 +335,30 @@ class CsvIor(CsvBase):
         with open(file_path, 'r') as f:
             output = f.read()
 
-        servers       = get_test_param("DAOS_SERVERS", "=", output)
-        clients       = get_test_param("DAOS_CLIENTS", "=", output)
-        ranks         = get_test_param("RANKS", "=", output)
-        ppc           = get_test_param("PPC", "=", output)
-        oclass        = get_test_param("OCLASS", "=", output)
-        scenario      = get_test_param("RUN", ":", output)
-        start_time    = get_test_param("Start Time", ":", output)
-        start_time_fm = format_timestamp(start_time)
-        end_time      = get_test_param("End Time", ":", output)
-        end_time_fm   = format_timestamp(end_time)
-        wr_gib        = get_ior_metric("Max Write", output)
-        rd_gib        = get_ior_metric("Max Read", output)
-        commit        = get_daos_commit(file_path)
-        eta_min       = get_timestamp_diff(start_time, end_time)
+        start_time = get_test_param("Start Time", ":", output)
+        end_time = get_test_param("End Time", ":", output)
+        wr_gib = get_ior_metric("Max Write", output)
+        rd_gib = get_ior_metric("Max Read", output)
+
+        row = self.new_row()
+        row["num_servers"] = get_test_param("DAOS_SERVERS", "=", output)
+        row["num_clients"] = get_test_param("DAOS_CLIENTS", "=", output)
+        row["ranks"]       = get_test_param("RANKS", "=", output)
+        row["ppc"]         = get_test_param("PPC", "=", output)
+        row["oclass"]      = get_test_param("OCLASS", "=", output)
+        row["scenario"]    = get_test_param("RUN", ":", output)
+        row["start_time"]  = format_timestamp(start_time)
+        row["end_time"]    = format_timestamp(end_time)
+        row["daos_commit"] = get_daos_commit(file_path)
+        row["eta_min"]     = get_timestamp_diff(start_time, end_time)
+        row["write_gib"]   = format_float(wr_gib)
+        row["read_gib"]   = format_float(rd_gib)
         if wr_gib > 0 and rd_gib > 0:
-            status = "Passed"
+            row["status"] = "Passed"
         elif wr_gib > 0 or rd_gib > 0:
-            status = "Warning"
+            row["status"] = "Warning"
         else:
-            status = "Failed"
-
-        wr_gib_formatted = format_float(wr_gib)
-        rd_gib_formatted = format_float(rd_gib)
-
-        self.add_row([
-            scenario,
-            start_time_fm,
-            commit,
-            oclass,
-            servers,
-            clients,
-            ppc,
-            ranks,
-            wr_gib_formatted,
-            "", # placeholder
-            rd_gib_formatted,
-            "", # placeholder
-            eta_min,
-            end_time_fm,
-            status])
+            row["status"] = "Failed"
 
 class CsvMdtest(CsvBase):
     """Class for generating a CSV with MDTEST results."""
@@ -363,34 +369,41 @@ class CsvMdtest(CsvBase):
         Args:
             csv_file_path (str): Path the the CSV file.
         """
-        header = [
-            "Scenario",
-            "Date",
-            "Commit",
-            "Oclass",
-            "Num_Servers",
-            "Clients",
-            "PPC",
-            "Ranks",
-            "create(Kops/sec)",
-            "1.0 create", # placeholder
-            "stat(Kops/sec)",
-            "1.0 stat",   # placeholder
-            "read(Kops/sec)",
-            "1.0 read",   # placeholder
-            "remove(Kops/sec)",
-            "1.0 remove", # placeholder
-            "ETA (min)",
-            "creates/sec",
-            "stat/sec",
-            "reads/sec",
-            "remove/sec",
-            "End",
-            "Status"]
-        super().__init__(csv_file_path, header)
+        super().__init__()
+        self.row_template = {
+            "scenario":     "Scenario",
+            "start_time":   "Date",
+            "daos_commit":  "Commit",
+            "oclass":       "Oclass",
+            "num_servers":  "Num_Servers",
+            "num_clients":  "Clients",
+            "ppc":          "PPC",
+            "ranks":        "Ranks",
+            "create_kops":  "create(Kops/sec)",
+            "stat_kops":    "stat(Kops/sec)",
+            "read_kops":    "read(Kops/sec)",
+            "remove_kops":  "remove(Kops/sec)",
+            "eta_min":      "ETA (min)",
+            "create_ops":   "creates/sec",
+            "stat_ops":     "stat/sec",
+            "read_ops":     "reads/sec",
+            "remove_ops":   "remove/sec",
+            "end_time":     "End",
+            "status":       "Status",
+            "create_10":    "1.0 Create", # placeholder
+            "stat_10":      "1.0 Stat",   # placeholder
+            "read_10":      "1.0 Read",   # placeholder
+            "remove_10":    "1.0 Remove"  # placeholder
+        }
+        self.row_order = ["scenario", "start_time", "daos_commit",
+                          "num_servers", "num_clients", "ranks", "create_kops",
+                          "create_10", "stat_kops", "stat_10", "read_kops",
+                          "read_10", "remove_kops", "remove_10", "eta_min",
+                          "create_ops", "stat_ops", "read_ops", "remove_ops",
+                          "end_time", "status"]
+        self.csv_file_path = csv_file_path
 
-        # Sorted by Scenario, Num_Servers
-        self.row_sort = [[0, str], [4, int]]
+        self.row_sort = [["scenario", str], ["num_servers", int]]
 
     def process_result_file(self, file_path):
         """Extract results from an MDTEST result file.
@@ -401,16 +414,8 @@ class CsvMdtest(CsvBase):
         with open(file_path, 'r') as f:
             output = f.read()
 
-        servers       = get_test_param("DAOS_SERVERS", "=", output)
-        clients       = get_test_param("DAOS_CLIENTS", "=", output)
-        ranks         = get_test_param("RANKS", "=", output)
-        ppc           = get_test_param("PPC", "=", output)
-        oclass        = get_test_param("OCLASS", "=", output)
-        scenario      = get_test_param("RUN", ":", output)
-        start_time    = get_test_param("Start Time", ":", output)
-        start_time_fm = format_timestamp(start_time)
-        end_time      = get_test_param("End Time", ":", output)
-        end_time_fm   = format_timestamp(end_time)
+        start_time = get_test_param("Start Time", ":", output)
+        end_time = get_test_param("End Time", ":", output)
 
         mdtest_metrics = get_lines_after("SUMMARY rate:", 10, output)
         if mdtest_metrics:
@@ -426,41 +431,25 @@ class CsvMdtest(CsvBase):
             removal_raw = 0
             status = "Failed"
 
-        create_kops_fm  = format_ops_to_kops(create_raw)
-        stat_kops_fm    = format_ops_to_kops(stat_raw)
-        read_kops_fm    = format_ops_to_kops(read_raw)
-        removal_kops_fm = format_ops_to_kops(removal_raw)
-        create_fm       = format_float(create_raw)
-        stat_fm         = format_float(stat_raw)
-        read_fm         = format_float(read_raw)
-        removal_fm      = format_float(removal_raw)
-        commit          = get_daos_commit(file_path)
-        eta_min         = get_timestamp_diff(start_time, end_time)
-
-        self.add_row([
-            scenario,
-            start_time_fm,
-            commit,
-            oclass,
-            servers,
-            clients,
-            ppc,
-            ranks,
-            create_kops_fm,
-            "", # placeholder
-            stat_kops_fm,
-            "", # placeholder
-            read_kops_fm,
-            "", # placeholder
-            removal_kops_fm,
-            "", # placeholder
-            eta_min,
-            create_fm,
-            stat_fm,
-            read_fm,
-            removal_fm,
-            end_time_fm,
-            status])
+        row = self.new_row()
+        row["num_servers"]  = get_test_param("DAOS_SERVERS", "=", output)
+        row["num_clients"]  = get_test_param("DAOS_CLIENTS", "=", output)
+        row["ranks"]        = get_test_param("RANKS", "=", output)
+        row["ppc"]          = get_test_param("PPC", "=", output)
+        row["oclass"]       = get_test_param("OCLASS", "=", output)
+        row["scenario"]     = get_test_param("RUN", ":", output)
+        row["start_time"]   = format_timestamp(start_time)
+        row["end_time"]     = format_timestamp(end_time)
+        row["create_kops"]  = format_ops_to_kops(create_raw)
+        row["stat_kops"]    = format_ops_to_kops(stat_raw)
+        row["read_kops"]    = format_ops_to_kops(read_raw)
+        row["remove_kops"]  = format_ops_to_kops(removal_raw)
+        row["create_ops"]   = format_float(create_raw)
+        row["stat_ops"]     = format_float(stat_raw)
+        row["read_ops"]     = format_float(read_raw)
+        row["remove_ops"]   = format_float(removal_raw)
+        row["daos_commit"]  = get_daos_commit(file_path)
+        row["eta_min"]      = get_timestamp_diff(start_time, end_time)
 
 def generate_mdtest_results(result_path, csv_path):
     """Generate mdtest result csv.
