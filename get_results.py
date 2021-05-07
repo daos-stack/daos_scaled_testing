@@ -450,6 +450,7 @@ class CsvMdtest(CsvBase):
         row["remove_ops"]   = format_float(removal_raw)
         row["daos_commit"]  = get_daos_commit(file_path)
         row["eta_min"]      = get_timestamp_diff(start_time, end_time)
+        row["status"]       = status
 
 def generate_mdtest_results(result_path, csv_path):
     """Generate mdtest result csv.
