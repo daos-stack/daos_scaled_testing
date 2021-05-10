@@ -9,13 +9,13 @@ env['PATH'] = "/opt/apps/xalt/xalt/bin:/opt/apps/intel19/python3/3.7.0/bin:/opt/
 
 env['LD_LIBRARY_PATH'] = "/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugger_2019/libipt/intel64/lib:/opt/intel/compilers_and_libraries_2019.5.281/linux/daal/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/tbb/lib/intel64_lin/gcc4.7:/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/ipp/lib/intel64:/opt/intel/compilers_and_libraries_2019.5.281/linux/compiler/lib/intel64_lin:/opt/apps/gcc/8.3.0/lib64:/opt/apps/gcc/8.3.0/lib:/usr/lib64/:/usr/lib64/"
 
-env['JOBNAME']    = "<sbatch_jobname>"
-env['EMAIL']      = "<email>" #<first.last@email.com>
-env['DAOS_DIR']   = "<path_to_daos>" #/scratch/BUILDS/latest/daos
-env['DST_DIR']    = "<path_to_daos_scaled_testing>" #/scratch/TESTS/daos_scaled_testing
-env['RES_DIR']    = "<path_to_result_dir>" #/home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
-env['MPICH_DIR']  = "<path_to_mpich>" #e.g./scratch/POC/mpich
-env['OPENMPI_DIR']= "<path_to_openmpi>" #e.g./scratch/POC/openmpi
+env['JOBNAME']     = "<sbatch_jobname>"
+env['EMAIL']       = "<email>" #<first.last@email.com>
+env['DAOS_DIR']    = "<path_to_daos>" #/scratch/BUILDS/latest/daos
+env['DST_DIR']     = "<path_to_daos_scaled_testing>" #/scratch/TESTS/daos_scaled_testing
+env['RES_DIR']     = "<path_to_result_dir>" #/home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
+env['MPICH_DIR']   = "<path_to_mpich>" #e.g./scratch/POC/mpich
+env['OPENMPI_DIR'] = "<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
 
 self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
@@ -361,7 +361,7 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                 ]
 
 
-mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
+mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (1, 4, 5),
@@ -387,11 +387,11 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_easy_c16_sx',
+                   {'testcase': 'mdtest_easy_c16_s1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 16, 5),
-                        (2, 16, 5),
+                        (1, 16, 5), # Use n_file: 50k
+                        (2, 16, 5), # Use n_file: 100k
                         (4, 16, 5),
                         (8, 16, 5),
                         (16, 16, 5),
@@ -413,7 +413,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_easy_1to4_2gx',
+                   {'testcase': 'mdtest_easy_1to4_2g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (2, 8, 5),
@@ -433,12 +433,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_2GX',
+                        'oclass': 'RP_2G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_easy_c16_2gx',
+                   {'testcase': 'mdtest_easy_c16_2g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (2, 16, 5),
@@ -458,12 +458,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_2GX',
+                        'oclass': 'RP_2G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_easy_1to4_3gx',
+                   {'testcase': 'mdtest_easy_1to4_3g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (4, 16, 5),
@@ -482,12 +482,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_3GX',
+                        'oclass': 'RP_3G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_easy_c16_3gx',
+                   {'testcase': 'mdtest_easy_c16_3g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (4, 16, 15),
@@ -506,12 +506,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
-                        'oclass': 'RP_3GX',
+                        'oclass': 'RP_3G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_hard_1to4_sx',
+                   {'testcase': 'mdtest_hard_1to4_s1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (1, 4, 5),
@@ -537,10 +537,10 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_hard_c16_sx',
+                   {'testcase': 'mdtest_hard_c16_s1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 16, 5),
+                        (1, 16, 5), # Use sw_time: 30s
                         (2, 16, 5),
                         (4, 16, 5),
                         (8, 16, 5),
@@ -563,7 +563,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_hard_1to4_2gx',
+                   {'testcase': 'mdtest_hard_1to4_2g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (2, 8, 5),
@@ -583,12 +583,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_2GX',
+                        'oclass': 'RP_2G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_hard_c16_2gx',
+                   {'testcase': 'mdtest_hard_c16_2g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (2, 16, 5),
@@ -608,12 +608,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_2GX',
+                        'oclass': 'RP_2G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_hard_1to4_3gx',
+                   {'testcase': 'mdtest_hard_1to4_3g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (4, 16, 5),
@@ -632,12 +632,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_3GX',
+                        'oclass': 'RP_3G1',
                         'sw_time': '60'
                     },
                     'enabled': False
                     },
-                   {'testcase': 'mdtest_hard_c16_3gx',
+                   {'testcase': 'mdtest_hard_c16_3g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
                         (4, 16, 5),
@@ -656,7 +656,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_sx',
                         'bytes_read': '3901',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
-                        'oclass': 'RP_3GX',
+                        'oclass': 'RP_3G1',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -736,7 +736,9 @@ class TestList(object):
             env[name.upper()] = str(value)
 
     def _add_partition(self, env, nodes):
-        if nodes <= 512:
+        if nodes <= 2:
+            env['PARTITION'] = 'small'
+        elif nodes <= 512:
             env['PARTITION'] = 'normal'
         else:
             env['PARTITION'] = 'large'

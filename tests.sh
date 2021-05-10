@@ -27,7 +27,12 @@ SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
 ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
 CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
 DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
-INITIAL_BRINGUP_WAIT_TIME=60s
+
+# Time to wait for servers to start
+INITIAL_BRINGUP_WAIT_TIME=30s
+BRINGUP_WAIT_TIME=15s
+BRINGUP_RETRY_ATTEMPTS=12
+
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
 PROCESSES="'(daos|orteun|mpirun)'"
@@ -52,9 +57,11 @@ PREFIX_OPENMPI="orterun ${OMPI_PARAM}
                 --hostfile ${CLIENT_HOSTLIST_FILE}"
 
 HOSTNAME=$(hostname)
+echo "hostname:"
 echo $HOSTNAME
 echo
-BUILD=`ls -al $DAOS_DIR/../../latest`
+echo "DAOS_DIR:"
+BUILD=`ls -ald $(realpath $DAOS_DIR/../.)`
 echo $BUILD
 
 mkdir -p ${RUN_DIR}
@@ -71,7 +78,12 @@ echo
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo
 
+echo TESTCASE=$TESTCASE
 echo DAOS_SERVERS=$DAOS_SERVERS
+echo DAOS_CLIENTS=$DAOS_CLIENTS
+echo PPC=$PPC
+echo RANKS=$no_of_ps
+echo OCLASS=$OCLASS
 
 # Generate timestamp
 function time_stamp(){
@@ -131,6 +143,7 @@ function run_cmd(){
 # run a command
 function run_cmd_on_client(){
     local DAOS_CMD="$(echo ${1} | tr -s " ")"
+    local TEARDOWN_ON_ERROR="${2}"
     local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
     echo
@@ -146,7 +159,7 @@ function run_cmd_on_client(){
 
     echo "${OUTPUT_CMD}"
 
-    check_cmd_timeout ${RC} ${DAOS_CMD}
+    check_cmd_timeout ${RC} ${DAOS_CMD} ${TEARDOWN_ON_ERROR}
 }
 
 function get_daos_status(){
@@ -201,6 +214,10 @@ function check_clock_sync(){
 function check_cmd_timeout(){
     local RC=${1}
     local CMD_NAME="${2}"
+    local TEARDOWN_ON_ERROR="${3}"
+    if [ "${TEARDOWN_ON_ERROR}" == "" ]; then
+        TEARDOWN_ON_ERROR=true
+    fi
 
     if [ ${RC} -eq 137 ]; then
         pmsg "STATUS: ${CMD_NAME} TIMEOUT"
@@ -208,7 +225,9 @@ function check_cmd_timeout(){
     elif [ ${RC} -ne 0 ]; then
         pmsg "STATUS: ${CMD_NAME} FAIL"
         echo "RC: ${RC}"
-        teardown_test
+        if [ ${TEARDOWN_ON_ERROR} = true ]; then
+            teardown_test
+        fi
     else
         pmsg "STATUS: ${CMD_NAME} SUCCESS"
     fi
@@ -230,19 +249,19 @@ function wait_for_servers_to_start(){
     sleep ${INITIAL_BRINGUP_WAIT_TIME}
 
     n=1
-    until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+    until [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]
     do
-        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query"
+        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" false
 
         if echo ${OUTPUT_CMD} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
             break
         fi
-        pmsg "Attempt ${n} failed, retrying in ${WAIT_TIME} seconds..."
+        pmsg "Attempt ${n} failed, retrying in ${BRINGUP_WAIT_TIME} seconds..."
         n=$[${n} + 1]
-        sleep ${WAIT_TIME}
+        sleep ${BRINGUP_WAIT_TIME}
     done
 
-    if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+    if [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]; then
         pmsg "Failed to start all the DAOS servers"
         teardown_test
     fi
@@ -619,7 +638,6 @@ function run_self_test(){
 
 function run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
-    no_of_ps=$(($DAOS_CLIENTS * $PPC))
     echo
 
     CONT_UUID=$(uuidgen)
