@@ -14,6 +14,7 @@ engines:
   - ABT_MAX_NUM_XSTREAMS=100
   - DAOS_MD_CAP=1024
   - DD_MASK=mgmt,io,md,epc,rebuild
+#  - DD_MASK=mgmt,io,md,epc,dsms,rebuild
   - PMEMOBJ_CONF=prefault.at_open=1;prefault.at_create=1;
   - PMEM_IS_PMEM_FORCE=1
   - FI_UNIVERSE_SIZE=16383
@@ -27,6 +28,7 @@ engines:
   scm_mount: /dev/shm
   scm_size: 90 
   targets: 16
+#  targets: 8
 socket_dir: /tmp/daos_server
 transport_config:
   allow_insecure: true

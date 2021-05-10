@@ -3,22 +3,62 @@
 #Run daos tests like IOR/MDtest and self_test(cart)
 #----------------------------------------------------
 
-#Unload modules that are not needed on Frontera
-module unload impi pmix hwloc intel
-module list
-
-#Parameter to be updated for each sbatch
+# Configurable parameters to be updated for each sbatch
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
-MPI="mvapich2" #supports mvapich2, openmpi, or mpich
+MPI_TARGET="mvapich2" #supports mvapich2, openmpi, or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
-if [ "$MPI" != "mvapich2" ] && [ "$MPI" != "openmpi" ] && [ "$MPI" != "mpich" ]; then
-    echo "Unknown MPI. Please specify either mvapich2, openmpi, or mpich"
+if [ "${MPI_TARGET}" != "mvapich2" ] &&
+   [ "${MPI_TARGET}" != "openmpi" ] &&
+   [ "${MPI_TARGET}" != "mpich" ]; then
+    echo "Unknown MPI_TARGET. Please specify either mvapich2, openmpi, or mpich"
     exit 1
 fi
 
-#Others
+# Set default value for a variable that is undefined/empty
+function set_default(){
+    local var_name=${1}
+    local var_default=${2}
+
+    if [ -z "${!var_name}" ]; then
+        eval ${var_name}=\${var_default}
+    fi
+}
+
+# Set undefined/default test params
+set_default NUMBER_OF_POOLS 1
+set_default no_of_ps $(($DAOS_CLIENTS * $PPC))
+
+# Print all relevant test params / env variables
+echo "TESTCASE        : ${TESTCASE}"
+echo "DAOS_SERVERS    : ${DAOS_SERVERS}"
+echo "DAOS_CLIENTS    : ${DAOS_CLIENTS}"
+echo "PPC             : ${PPC}"
+echo "RANKS           : ${no_of_ps}"
+echo "OCLASS          : ${OCLASS}"
+echo "DIR_OCLASS      : ${DIR_OCLASS}"
+echo "SW_TIME         : ${SW_TIME}"
+echo "N_FILE          : ${N_FILE}"
+echo "NUM_POOLS       : ${NUMBER_OF_POOLS}"
+echo "POOL_SIZE       : ${POOL_SIZE}"
+echo "CHUNK_SIZE      : ${CHUNK_SIZE}"
+echo "BYTES_READ      : ${BYTES_READ}"
+echo "BYTES_WRITE     : ${BYTES_WRITE}"
+echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
+echo "SEGMENTS        : ${SEGMENTS}"
+echo "XFER_SIZE       : ${XFER_SIZE}"
+echo "BLOCK_SIZE      : ${BLOCK_SIZE}"
+echo "FPP             : ${FPP}"
+echo "CONT_RF         : ${CONT_RF}"
+echo "MPI_TARGET      : ${MPI_TARGET}"
+
+
+# Unload modules that are not needed on Frontera
+module unload impi pmix hwloc intel
+module list
+
+# Other parameters
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
 DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
 DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
@@ -28,10 +68,15 @@ ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
 CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
 DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
 
+
 # Time to wait for servers to start
 INITIAL_BRINGUP_WAIT_TIME=30s
 BRINGUP_WAIT_TIME=15s
 BRINGUP_RETRY_ATTEMPTS=12
+
+# Time to wait for rebuild
+REBUILD_WAIT_TIME=5s
+REBUILD_MAX_TIME=600 # seconds
 
 WAIT_TIME=30s
 MAX_RETRY_ATTEMPTS=6
@@ -40,10 +85,9 @@ PROCESSES="'(daos|orteun|mpirun)'"
 # Time in milliseconds
 CLOCK_DRIFT_THRESHOLD=500
 
-no_of_ps=$(($DAOS_CLIENTS * $PPC))
 PREFIX_MVAPICH2="mpirun
-              -np ${no_of_ps} -map-by node
-              -hostfile ${CLIENT_HOSTLIST_FILE}"
+                 -np ${no_of_ps} -map-by node
+                 -hostfile ${CLIENT_HOSTLIST_FILE}"
 
 PREFIX_MPICH="mpirun
               -np ${no_of_ps} -map-by node
@@ -61,39 +105,38 @@ echo "hostname:"
 echo $HOSTNAME
 echo
 echo "DAOS_DIR:"
-BUILD=`ls -ald $(realpath $DAOS_DIR/../.)`
+BUILD=`ls -ald $(realpath ${DAOS_DIR}/../.)`
 echo $BUILD
 
 mkdir -p ${RUN_DIR}
-cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}
+cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
+cat ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
 
 source ${DST_DIR}/env_daos ${DAOS_DIR}
-source ${DST_DIR}/build_env.sh ${MPI}
+source ${DST_DIR}/build_env.sh ${MPI_TARGET}
 
-export PATH=$DAOS_DIR/install/ior_$MPI/bin:$PATH
-export LD_LIBRARY_PATH=$DAOS_DIR/install/ior_$MPI/lib:$LD_LIBRARY_PATH
+export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
+export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
 
 echo PATH=$PATH
 echo
 echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo
 
-echo TESTCASE=$TESTCASE
-echo DAOS_SERVERS=$DAOS_SERVERS
-echo DAOS_CLIENTS=$DAOS_CLIENTS
-echo PPC=$PPC
-echo RANKS=$no_of_ps
-echo OCLASS=$OCLASS
-
 # Generate timestamp
 function time_stamp(){
     date +%m/%d-%H:%M:%S
 }
 
-# Print message, timestap is prefixed
+# Print message, timestamp is prefixed
 function pmsg(){
     echo
-    echo "$(time_stamp) ${1}"
+    echo "$(time_stamp) ${@}"
+}
+
+function pmsg_err(){
+    echo
+    echo "$(time_stamp) ERR ${@}"
 }
 
 function print_line() {
@@ -124,7 +167,7 @@ function collect_test_logs(){
     ${DST_DIR}/copy_log_files.sh client "
 }
 
-# Print command and run it, timestap is prefixed
+# Print command and run it, timestamp is prefixed
 function run_cmd(){
     local CMD="$(echo ${1} | tr -s " ")"
 
@@ -163,9 +206,18 @@ function run_cmd_on_client(){
 }
 
 function get_daos_status(){
+    local TEARDOWN_ON_ERROR="${1}"
+    set_default TEARDOWN_ON_ERROR true
+
     run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
     run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query"
+
+    get_server_status ${DAOS_SERVERS} true
+    RC=$?
+    if [ ${TEARDOWN_ON_ERROR} = true ] && [ $RC -ne 0 ]; then
+        pmsg_err "Bad server status"
+        teardown_test
+    fi
 }
 
 function teardown_test(){
@@ -204,7 +256,7 @@ function check_clock_sync(){
           "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
 
     if [ $? -ne 0 ]; then
-        pmsg "Error clock drift is too high"
+        pmsg_err "clock drift is too high"
         teardown_test
     else
         pmsg "Clock drift test Pass"
@@ -215,9 +267,7 @@ function check_cmd_timeout(){
     local RC=${1}
     local CMD_NAME="${2}"
     local TEARDOWN_ON_ERROR="${3}"
-    if [ "${TEARDOWN_ON_ERROR}" == "" ]; then
-        TEARDOWN_ON_ERROR=true
-    fi
+    set_default TEARDOWN_ON_ERROR true
 
     if [ ${RC} -eq 137 ]; then
         pmsg "STATUS: ${CMD_NAME} TIMEOUT"
@@ -233,40 +283,56 @@ function check_cmd_timeout(){
     fi
 }
 
-#Wait for all the DAOS servers to start
-function wait_for_servers_to_start(){
-    TARGET_SERVERS=$((${1} - 1))
+# Check whether all servers are "joined".
+# Returns 0 if all joined, 1 otherwise.
+function get_server_status(){
+    local NUM_SERVERS=${1}
+    local TARGET_SERVERS=$((${NUM_SERVERS} - 1))
+    local TEARDOWN_ON_ERROR="${2}"
+    set_default TEARDOWN_ON_ERROR false
 
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" ${TEARDOWN_ON_ERROR}
     if [ "${TARGET_SERVERS}" -eq 0 ]; then
-        pmsg "Waiting for single daos_server to start (90 seconds)"
-        sleep 90
-        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query"
-        return
+        if echo ${OUTPUT_CMD} | grep -q "0\s*Joined"; then
+            return 0
+        fi
+    else
+        if echo ${OUTPUT_CMD} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
+            return 0
+        fi
     fi
 
-    pmsg "Waiting for [0-${TARGET_SERVERS}] daos_servers to start \
+    return 1
+}
+
+#Wait for all the DAOS servers to start
+function wait_for_servers_to_start(){
+    local NUM_SERVERS=${1}
+    local TARGET_SERVERS=$((${NUM_SERVERS} - 1))
+
+    pmsg "Waiting for ${NUM_SERVERS} daos_servers to start \
           (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
     sleep ${INITIAL_BRINGUP_WAIT_TIME}
 
     n=1
     until [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]
     do
-        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" false
-
-        if echo ${OUTPUT_CMD} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
+        get_server_status ${NUM_SERVERS} false
+        RC=$?
+        if [ ${RC} -eq 0 ]; then
             break
         fi
-        pmsg "Attempt ${n} failed, retrying in ${BRINGUP_WAIT_TIME} seconds..."
+        pmsg "Attempt ${n}/${BRINGUP_RETRY_ATTEMPTS} failed, retrying in ${BRINGUP_WAIT_TIME} seconds..."
         n=$[${n} + 1]
         sleep ${BRINGUP_WAIT_TIME}
     done
 
     if [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]; then
-        pmsg "Failed to start all the DAOS servers"
+        pmsg_err "Failed to start all ${NUM_SERVERS} DAOS servers"
         teardown_test
     fi
 
-    pmsg "Done, ${TARGET_SERVERS} DAOS servers are up and running"
+	pmsg "Done, ${NUM_SERVERS} DAOS servers are up and running"
 }
 
 #Create server/client hostfile.
@@ -277,9 +343,9 @@ function prepare(){
     cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
     ${SRUN_CMD} ${DST_DIR}/create_log_dir.sh
 
-    if [ $MPI == "mvapich2" ]; then
+    if [ "${MPI_TARGET}" == "mvapich2" ]; then
         ${DST_DIR}/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    elif [ $MPI == "openmpi" ]; then
+    elif [ "${MPI_TARGET}" == "openmpi" ]; then
         ${DST_DIR}/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     else
         ${DST_DIR}/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
@@ -348,10 +414,10 @@ function create_pool(){
     echo POOL_SVC : ${POOL_SVC}
 
     if [ ${RC} -ne 0 ]; then
-        echo "dmg pool create FAIL"
+        pmsg_err "dmg pool create FAIL"
         teardown_test
     else
-        echo "dmg pool create SUCCESS"
+        pmsg "dmg pool create SUCCESS"
     fi
 
     sleep 10
@@ -362,41 +428,47 @@ function setup_pool(){
     run_cmd_on_client "dmg pool set-prop --pool=${POOL_UUID} --name=reclaim --value=disabled -o ${DAOS_CONTROL_YAML}"
 
     if [ ${RC} -ne 0 ]; then
-        echo "dmg pool set-prop FAIL"
+        pmsg_err "dmg pool set-prop FAIL"
         teardown_test
     else
-        echo "dmg pool set-prop SUCCESS"
+        pmsg "dmg pool set-prop SUCCESS"
     fi
 
     sleep 10
 }
 
-function query_pools(){
-    pmsg "Query all pools"
+function query_pools_rebuild(){
+    pmsg "Querying all pools for \"Rebuild done\""
 
     run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
     local ALL_POOLS="$(echo "${OUTPUT_CMD}" | grep -Eo -- "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")"
     local NUMBER_OF_POOLS=$(echo "${ALL_POOLS}" | wc -l)
     echo
 
+    echo "NUM_POOLS_AFTER_REBUILD : ${NUMBER_OF_POOLS}"
     if [ -z "${ALL_POOLS}" ] ; then
         pmsg "Zero Pools found!!"
         return
     fi
 
-    pmsg "Total Pools: ${NUMBER_OF_POOLS}"
-
     local n=1
+    local num_rebuild_done=0
     until [ ${n} -gt ${NUMBER_OF_POOLS} ]
     do
         print_line
-        pmsg "Query pool ${n} of ${NUMBER_OF_POOLS}"
+        pmsg "Querying pool ${n} of ${NUMBER_OF_POOLS}"
         local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
         run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${CURRENT_POOL}"
+        if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
+            num_rebuild_done=$[${num_rebuild_done} + 1]
+        else
+            pmsg "Failed to rebuild pool ${CURRENT_POOL}"
+        fi
         n=$[${n} + 1]
     done
 
     pmsg "Done, ${NUMBER_OF_POOLS} were queried"
+    echo "NUM_POOLS_REBUILD_DONE : ${num_rebuild_done}"
 }
 
 function create_multiple_pools(){
@@ -449,10 +521,10 @@ function create_container(){
     eval ${cmd}
 
     if [ $? -ne 0 ]; then
-        echo "Daos container create FAIL"
+        pmsg_err "Daos container create FAIL"
         teardown_test
     else
-        echo "Daos container create SUCCESS"
+        pmsg "Daos container create SUCCESS"
     fi
 }
 
@@ -476,10 +548,10 @@ function query_container(){
     eval ${cmd}
 
     if [ $? -ne 0 ]; then
-        echo "Daos container query FAIL"
+        pmsg_err "Daos container query FAIL"
         teardown_test
     else
-        echo "Daos container query SUCCESS"
+        pmsg "Daos container query SUCCESS"
     fi
 }
 
@@ -495,9 +567,14 @@ function start_server(){
     export CPATH=${CPATH};
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
     $daos_cmd \" 2>&1 "
-    echo $daos_cmd
-    echo
+
+    pmsg "CMD: ${daos_cmd}"
     eval $cmd &
+
+    if [ $? -ne 0 ]; then
+        pmsg_err "daos_server start FAILED"
+        teardown_test
+    fi
 
     wait_for_servers_to_start ${DAOS_SERVERS}
 }
@@ -526,9 +603,9 @@ function run_ior_write(){
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
                 --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI}" == "mvapich2" ]; then
+    if [ "${MPI_TARGET}" == "mvapich2" ]; then
         wr_cmd="${PREFIX_MVAPICH2} ${IOR_WR_CMD}"
-    elif [ "${MPI}" == "openmpi" ]; then
+    elif [ "${MPI_TARGET}" == "openmpi" ]; then
         wr_cmd="${PREFIX_OPENMPI} ${IOR_WR_CMD}"
     else
         wr_cmd="${PREFIX_MPICH} ${IOR_WR_CMD}"
@@ -563,9 +640,9 @@ function run_ior_read(){
                --dfs.group daos_server --dfs.pool ${POOL_UUID}
                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI}" == "mvapich2" ]; then
+    if [ "${MPI_TARGET}" == "mvapich2" ]; then
         rd_cmd="${PREFIX_MVAPICH2} ${IOR_RD_CMD}"
-    elif [ "${MPI}" == "openmpi" ]; then
+    elif [ "${MPI_TARGET}" == "openmpi" ]; then
         rd_cmd="${PREFIX_OPENMPI} ${IOR_RD_CMD}"
     else
         rd_cmd="${PREFIX_MPICH} ${IOR_RD_CMD}"
@@ -622,9 +699,9 @@ function run_self_test(){
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
 
-    if [ "$MPI" == "mvapich2" ]; then
+    if [ "${MPI_TARGET}" == "mvapich2" ]; then
         cmd=$mvapich2_cmd
-    elif [ "$MPI" == "openmpi" ]; then
+    elif [ "${MPI_TARGET}" == "openmpi" ]; then
         cmd=$openmpi_cmd
     else
         cmd=$mpich_cmd
@@ -660,13 +737,14 @@ function run_mdtest(){
                 --dfs.cont ${CONT_UUID}
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
+                --dfs.dir_oclass ${DIR_OCLASS}
                 -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
-    if [ "${MPI}" == "mvapich2" ]; then
+    if [ "${MPI_TARGET}" == "mvapich2" ]; then
         cmd="${PREFIX_MVAPICH2} ${mdtest_cmd}"
-    elif [ "${MPI}" == "openmpi" ]; then
+    elif [ "${MPI_TARGET}" == "openmpi" ]; then
         cmd="${PREFIX_OPENMPI} ${mdtest_cmd}"
     else
         cmd="${PREFIX_MPICH} ${mdtest_cmd}"
@@ -714,7 +792,7 @@ function get_doom_server(){
     done
 
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
-        pmsg "hostlist too small and we have really bad lucky"
+        pmsg_err "hostlist too small and we have really bad lucky"
         teardown_test
     fi
 
@@ -734,9 +812,9 @@ function run_cmd_quiet(){
 }
 
 # Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
+# And wait for rebuild to complete
 function kill_random_server(){
     local DOOMED_SERVER=$(get_doom_server)
-    local MAX_RETRY_ATTEMPTS=30
 
     get_daos_status
 
@@ -750,41 +828,49 @@ function kill_random_server(){
     eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
     pmsg "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
     eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    echo "Kill Time: $(date)"
     pmsg "pgrep -a ${PROCESSES}"
     eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
 
     pmsg "Killed ${DOOMED_SERVER} server"
 
     n=1
-    until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+    start_s=${SECONDS}
+    rebuild_done=false
+    until [ $[${SECONDS} - ${start_s}] -ge ${REBUILD_MAX_TIME} ]
     do
-        run_cmd_quiet "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
+        cmd="dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
+        echo "${cmd}"
+        run_cmd_quiet "${cmd}"
 
         echo "${OUTPUT_CMD}"
 
         if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
+            rebuild_done=true
             break
         fi
 
-        pmsg "Attempt ${n} of ${MAX_RETRY_ATTEMPTS} failed, retrying in 5 seconds..."
+        pmsg "Attempt ${n} failed. Retrying in ${REBUILD_WAIT_TIME} seconds..."
         n=$[${n} + 1]
-        sleep 5
+        sleep ${REBUILD_WAIT_TIME}
     done
 
-    if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
-        pmsg "Failed to rebuild pool ${POOL_UUID}"
+    if [ ${rebuild_done} = false ]; then
+        pmsg_err "Failed to rebuild pool ${POOL_UUID} within ${REBUILD_MAX_TIME} seconds"
         teardown_test
     fi
 
     pmsg "Pool rebuild completed"
-    pmsg "Waiting for other pools to rebuild 30s"
+    pmsg "Waiting for other pools to rebuild within 30s"
     sleep 30
     pmsg "end of waiting"
 
-    query_pools
+    query_pools_rebuild
 }
 
 function run_testcase(){
+    local testcase=$1
+
     echo "###################"
     echo "RUN: ${TESTCASE}"
     echo "Start Time: $(date)"
@@ -795,7 +881,7 @@ function run_testcase(){
     # System sanity check
     check_clock_sync
 
-    case ${test} in
+    case ${testcase} in
         SWIM)
             # Swim stabilization test by checking server fault detection
             start_server
@@ -838,10 +924,8 @@ function run_testcase(){
             echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
     esac
 
-    pmsg "End of testscase ${TESTCASE}"
+    pmsg "End of testcase ${TESTCASE}"
     teardown_test
 }
 
-test=$1
-
-run_testcase
+run_testcase $1
