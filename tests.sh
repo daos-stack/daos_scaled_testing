@@ -422,8 +422,19 @@ function create_container(){
     HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
     echo CONT_UUID = $CONT_UUID
     echo HOST ${HOST}
+
+    #For EC test,set container RF based on number of parity
+    if [ -z "$CONT_RF" ]; then
+       echo "Daos container created with default RF=0"
+        CONT_RF=""
+    else
+       echo "Daos container created with RF=$CONT_RF"
+	   CONT_RF=",rf:$CONT_RF"
+    fi
+
     daos_cmd="daos container create --pool=${POOL_UUID} --cont ${CONT_UUID}
-              --sys-name=daos_server --type=POSIX --properties=dedup:memcmp"
+              --sys-name=daos_server --type=POSIX
+			  --properties=dedup:memcmp${CONT_RF}"
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
     -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
@@ -509,7 +520,7 @@ function run_ior(){
 
 function run_ior_write(){
     IOR_WR_CMD="${IOR_BIN}
-                -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k
+                -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k ${FPP}
                 -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
                 -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
@@ -546,7 +557,7 @@ function run_ior_write(){
 
 function run_ior_read(){
     IOR_RD_CMD="${IOR_BIN}
-               -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k
+               -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k ${FPP}
                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
                -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                --dfs.group daos_server --dfs.pool ${POOL_UUID}

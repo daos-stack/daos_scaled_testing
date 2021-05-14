@@ -58,6 +58,155 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   }
                  ]
 
+ec_full_strip_testlist = [{'testcase': 'ec_ior_full_stripe_EC_2P1G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(4, 8, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '2M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_2P1G1',
+                               'cont_rf': '1',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           },
+                          {'testcase': 'ec_ior_full_stripe_EC_4P2G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(6, 12, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '4M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_4P2G1',
+                               'cont_rf': '2',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           },
+                          {'testcase': 'ec_ior_full_stripe_EC_8P2G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(10, 20, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '8M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_8P2G1',
+                               'cont_rf': '2',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           },
+                          {'testcase': 'ec_ior_full_stripe_EC_16P2G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(18, 36, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '16M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_16P2G1',
+                               'cont_rf': '2',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           }
+                           ]
+
+ior_single_replica_testlist = [{'testcase': 'ior_easy_S2',
+                                # Number of servers, number of clients,
+                                # timeout in minutes
+                                'testvariants': [(4, 8, 5)],
+                                'ppc': 32,
+                                'env_vars': {
+                                    'chunk_size': '1048576',
+                                    'pool_size': '85G',
+                                    'segments': '1',
+                                    'xfer_size': '2M',
+                                    'block_size': '1G',
+                                    'fpp': '-F',
+                                    'oclass': 'S2',
+                                    'sw_time': '60',
+                                    'iterations': '2'
+                                    },
+                                'enabled': False
+                                },
+                                {'testcase': 'ior_easy_S4',
+                                # Number of servers, number of clients,
+                                # timeout in minutes
+                                'testvariants': [(6, 12, 5)],
+                                'ppc': 32,
+                                'env_vars': {
+                                    'chunk_size': '1048576',
+                                    'pool_size': '85G',
+                                    'segments': '1',
+                                    'xfer_size': '4M',
+                                    'block_size': '1G',
+                                    'fpp': '-F',
+                                    'oclass': 'S4',
+                                    'sw_time': '60',
+                                    'iterations': '2'
+                                    },
+                                'enabled': False
+                                },
+                                {'testcase': 'ior_easy_S8',
+                                # Number of servers, number of clients,
+                                # timeout in minutes
+                                'testvariants': [(10, 20, 5)],
+                                'ppc': 32,
+                                'env_vars': {
+                                    'chunk_size': '1048576',
+                                    'pool_size': '85G',
+                                    'segments': '1',
+                                    'xfer_size': '8M',
+                                    'block_size': '1G',
+                                    'fpp': '-F',
+                                    'oclass': 'S8',
+                                    'sw_time': '60',
+                                    'iterations': '2'
+                                    },
+                                'enabled': False
+                                },
+                                {'testcase': 'ior_easy_S16',
+                                # Number of servers, number of clients,
+                                # timeout in minutes
+                                'testvariants': [(18, 36, 10)],
+                                'ppc': 32,
+                                'env_vars': {
+                                    'chunk_size': '1048576',
+                                    'pool_size': '85G',
+                                    'segments': '1',
+                                    'xfer_size': '16M',
+                                    'block_size': '1G',
+                                    'fpp': '-F',
+                                    'oclass': 'S16',
+                                    'sw_time': '60',
+                                    'iterations': '2'
+                                    },
+                                'enabled': False
+                                }
+                                ]
+
+
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
@@ -729,6 +878,10 @@ class TestList(object):
         env['TEST_GROUP'] = self._test_group
         env['TESTCASE'] = test['testcase']
         env['PPC'] = str(test['ppc'])
+        # Default IOR will single shared file
+        env['FPP'] = ''
+        # Default Container RF factor will be 0
+        env['CONT_RF'] = '0'
 
     def _expand_extra_env_vars(self, env, test):
         env_vars = test.get('env_vars', {})
@@ -816,7 +969,6 @@ class SwimIORTestList(TestList):
     def __init__(self, testlist):
         super(SwimIORTestList, self).__init__('SWIM_IOR', testlist, env)
 
-
 def main():
     self_test = SelfTestList(self_testlist)
     self_test.run()
@@ -833,6 +985,11 @@ def main():
     swim_ior_test = SwimIORTestList(swim_ior_testlist)
     swim_ior_test.run()
 
+    ec_ior_test = IorTestList(ec_full_strip_testlist)
+    ec_ior_test.run()
+
+    ec_ior_test = IorTestList(ior_single_replica_testlist)
+    ec_ior_test.run()
 
 if __name__ == '__main__':
     main()
