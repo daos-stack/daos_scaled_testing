@@ -985,11 +985,11 @@ def main():
     swim_ior_test = SwimIORTestList(swim_ior_testlist)
     swim_ior_test.run()
 
-    ec_ior_test = IorTestList(ec_full_strip_testlist)
-    ec_ior_test.run()
+    ec_full_stripe = IorTestList(ec_full_strip_testlist)
+    ec_full_stripe.run()
 
-    ec_ior_test = IorTestList(ior_single_replica_testlist)
-    ec_ior_test.run()
+    ior_single_replica = IorTestList(ior_single_replica_testlist)
+    ior_single_replica.run()
 
 if __name__ == '__main__':
     main()
