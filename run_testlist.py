@@ -58,6 +58,80 @@ self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   }
                  ]
 
+ec_partial_strip_testlist = [{'testcase': 'ec_ior_partial_stripe_EC_2P1G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(4, 8, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '1M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_2P1G1',
+                               'cont_rf': '1',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           },
+                          {'testcase': 'ec_ior_partial_stripe_EC_4P2G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(6, 12, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '1M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_4P2G1',
+                               'cont_rf': '2',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           },
+                          {'testcase': 'ec_ior_partial_stripe_EC_8P2G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(10, 20, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '1M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_8P2G1',
+                               'cont_rf': '2',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           },
+                          {'testcase': 'ec_ior_partial_stripe_EC_16P2G1',
+                           # Number of servers, number of clients,
+                           # timeout in minutes
+                           'testvariants': [(18, 36, 5)],
+                           'ppc': 32,
+                           'env_vars': {
+                               'chunk_size': '33554432',
+                               'pool_size': '85G',
+                               'segments': '1',
+                               'xfer_size': '1M',
+                               'block_size': '1G',
+                               'fpp': '-F',
+                               'oclass': 'EC_16P2G1',
+                               'cont_rf': '2',
+                               'sw_time': '60',
+                               'iterations': '2'},
+                           'enabled': False
+                           }
+                           ]
+
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
@@ -833,6 +907,8 @@ def main():
     swim_ior_test = SwimIORTestList(swim_ior_testlist)
     swim_ior_test.run()
 
+    ec_partial_strip_testlist = IorTestList(ec_partial_strip_testlist)
+    ec_partial_strip_testlist.run()
 
 if __name__ == '__main__':
     main()
