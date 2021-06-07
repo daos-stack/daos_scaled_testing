@@ -1,10 +1,32 @@
 #!/bin/bash
 
+# Extra arguments to pass to DAOS scons
 EXTRA_BUILD="${1}"
 
 export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
 export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
 export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
+
+# DAOS branch to clone
+DAOS_BRANCH="master"
+
+# Optional DAOS commit to checkout after clone
+DAOS_COMMIT=""
+
+# Optional DAOS branches to merge
+DAOS_BRANCHES=()
+
+# Optional DAOS commits to cherry-pick
+DAOS_CHERRY=()
+
+# DAOS scons build type
+DAOS_BUILD_TYPE="release"
+
+# MPI to build DAOS with
+MPI_TARGET="mvapich2"
+
+# Optional IOR commit to checkout after clone
+IOR_COMMIT=""
 
 # Unload modules that are not needed on Frontera
 module unload impi pmix hwloc
@@ -17,7 +39,7 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 export PATH=~/.local/bin:$PATH
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
-source ${CURRENT_DIR}/build_env.sh mvapich2
+source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET}
 
 declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"
@@ -27,24 +49,39 @@ declare -a PRECIOUS_FILES=("bin/daos"
                            "ior${MPI_SUFFIX}/bin/${MDTEST_BIN}"
                            )
 
-# List of development or test branches to be merged on top of DAOS
-# master branch
-declare -a DAOS_PATCHES=("origin/tanabarr/control-no-ipmctl-May2020"
-                         "origin/mjmac/io500-202104"
-                         )
+# Extra branches needed for DAOS to work on frontera
+if [ "${DAOS_BRANCH}" == "release/1.2" ]; then
+    # Need to use the older branch
+    declare -a DAOS_PATCHES=(
+                             "origin/mjmac/io500-frontera"
+                             )
+else
+    # Use the newer branch
+    declare -a DAOS_PATCHES=(
+                             #"origin/mjmac/io500-202104"
+                             "origin/dbohninx-io500-20210601"
+                             )
+fi
 
-# List of development or test branches to be merged on top of DAOS
-# release/1.2 branch
-#declare -a DAOS_PATCHES=(
-#                         "origin/mjmac/io500-frontera"
-#                         )
+# Also merge user-provided branches
+DAOS_PATCHES+=( "${DAOS_BRANCHES[@]}" )
 
 function merge_extra_daos_branches() {
   for PATCH in "${DAOS_PATCHES[@]}"
   do
     echo "Merging branch: ${PATCH}"
-    git log ${PATCH} | head -n 1 || return
+    git log -n 1 --pretty=format:"commit %H" "${PATCH}" || return
     git merge --no-edit ${PATCH} || return
+    echo
+  done
+}
+
+function cherry_pick_daos_commits() {
+  for COMMIT in "${DAOS_CHERRY[@]}"
+  do
+    echo "Cherry-picking commit: ${COMMIT}"
+    git log -n 1 --pretty=format:"commit %H" "${COMMIT}" || return
+    git cherry-pick --no-edit ${COMMIT} || return
     echo
   done
 }
@@ -53,7 +90,8 @@ function print_repo_info() {
   REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
   printf '%80s\n' | tr ' ' =
   echo "Repo: ${REPO_NAME}"
-  git log | head -n 1
+  git log -n 1 --pretty=format:"commit %H"
+  echo
   echo
 }
 
@@ -76,6 +114,7 @@ function check_daos_linkage() {
   fi
 }
 
+# Exit if any command fails
 function check_retcode(){
   exit_code=${1}
   last_command=${2}
@@ -87,6 +126,7 @@ function check_retcode(){
 }
 trap 'check_retcode $? ${BASH_COMMAND}' EXIT
 set -e
+set -o pipefail
 
 rm -rf ${BUILD_DIR}/${TIMESTAMP}
 mkdir -p ${BUILD_DIR}/${TIMESTAMP}
@@ -95,19 +135,20 @@ pushd $BUILD_DIR/
 rm -f latest
 ln -s ${BUILD_DIR}/${TIMESTAMP} latest
 pushd ${BUILD_DIR}/${TIMESTAMP}
-# Clone the master branch
-git clone https://github.com/daos-stack/daos.git
-# Clone the release/1.2 branch
-#git clone https://github.com/daos-stack/daos.git -b release/1.2
+git clone https://github.com/daos-stack/daos.git -b "${DAOS_BRANCH}"
 pushd daos
+if [ ! -z "${DAOS_COMMIT}" ]; then
+    git checkout -b "${DAOS_COMMIT}" "${DAOS_COMMIT}"
+fi
 git submodule init
 git submodule update
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+cherry_pick_daos_commits |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 scons MPI_PKG=any \
       --build-deps=yes \
       --config=force \
-      BUILD_TYPE=release \
+      BUILD_TYPE=${DAOS_BUILD_TYPE} \
       install ${EXTRA_BUILD}
 popd
 popd
@@ -119,6 +160,9 @@ popd
 pushd ${BUILD_DIR}/${TIMESTAMP}
 git clone https://github.com/hpc/ior.git
 pushd ${BUILD_DIR}/${TIMESTAMP}/ior
+if [ ! -z "${IOR_COMMIT}" ]; then
+    git checkout -b "${IOR_COMMIT}" "${IOR_COMMIT}"
+fi
 
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 ./bootstrap

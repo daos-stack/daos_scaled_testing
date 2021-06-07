@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+from os.path import isdir, isfile, join
 import subprocess
 
 env = os.environ
@@ -14,8 +15,21 @@ env['EMAIL']       = "<email>" #<first.last@email.com>
 env['DAOS_DIR']    = "<path_to_daos>" #/scratch/BUILDS/latest/daos
 env['DST_DIR']     = "<path_to_daos_scaled_testing>" #/scratch/TESTS/daos_scaled_testing
 env['RES_DIR']     = "<path_to_result_dir>" #/home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
+
+# Only if using MPICH or OPENMPI
 env['MPICH_DIR']   = "<path_to_mpich>" #e.g./scratch/POC/mpich
 env['OPENMPI_DIR'] = "<path_to_openmpi>" #e.g./scratch/POC/openmpi
+
+# Sanity check that directories exist
+for check_dir in (env['DAOS_DIR'], env['DST_DIR']):
+    if not isdir(check_dir):
+        print("ERROR: Not a directory: {}".format(check_dir))
+        exit(1)
+
+# Sanity check that it's actually a DAOS installation
+if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
+    print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
+    exit(1)
 
 
 self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
@@ -527,11 +541,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '200000',
+                        'n_file': '300000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'S1',
+                        'dir_oclass': 'SX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -539,10 +554,10 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                    {'testcase': 'mdtest_easy_c16_s1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 16, 5), # Use n_file: 50k
-                        (2, 16, 5), # Use n_file: 100k
+                        (1, 16, 5),
+                        (2, 16, 5),
                         (4, 16, 5),
-                        (8, 16, 5),
+                        (8, 16, 5), # sw_time 50
                         (16, 16, 5),
                         (32, 16, 5),
                         (64, 16, 5),
@@ -553,11 +568,12 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                     'env_vars': {
                         'chunk_size': '1048576',
                         'pool_size': '85G',
-                        'n_file': '200000',
+                        'n_file': '1000000',
                         'bytes_read': '0',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'S1',
+                        'dir_oclass': 'SX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -565,8 +581,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                    {'testcase': 'mdtest_easy_1to4_2g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 8, 5),
-                        (4, 16, 5),
+                        (2, 8, 15),
+                        (4, 16, 15),
                         (8, 32, 5),
                         (16, 64, 5),
                         (32, 128, 5),
@@ -583,7 +599,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_2G1',
-                        'sw_time': '60'
+                        'dir_oclass': 'RP_2GX',
+                        'sw_time': '30'
                     },
                     'enabled': False
                     },
@@ -608,6 +625,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_2G1',
+                        'dir_oclass': 'RP_2GX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -615,7 +633,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                    {'testcase': 'mdtest_easy_1to4_3g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (4, 16, 5),
+                        (4, 16, 15),
                         (8, 32, 5),
                         (16, 64, 5),
                         (32, 128, 5),
@@ -632,7 +650,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_3G1',
-                        'sw_time': '60'
+                        'dir_oclass': 'RP_3GX',
+                        'sw_time': '30'
                     },
                     'enabled': False
                     },
@@ -656,6 +675,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '0',
                         'tree_depth': '0',
                         'oclass': 'RP_3G1',
+                        'dir_oclass': 'RP_3GX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -682,6 +702,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'S1',
+                        'dir_oclass': 'SX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -689,7 +710,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                    {'testcase': 'mdtest_hard_c16_s1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (1, 16, 5), # Use sw_time: 30s
+                        (1, 16, 5),
                         (2, 16, 5),
                         (4, 16, 5),
                         (8, 16, 5),
@@ -708,6 +729,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'S1',
+                        'dir_oclass': 'SX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -715,7 +737,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                    {'testcase': 'mdtest_hard_1to4_2g1',
                     # Number of servers, number of clients, timeout in minutes
                     'testvariants': [
-                        (2, 8, 5),
+                        (2, 8, 15),
                         (4, 16, 5),
                         (8, 32, 5),
                         (16, 64, 5),
@@ -733,7 +755,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_2G1',
-                        'sw_time': '60'
+                        'dir_oclass': 'RP_2GX',
+                        'sw_time': '30'
                     },
                     'enabled': False
                     },
@@ -758,6 +781,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_2G1',
+                        'dir_oclass': 'RP_2GX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -782,7 +806,8 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_3G1',
-                        'sw_time': '60'
+                        'dir_oclass': 'RP_3GX',
+                        'sw_time': '30'
                     },
                     'enabled': False
                     },
@@ -806,6 +831,7 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                         'bytes_write': '3901',
                         'tree_depth': '0/20',
                         'oclass': 'RP_3G1',
+                        'dir_oclass': 'RP_3GX',
                         'sw_time': '60'
                     },
                     'enabled': False
@@ -813,10 +839,13 @@ mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
                    ]
 
 
-swim_testlist = [{'testcase': 'single_pool_rebuild',
+swim_testlist = [{'testcase': 'rebuild_pool_single',
                   # Number of servers, number of clients, timeout in minutes
                   'testvariants': [
+                      (2, 1, 10),
+                      (4, 1, 10),
                       (8, 1, 10),
+                      (16, 1, 10),
                   ],
                   'ppc': 32,
                   'env_vars': {
@@ -825,15 +854,18 @@ swim_testlist = [{'testcase': 'single_pool_rebuild',
                   },
                   'enabled': False
                   },
-                  {'testcase': 'multi_pool_rebuild',
+                  {'testcase': 'rebuild_pool_multi',
                   # Number of servers, number of clients, timeout in minutes
                   'testvariants': [
-                      (8, 1, 30),
+                      (2, 1, 30),
+                      (4, 1, 30),
+                      (8, 1, 15),
+                      (16, 1, 30),
                   ],
                   'ppc': 32,
                   'env_vars': {
-                      'pool_size': '10G',
-                      'number_of_pools': '5'
+                      'pool_size': '256MiB', # Minimum 16MiB per rank
+                      'number_of_pools': '73'
                   },
                   'enabled': False
                   }
