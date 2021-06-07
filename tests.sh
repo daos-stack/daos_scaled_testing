@@ -29,28 +29,31 @@ function set_default(){
 # Set undefined/default test params
 set_default NUMBER_OF_POOLS 1
 set_default no_of_ps $(($DAOS_CLIENTS * $PPC))
+set_default CONT_RF 0
 
 # Print all relevant test params / env variables
+echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
 echo "TESTCASE        : ${TESTCASE}"
+echo "OCLASS          : ${OCLASS}"
+echo "DIR_OCLASS      : ${DIR_OCLASS}"
 echo "DAOS_SERVERS    : ${DAOS_SERVERS}"
 echo "DAOS_CLIENTS    : ${DAOS_CLIENTS}"
 echo "PPC             : ${PPC}"
 echo "RANKS           : ${no_of_ps}"
-echo "OCLASS          : ${OCLASS}"
-echo "DIR_OCLASS      : ${DIR_OCLASS}"
-echo "SW_TIME         : ${SW_TIME}"
-echo "N_FILE          : ${N_FILE}"
-echo "NUM_POOLS       : ${NUMBER_OF_POOLS}"
-echo "POOL_SIZE       : ${POOL_SIZE}"
-echo "CHUNK_SIZE      : ${CHUNK_SIZE}"
-echo "BYTES_READ      : ${BYTES_READ}"
-echo "BYTES_WRITE     : ${BYTES_WRITE}"
-echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
 echo "SEGMENTS        : ${SEGMENTS}"
 echo "XFER_SIZE       : ${XFER_SIZE}"
 echo "BLOCK_SIZE      : ${BLOCK_SIZE}"
-echo "FPP             : ${FPP}"
 echo "CONT_RF         : ${CONT_RF}"
+echo "ITERATIONS      : ${ITERATIONS}"
+echo "SW_TIME         : ${SW_TIME}"
+echo "N_FILE          : ${N_FILE}"
+echo "CHUNK_SIZE      : ${CHUNK_SIZE}"
+echo "BYTES_READ      : ${BYTES_READ}"
+echo "BYTES_WRITE     : ${BYTES_WRITE}"
+echo "TREE_DEPTH      : ${TREE_DEPTH}"
+echo "NUM_POOLS       : ${NUMBER_OF_POOLS}"
+echo "POOL_SIZE       : ${POOL_SIZE}"
+echo "FPP             : ${FPP}"
 echo "MPI_TARGET      : ${MPI_TARGET}"
 
 
@@ -495,8 +498,8 @@ function create_container(){
     echo CONT_UUID = $CONT_UUID
     echo HOST ${HOST}
 
-    #For EC test,set container RF based on number of parity
-    if [ -z "$CONT_RF" ]; then
+    #For EC test, set container RF based on number of parity
+    if [ -z "$CONT_RF" ] || [ "$CONT_RF" == "0" ]; then
        echo "Daos container created with default RF=0"
         CONT_RF=""
     else

@@ -42,25 +42,7 @@ FORMAT_TIMESTAMP_TEST = "%a %b %d %H:%M:%S %Z %Y"
 FORMAT_TIMESTAMP_DAOS = "%Y/%m/%d %H:%M:%S"
 
 # Timestamp for output CSV
-FORMAT_TIMESTAMP_OUT = "%m/%d/%Y %H:%M:%S"
-
-def match_single_group(expr, text, flags=0):
-    """Regex match and return a single group.
-
-    Args:
-        expr (str): The regex expression.
-        text (str): The text to match on.
-        flags (int, optional): The regex flags.
-
-    Returns:
-        str: group(1) of the match.
-             None if not found.
-    """
-    pattern = re.compile(expr, flags)
-    match = pattern.search(text)
-    if match:
-        return str(match.group(1)).strip()
-    return None
+FORMAT_TIMESTAMP_OUT = "%Y-%m-%d %H:%M:%S"
 
 def get_test_param(param, delim, output, default=None):
     """Get a test param of the form PARAM={}.
@@ -82,11 +64,9 @@ def get_test_param(param, delim, output, default=None):
         str: The param value.
              default if not found.
     """
-    for _delim in delim:
-        pattern = re.compile(f"^{param} *{_delim} *(.*)", re.MULTILINE)
-        match = pattern.search(output)
-        if match:
-            return match.group(1).strip()
+    match = re.search(f"^{param} *[{delim}] *(.*)", output, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
     return default
 
 def convert_timestamp(timestamp, src_format, dst_format):
@@ -114,31 +94,11 @@ def format_timestamp(timestamp):
              Input timestamp on failure.
     """
     if not timestamp:
-        return str(timestamp)
+        return None
     return convert_timestamp(
         timestamp,
         FORMAT_TIMESTAMP_TEST,
         FORMAT_TIMESTAMP_OUT)
-
-def get_timestamp_diff(timestamp1, timestamp2):
-    """Get the approximate difference in minutes between two timestamps.
-
-    Args:
-        timestamp1 (str): Representation of the start timestamp.
-        timestamp2 (str): Representation of the end timestamp.
-
-    Returns:
-        int: The approximate difference in minutes.
-        0 if invalid timestamps.
-    """
-    if not timestamp1 or not timestamp2:
-        return 0
-    timestamp_obj1 = datetime.datetime.strptime(timestamp1, FORMAT_TIMESTAMP_TEST)
-    timestamp_obj2 = datetime.datetime.strptime(timestamp2, FORMAT_TIMESTAMP_TEST)
-    timestamp_diff = timestamp_obj2 - timestamp_obj1
-    seconds = timestamp_diff.total_seconds()
-    minutes = int(round(seconds / 60))
-    return minutes
 
 def format_timestamp_daos_log(timestamp):
     """Format a timestamp from a DAOS log file.
@@ -211,12 +171,10 @@ def get_lines_after(header, num_lines, output):
         str: num_lines including and after the header.
              None if not found.
     """
-    pattern = re.compile(f"{header}.*", re.MULTILINE | re.DOTALL)
-    match = pattern.search(output)
+    match = re.search(f"{header}.*", output, re.MULTILINE | re.DOTALL)
     if not match:
         return None
-    s = "\n".join(match.group(0).split("\n")[:num_lines])
-    return s
+    return "\n".join(match.group(0).split("\n")[:num_lines])
 
 def get_daos_commit(output_file_path, slurm_job_id):
     """Get the DAOS commit for a given log file.
@@ -241,8 +199,7 @@ def get_daos_commit(output_file_path, slurm_job_id):
         return None
     with open(repo_info_path, "r") as f:
         repo_info = f.read()
-    pattern = re.compile("^Repo:.*daos\.git\ncommit (.*)", re.MULTILINE)
-    match = pattern.search(repo_info)
+    match = re.search("^Repo:.*daos\.git\ncommit (.*)", repo_info, re.MULTILINE)
     if not match:
         return None
     return match.group(1)[:7]
@@ -257,12 +214,11 @@ def get_mdtest_metric_max(metric, output):
 
     Returns:
         str: The metric value.
-             0 if not found.
+             None if not found.
     """
-    pattern = re.compile(f" *{metric}(.*)", re.MULTILINE)
-    match = pattern.search(output)
+    match = re.search(f" *{metric}(.*)", output, re.MULTILINE)
     if not match:
-        return 0
+        return None
 
     # Of the form: "<max> <min> <mean> <std>"
     all_metrics = match.group(1).lstrip(" ")
@@ -392,19 +348,22 @@ class TestStatus():
 class CsvBase():
     """Class for generating a CSV with results."""
 
-    def __init__(self, csv_file_path, row_template={},
+    def __init__(self, csv_file_path, output_style="full", row_template={},
                  row_order=[], row_sort=[]):
         """Initialize a CSV object.
         
         Args:
             csv_file_path (str): Path the the CSV file to write to.
+            output_style (str, optional): full or simple output.
             row_template (dict): Key/Value pairs for new rows.
                 Also serves as the header row.
-            row_order (list): Order of keys on write.
+            row_order (list): Order of keys on write when style is simple.
             row_sort (list): [key, val_type] pairs for sorting.
                 For example: [['my_key', int], ['foo', str]].
         """
+        assert output_style in ("full", "simple")
         self.csv_file_path = csv_file_path
+        self.output_style = output_style
         self.rows = []
         self.row_template = row_template
         self.row_order = row_order
@@ -427,21 +386,46 @@ class CsvBase():
 
     @staticmethod
     def set_common_test_params(row, output):
-        """Try to get all common test params.
+        """Set the common test params for any job.
+        
+        These are generally the config options and params printed for any job.
 
         Args:
             row (dict): A row in self.rows to store the params.
             output (str): The output to search in.
         """
         for key, label in [["slurm_job_id", "SLURM_JOB_ID"],
+                           ["test_case", "TESTCASE"],
+                           ["oclass", "OCLASS"],
+                           ["dir_oclass", "DIR_OCLASS"],
                            ["num_servers", "DAOS_SERVERS"],
                            ["num_clients", "DAOS_CLIENTS"],
                            ["num_ranks", "RANKS"],
                            ["ppc", "PPC"],
-                           ["oclass", "OCLASS"],
-                           ["test_case", "TESTCASE"]]:
+                           ["segments", "SEGMENTS"],
+                           ["xfer_size", "XFER_SIZE"],
+                           ["block_size", "BLOCK_SIZE"],
+                           ["cont_rf", "CONT_RF"],
+                           ["iterations", "ITERATIONS"],
+                           ["sw_time", "SW_TIME"],
+                           ["n_file", "N_FILE"],
+                           ["chunk_size", "CHUNK_SIZE"],
+                           ["bytes_read", "BYTES_READ"],
+                           ["bytes_write", "BYTES_WRITE"],
+                           ["tree_depth", "TREE_DEPTH"],
+                           ["num_pools", "NUM_POOLS"],
+                           ["pool_size", "POOL_SIZE"]]:
             if key in row:
                 row[key] = get_test_param(label, ":=", output)
+
+        if "fpp" in row:
+            if get_test_param("FPP", ":", output):
+                row["fpp"] = True
+
+        for key, label in [["start_time", "Start Time"],
+                           ["end_time", "End Time"]]:
+            if key in row:
+                row[key] = format_timestamp(get_test_param(label, ":", output))
 
     def sort_rows(self):
         """Sort the rows based on self.row_sort.
@@ -475,11 +459,17 @@ class CsvBase():
 
         print("Writing rows to CSV... ", end="", flush=True)
         with open(self.csv_file_path, 'w', newline='') as csv_file:
-            writer = csv.DictWriter(csv_file, self.row_order,
-                                    extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(self.rows)
-            #writer.writerows([self.row_template] + self.rows)
+            if self.output_style == "full":
+                writer = csv.DictWriter(csv_file,
+                                        self.row_template.keys(),
+                                        extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(self.rows)
+            elif self.output_style == "simple":
+                writer = csv.DictWriter(csv_file,
+                                        self.row_order,
+                                        extrasaction="ignore")
+                writer.writerows([self.row_template] + self.rows)
             csv_file.flush()
         print("Done", flush=True)
         print(f"CSV Path: {self.csv_file_path}", flush=True)
@@ -487,39 +477,44 @@ class CsvBase():
 class CsvIor(CsvBase):
     """Class for generating a CSV with IOR results."""
 
-    def __init__(self, csv_file_path):
+    def __init__(self, csv_file_path, output_style="full"):
         """Initialize a CSV IOR object.
         
         Args:
             csv_file_path (str): Path the the CSV file.
+            output_style (str, optional): full or simple output.
+
         """
+        # Key names should match the table column names
         row_template = {
+            "slurm_job_id": "Slurm Job ID",
             "test_case":    "Test Case",
             "start_time":   "Date",
+            "end_time":     "End",
             "daos_commit":  "Commit",
             "oclass":       "Oclass",
             "num_servers":  "Num_Servers",
             "num_clients":  "Clients",
             "ppc":          "PPC",
-            "num_ranks":        "Ranks",
-            "write_gib":    "Write (GiB/sec)",
-            "read_gib":     "Read (GiB/sec)",
-            "eta_min":      "ETA (min)",
-            "end_time":     "End",
+            "fpp":          "File Per Process",
+            "segments":     "Segments",
+            "xfer_size":    "Xfer Size",
+            "block_size":   "Block Size",
+            "cont_rf":      "Cont RF",
+            "iterations":   "Iterations",
             "notes":        "Notes",
             "status":       "Status",
-            "write_10":     "1.0 Write", # placeholder
-            "read_10":      "1.0 Read",  # placeholder
-            "slurm_job_id": "Slurm Job ID"
+            "sw_time":      "SW Time",
+            "write_gib":    "Write (GiB/sec)",
+            "read_gib":     "Read (GiB/sec)"
         }
         row_order = ["test_case", "start_time", "daos_commit", "oclass",
-                     "num_servers", "num_clients", "ppc", "num_ranks",
-                     "write_gib", "write_10", "read_gib", "read_10",
-                     "eta_min", "notes", "status", "slurm_job_id"]
-
+                     "num_servers", "num_clients", "ppc",
+                     "write_gib", "read_gib",
+                     "notes", "status"]
         row_sort = [["test_case", str], ["num_servers", int]]
 
-        super().__init__(csv_file_path, row_template, row_order, row_sort)
+        super().__init__(csv_file_path, output_style, row_template, row_order, row_sort)
 
     def process_result_file(self, file_path):
         """Extract results from an IOR result file.
@@ -531,14 +526,12 @@ class CsvIor(CsvBase):
             output = f.read()
 
         row = self.new_row(output)
-
-        start_time   = get_test_param("Start Time", ":", output)
-        end_time     = get_test_param("End Time", ":", output)
-        wr_gib       = get_ior_metric("Max Write", output)
-        rd_gib       = get_ior_metric("Max Read", output)
         status = TestStatus()
 
-        if not end_time:
+        wr_gib = get_ior_metric("Max Write", output)
+        rd_gib = get_ior_metric("Max Read", output)
+
+        if not row["end_time"]:
             status.fail("did not finish")
         if wr_gib <= 0:
             status.warn("write failed")
@@ -547,10 +540,7 @@ class CsvIor(CsvBase):
         if (wr_gib <= 0) and (rd_gib <= 0):
             status.fail()
 
-        row["start_time"]  = format_timestamp(start_time)
-        row["end_time"]    = format_timestamp(end_time)
         row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
-        row["eta_min"]     = get_timestamp_diff(start_time, end_time)
         row["write_gib"]   = format_float(wr_gib)
         row["read_gib"]    = format_float(rd_gib)
         row["status"]      = status.get_status_str()
@@ -559,48 +549,46 @@ class CsvIor(CsvBase):
 class CsvMdtest(CsvBase):
     """Class for generating a CSV with MDTEST results."""
 
-    def __init__(self, csv_file_path):
+    def __init__(self, csv_file_path, output_style="full"):
         """Initialize a CSV MDTEST object.
 
         Args:
             csv_file_path (str): Path the the CSV file.
+            output_style (str, optional): full or simple output.
+
         """
+        # Key names should match the table column names
         row_template = {
+            "slurm_job_id": "Slurm Job ID",
             "test_case":    "Test Case",
             "start_time":   "Date",
+            "end_time":     "End",
             "daos_commit":  "Commit",
             "oclass":       "Oclass",
+            "dir_oclass":   "Dir Oclass",
             "num_servers":  "Num_Servers",
             "num_clients":  "Clients",
             "ppc":          "PPC",
-            "num_ranks":    "Ranks",
+            "notes":        "Notes",
+            "status":       "Status",
+            "sw_time":      "SW Time",
+            "n_file":       "Number of Files",
+            "chunk_size":   "Chunk Size",
+            "bytes_read":   "Bytes Read",
+            "bytes_write":  "Bytes Write",
+            "tree_depth":   "Tree Depth",
             "create_kops":  "create(Kops/sec)",
             "stat_kops":    "stat(Kops/sec)",
             "read_kops":    "read(Kops/sec)",
-            "remove_kops":  "remove(Kops/sec)",
-            "eta_min":      "ETA (min)",
-            "create_ops":   "creates/sec",
-            "stat_ops":     "stat/sec",
-            "read_ops":     "reads/sec",
-            "remove_ops":   "remove/sec",
-            "end_time":     "End",
-            "status":       "Status",
-            "notes":        "Notes",
-            "create_10":    "1.0 Create", # placeholder
-            "stat_10":      "1.0 Stat",   # placeholder
-            "read_10":      "1.0 Read",   # placeholder
-            "remove_10":    "1.0 Remove", # placeholder
-            "slurm_job_id": "Slurm Job ID"
+            "remove_kops":  "remove(Kops/sec)"
         }
         row_order = ["test_case", "start_time", "daos_commit", "oclass",
-                     "num_servers", "num_clients", "ppc", "num_ranks", "create_kops",
-                     "create_10", "stat_kops", "stat_10", "read_kops",
-                     "read_10", "remove_kops", "remove_10", "eta_min",
+                     "num_servers", "num_clients", "ppc", "create_kops",
+                     "stat_kops", "read_kops", "remove_kops",
                      "notes", "status"]
-
         row_sort = [["test_case", str], ["num_servers", int]]
 
-        super().__init__(csv_file_path, row_template, row_order, row_sort)
+        super().__init__(csv_file_path, output_style, row_template, row_order, row_sort)
 
     def process_result_file(self, file_path):
         """Extract results from an MDTEST result file.
@@ -612,26 +600,24 @@ class CsvMdtest(CsvBase):
             output = f.read()
 
         row = self.new_row(output)
-
-        start_time   = get_test_param("Start Time", ":", output)
-        end_time     = get_test_param("End Time", ":", output)
-        sw_time      = get_test_param("SW_TIME", ":", output)
-        n_file       = get_test_param("N_FILE", ":", output)
         status = TestStatus()
 
+        sw_time = row["sw_time"]
+        n_file = row["n_file"]
+
         mdtest_rates = get_lines_after("SUMMARY rate:", 10, output)
-        create_raw = 0
-        stat_raw = 0
-        read_raw = 0
-        removal_raw = 0
-        if not mdtest_rates or not end_time:
+        if not mdtest_rates or not row["end_time"]:
             status.fail("did not finish")
 
         if mdtest_rates:
             create_raw = get_mdtest_metric_max("File creation", mdtest_rates)
-            stat_raw = get_mdtest_metric_max("File stat", mdtest_rates)
-            read_raw = get_mdtest_metric_max("File read", mdtest_rates)
-            removal_raw = get_mdtest_metric_max("File removal", mdtest_rates)
+            stat_raw   = get_mdtest_metric_max("File stat", mdtest_rates)
+            read_raw   = get_mdtest_metric_max("File read", mdtest_rates)
+            remove_raw = get_mdtest_metric_max("File removal", mdtest_rates)
+            row["create_kops"] = format_ops_to_kops(create_raw)
+            row["stat_kops"]   = format_ops_to_kops(stat_raw)
+            row["read_kops"]   = format_ops_to_kops(read_raw)
+            row["remove_kops"] = format_ops_to_kops(remove_raw)
 
         if n_file:
             sw_hit_max = get_mdtest_sw_hit_max(output)
@@ -648,33 +634,26 @@ class CsvMdtest(CsvBase):
         if sw_time and (int(sw_time) != 60):
             status.note(f"sw={sw_time}s")
 
-        row["start_time"]   = format_timestamp(start_time)
-        row["end_time"]     = format_timestamp(end_time)
-        row["create_kops"]  = format_ops_to_kops(create_raw)
-        row["stat_kops"]    = format_ops_to_kops(stat_raw)
-        row["read_kops"]    = format_ops_to_kops(read_raw)
-        row["remove_kops"]  = format_ops_to_kops(removal_raw)
-        row["create_ops"]   = format_float(create_raw)
-        row["stat_ops"]     = format_float(stat_raw)
-        row["read_ops"]     = format_float(read_raw)
-        row["remove_ops"]   = format_float(removal_raw)
-        row["daos_commit"]  = get_daos_commit(file_path, row["slurm_job_id"])
-        row["eta_min"]      = get_timestamp_diff(start_time, end_time)
-        row["status"]       = status.get_status_str()
-        row["notes"]        = status.get_notes_str()
+        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
+        row["status"]      = status.get_status_str()
+        row["notes"]       = status.get_notes_str()
 
 class CsvRebuild(CsvBase):
     """Class for generating a CSV with rebuild results."""
 
-    def __init__(self, csv_file_path):
+    def __init__(self, csv_file_path, output_style="full"):
         """Initialize a CSV rebuild object.
 
         Args:
             csv_file_path (str): Path the the CSV file.
+            output_style (str, optional): full or simple output.
+
         """
         row_template = {
+            "slurm_job_id":    "Slurm Job ID",
             "test_case":       "Test Case",
             "start_time":      "Date",
+            "end_time":        "End",
             "daos_commit":     "Commit",
             "num_servers":     "Num_Servers",
             "num_pools":       "Num_Pools",
@@ -683,23 +662,18 @@ class CsvRebuild(CsvBase):
             "rebuild_end":     "Rebuild End",
             "rebuild_detect":  "Rebuild Detection",
             "rebuild_elapsed": "Rebuild Time",
-            "eta_min":         "ETA (min)",
-            "end_time":        "End",
             "status":          "Status",
-            "notes":           "Notes",
-            "slurm_job_id":    "Slurm Job ID"
+            "notes":           "Notes"
         }
         row_order = ["test_case", "start_time", "daos_commit",
                      "num_servers", "num_pools", "rebuild_detect",
-                     "rebuild_elapsed", "eta_min", "end_time", "notes",
+                     "rebuild_elapsed", "end_time", "notes",
                      "status"]
-        csv_file_path = csv_file_path
-
         row_sort = [["test_case", str],
                     ["num_servers", int],
                     ["num_pools", int]]
 
-        super().__init__(csv_file_path, row_template, row_order, row_sort)
+        super().__init__(csv_file_path, output_style, row_template, row_order, row_sort)
 
     def process_result_file(self, file_path):
         """Extract results from a rebuild result file.
@@ -711,14 +685,13 @@ class CsvRebuild(CsvBase):
             output = f.read()
 
         row = self.new_row(output)
+        status = TestStatus()
 
-        start_time              = get_test_param("Start Time", ":", output)
-        end_time                = get_test_param("End Time", ":", output)
+        num_pools = row["num_pools"]
+
         kill_time               = get_test_param("Kill Time", ":", output)
-        num_pools               = get_test_param("NUM_POOLS", ":", output)
         num_pools_after_rebuild = get_test_param("NUM_POOLS_AFTER_REBUILD", ":", output, 0)
         num_pools_rebuild_done  = get_test_param("NUM_POOLS_REBUILD_DONE", ":", output, 0)
-        status = TestStatus()
 
         if int(num_pools_after_rebuild) != int(num_pools):
             status.warn(f"num_pools_after_rebuild={num_pools_after_rebuild},")
@@ -753,8 +726,6 @@ class CsvRebuild(CsvBase):
                 continue
             rebuild_completed.append(match.group(1).strip())
 
-        rebuild_completed.sort()
-
         # Start time is when the first rebuild was queued
         if rebuild_queued:
             rebuild_queued.sort()
@@ -773,16 +744,12 @@ class CsvRebuild(CsvBase):
         if not (kill_time and rebuild_start and rebuild_end):
             status.fail("did not finish")
 
-        row["num_pools"]       = num_pools
-        row["start_time"]      = format_timestamp(start_time)
-        row["end_time"]        = format_timestamp(end_time)
         row["rebuild_kill"]    = format_timestamp(kill_time)
         row["rebuild_start"]   = format_timestamp_daos_log(rebuild_start)
         row["rebuild_end"]     = format_timestamp_daos_log(rebuild_end)
         row["rebuild_detect"]  = rebuild_detect
         row["rebuild_elapsed"] = rebuild_elapsed
         row["daos_commit"]     = get_daos_commit(file_path, row["slurm_job_id"])
-        row["eta_min"]         = get_timestamp_diff(start_time, end_time)
         row["status"]          = status.get_status_str()
         row["notes"]           = status.get_notes_str()
 
@@ -810,7 +777,7 @@ def get_stdout_list(result_path, prefix):
         print(f"No {prefix} log files found", flush=True)
     return output_file_list
 
-def generate_results(result_dir, prefix, csv_class, csv_path):
+def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
     """Generate a CSV from a directry containing results.
 
     Args:
@@ -820,6 +787,7 @@ def generate_results(result_dir, prefix, csv_class, csv_path):
         csv_class (CsvBase): The csv class to format/generate the results.
             E.g. CsvMdtest, CsvIor, CsvRebuild.
         csv_path (str): Path to the generated csv.
+        output_style (str): full or simple output.
 
     Returns:
         bool: True if results were found; False if not.
@@ -833,7 +801,7 @@ def generate_results(result_dir, prefix, csv_class, csv_path):
         return False
 
     print(f"\nGenerating {prefix} csv", flush=True)
-    csv_obj = csv_class(csv_path)
+    csv_obj = csv_class(csv_path, output_style)
     for output_file in output_file_list:
         print(f"  Processing: {output_file}", flush=True)
         csv_obj.process_result_file(output_file)
@@ -881,76 +849,105 @@ def email_results(output_list, email_list):
         return False
     return True
 
-def csv_list_to_xlsx(csv_list, xlsx_file_path):
+def csv_list_to_xlsx(csv_list, xlsx_file_path, group_by=None):
     """Convert a list of CSV files to XLSX format.
 
     Args:
         csv_list (list): List of CSV file paths.
         xlsx_file_path (str): Path to the XLSX workbook.
+        group_by (int/str, optional): column index or column header name to
+            group by. Each group will be put on a separate sheet.
 
     Returns:
         bool: True/False if successful.
+
     """
-    print("\nWriting rows to XLSX... ", end="", flush=True)
-    if not csv_list:
-        print("No CSV files provided.", flush=True)
+    group_by_index = False
+    group_by_name = True
+    if isinstance(group_by, int):
+        group_by_index = True
+    elif isinstance(group_by, str):
+        group_by_name = True
+    elif group_by is not None:
+        print("ERROR: group_by must be int or str")
         return False
+
+    if not csv_list:
+        print("No CSV files provided.")
+        return False
+
+    # Create a dictionary where each entry is an array
+    # containing all results for a given group.
+    # Each row is grouped by group_by, or "other" if not supplied.
+    print("\nGrouping rows... ", end="", flush=True)
+    group_dict = {}
+    for csv_file_path in csv_list:
+        with open(csv_file_path, 'rt') as csv_file:
+            reader = csv.DictReader(csv_file)
+            if group_by_index:
+                group_by_key = reader.fieldnames[group_by]
+            elif group_by_name:
+                group_by_key = group_by
+            else:
+                group_by_key = None
+
+            for row in reader:
+                if group_by_key:
+                    this_group = row[group_by_key]
+                else:
+                    this_group = "other"
+
+                # The header for a group is the header of the first csv
+                # that contains a row in the group
+                if this_group not in group_dict:
+                    group_dict[this_group] = [reader.fieldnames]
+                group_dict[this_group].append(row.values())
+    print("Done", flush=True)
+
+    # Create a workbook where each worksheet is a group.
     with xlsxwriter.Workbook(xlsx_file_path) as xlsx_file:
+        print("\nWriting rows to XLSX... ", end="", flush=True)
         # Create a main worksheet that will link to all other worksheets
         main_worksheet = xlsx_file.add_worksheet("main")
         main_row = 0
 
-        for csv_file_path in csv_list:
-            with open(csv_file_path, 'rt') as csv_file:
-                # Create a dictionary where each entry is an array
-                # containing all results for a given test case.
-                # Assumes the first row in the csv is the header row
-                # and the first column of each data row is the test case name.
-                test_case_dict = {}
-                reader = csv.reader(csv_file)
-                header_row = []
-                for row_idx, row in enumerate(reader):
-                    if row_idx == 0:
-                        header_row = row[1:]
-                        continue
-                    test_case = row[0]
-                    if test_case not in test_case_dict:
-                        test_case_dict[test_case] = [row[1:]]
-                    else:
-                        test_case_dict[test_case].append(row[1:])
+        for group in group_dict:
+            worksheet_name = group
+            worksheet = xlsx_file.add_worksheet(worksheet_name)
+            # Link between main<->group
+            worksheet.write_url(0, 0, "internal:main!A1", string="Go back to main")
+            main_worksheet.write_url(main_row, 0,
+                                     f"internal:{group}!A1",
+                                     string=group)
+            main_row += 1
+            for row_idx, row in enumerate(group_dict[group]):
+                worksheet.write_row(row_idx + 1, 0, row)
+        print("Done", flush=True)
+        print(f"XLSX Path: {xlsx_file_path}", flush=True)
 
-                # Create a separate worksheet for each test case
-                # and create links between main<->test_case
-                for test_case in test_case_dict:
-                    worksheet_name = test_case
-                    worksheet = xlsx_file.add_worksheet(worksheet_name)
-                    worksheet.write_url(0, 0, "internal:main!A1", string="Go back to main")
-                    main_worksheet.write_url(main_row, 0,
-                                             f"internal:{test_case}!A1",
-                                             string=test_case)
-                    main_row += 1
-                    for row_idx, row in enumerate([header_row] + test_case_dict[test_case]):
-                        for col_idx, val in enumerate(row):
-                            worksheet.write(row_idx + 1, col_idx, val)
-    print("Done", flush=True)
-    print(f"XLSX Path: {xlsx_file_path}", flush=True)
     return True
 
-def main(result_path, no_ior=False, no_mdtest=False, no_rebuild=False,
-         excel=False, email_list=None):
+def main(result_path, tests=["all"], output_format="csv", output_style="full",
+         email_list=[]):
     """See __main__ below for arguments."""
+    all_tests = ["ior", "mdtest", "rebuild"]
+    if "all" in tests:
+        tests = all_tests
+    else:
+        for test in tests:
+            if test not in all_tests:
+                print(f"ERROR: invalid test: {test}")
+                return 1
+
     result_path = result_path.rstrip("/")
     result_name = os.path.basename(result_path)
-    do_ior = not no_ior
-    do_mdtest = not no_mdtest
-    do_rebuild = not no_rebuild
     output_list = []
 
     if not os.path.isdir(result_path):
         print(f"ERROR: {result_path} is not a directory")
         return 1
 
-    if not xlsxwriter:
+    if output_format == "xlsx" and not xlsxwriter:
         print("ERROR: xlsxwriter not found")
         return 1
 
@@ -970,33 +967,29 @@ def main(result_path, no_ior=False, no_mdtest=False, no_rebuild=False,
           f"Result Name: {result_name}\n" +
           f"Email: {email_list}\n", flush=True)
 
-    if do_ior:
-        print("")
-        ior_csv_name = f"ior_result_{result_name}.csv"
-        ior_csv_path = join(result_path, ior_csv_name)
-        if generate_results(result_path, "ior", CsvIor, ior_csv_path):
-            output_list.append(ior_csv_path)
-    if do_mdtest:
-        print("")
-        mdtest_csv_name = f"mdtest_result_{result_name}.csv"
-        mdtest_csv_path = join(result_path, mdtest_csv_name)
-        if generate_results(result_path, "mdtest", CsvMdtest, mdtest_csv_path):
-            output_list.append(mdtest_csv_path)
-    if do_rebuild:
-        print("")
-        rebuild_csv_name = f"rebuild_result_{result_name}.csv"
-        rebuild_csv_path = join(result_path, rebuild_csv_name)
-        if generate_results(result_path, "rebuild", CsvRebuild, rebuild_csv_path):
-            output_list.append(rebuild_csv_path)
+    # Generate results for each test in tests
+    for (test, test_class) in (("ior", CsvIor),
+                               ("mdtest", CsvMdtest),
+                               ("rebuild", CsvRebuild)):
+        if test in tests:
+            print("")
+            csv_name = f"{test}_result_{result_name}.csv"
+            csv_path = join(result_path, csv_name)
+            if generate_results(result_path, test, test_class, csv_path, output_style):
+                output_list.append(csv_path)
 
     if not output_list:
         print("No results generated.")
         return 1
 
-    if excel and output_list:
+    if output_format == "xlsx" and output_list:
         excel_file_name = f"result_{result_name}.xlsx"
         excel_file_path = join(result_path, excel_file_name)
-        if csv_list_to_xlsx(output_list, excel_file_path):
+        if output_style == "simple":
+            group_by = 0
+        else:
+            group_by = "test_case"
+        if csv_list_to_xlsx(output_list, excel_file_path, group_by):
             output_list.append(excel_file_path)
 
     if output_list and email_list:
@@ -1015,21 +1008,22 @@ if __name__ == "__main__":
         type=str,
         help="full path to results directory")
     parser.add_argument(
-        "--no-ior",
-        action="store_true",
-        help="don't generate ior results")
+        "--tests",
+        type=str,
+        default="all",
+        help="comma-separated list of tests (all,ior,mdtest,rebuild)")
     parser.add_argument(
-        "--no-mdtest",
-        action="store_true",
-        help="don't generate mdtest results")
+        "--format",
+        type=str,
+        choices=("csv", "xlsx"),
+        default="csv",
+        help="output format. default csv")
     parser.add_argument(
-        "--no-rebuild",
-        action="store_true",
-        help="don't generate rebuild results")
-    parser.add_argument(
-        "--excel",
-        action="store_true",
-        help="also add results to a .xlsx format")
+        "--style",
+        type=str,
+        choices=("full", "simple"),
+        default="full",
+        help="output style. default full.")
     parser.add_argument(
         "--email",
         type=str,
@@ -1039,10 +1033,10 @@ if __name__ == "__main__":
     email_list = []
     if args.email:
         email_list = args.email.split(",")
-    exit(main(
+    rc = main(
         result_path=args.result_path,
-        no_ior=args.no_ior,
-        no_mdtest=args.no_mdtest,
-        no_rebuild=args.no_rebuild,
-        excel=args.excel,
-        email_list=email_list))
+        tests=args.tests.split(","),
+        output_format=args.format,
+        output_style=args.style,
+        email_list=email_list)
+    exit(rc)

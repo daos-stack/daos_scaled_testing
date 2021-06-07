@@ -3,9 +3,9 @@
 # Extra arguments to pass to DAOS scons
 EXTRA_BUILD="${1}"
 
-export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
-export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
-export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
+export BUILD_DIR="<path_build_area>"   # e.g. $WORK2/BUILDS/
+export MPICH_DIR="<path_to_mpich>"     # e.g. /scratch/POC/mpich
+export OPENMPI_DIR="<path_to_openmpi>" # e.g. /scratch/POC/openmpi
 
 # DAOS branch to clone
 DAOS_BRANCH="master"
