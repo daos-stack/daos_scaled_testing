@@ -3,9 +3,9 @@
 # Extra arguments to pass to DAOS scons
 EXTRA_BUILD="${1}"
 
-export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
-export MPICH_DIR="<path_to_mpich>" #e.g./scratch/POC/mpich
-export OPENMPI_DIR="<path_to_openmpi>" #e.g./scratch/POC/openmpi
+export BUILD_DIR="<path_build_area>"   # e.g. $WORK2/BUILDS/
+export MPICH_DIR="<path_to_mpich>"     # e.g. /scratch/POC/mpich
+export OPENMPI_DIR="<path_to_openmpi>" # e.g. /scratch/POC/openmpi
 
 # DAOS branch to clone
 DAOS_BRANCH="master"
@@ -70,7 +70,7 @@ function merge_extra_daos_branches() {
   for PATCH in "${DAOS_PATCHES[@]}"
   do
     echo "Merging branch: ${PATCH}"
-    git log -n 1 --pretty=format:"commit %H" "${PATCH}" || return
+    git log -n 1 --pretty=format:"commit %H%n" "${PATCH}" || return
     git merge --no-edit ${PATCH} || return
     echo
   done
@@ -80,7 +80,7 @@ function cherry_pick_daos_commits() {
   for COMMIT in "${DAOS_CHERRY[@]}"
   do
     echo "Cherry-picking commit: ${COMMIT}"
-    git log -n 1 --pretty=format:"commit %H" "${COMMIT}" || return
+    git log -n 1 --pretty=format:"commit %H%n" "${COMMIT}" || return
     git cherry-pick --no-edit ${COMMIT} || return
     echo
   done
@@ -90,8 +90,7 @@ function print_repo_info() {
   REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
   printf '%80s\n' | tr ' ' =
   echo "Repo: ${REPO_NAME}"
-  git log -n 1 --pretty=format:"commit %H"
-  echo
+  git log -n 1 --pretty=format:"commit %H%n"
   echo
 }
 
