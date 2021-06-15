@@ -113,6 +113,16 @@ function check_daos_linkage() {
   fi
 }
 
+function install_python_deps() {
+    echo "Installing python build dependencies"
+    cmd="python3 -m pip install --upgrade pip"
+    echo ${cmd}
+    eval ${cmd} || return
+    cmd="python3 -m pip install --user --ignore-installed distro scons"
+    echo ${cmd}
+    eval ${cmd} || return
+}
+
 # Exit if any command fails
 function check_retcode(){
   exit_code=${1}
@@ -126,6 +136,8 @@ function check_retcode(){
 trap 'check_retcode $? ${BASH_COMMAND}' EXIT
 set -e
 set -o pipefail
+
+install_python_deps
 
 rm -rf ${BUILD_DIR}/${TIMESTAMP}
 mkdir -p ${BUILD_DIR}/${TIMESTAMP}
