@@ -42,7 +42,7 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/
 
 CPATH=${daospath}/include/:$CPATH
 
-export PYTHONPATH=/$LOCATION/src/tests/ftest/util:/$LOCATION/src/utils/py/:/$LOCATION/src/tests/ftest/util/apricot:/$LOCATION/install/lib/python2.7/site-packages
+export PYTHONPATH=/$LOCATION/src/tests/ftest/util:/$LOCATION/src/utils/py/:/$LOCATION/src/tests/ftest/util/apricot:/$LOCATION/install/lib64/python3/site-packages
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
 export PATH LD_LIBRARY_PATH CPATH PYTHONPATH
