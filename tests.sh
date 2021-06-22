@@ -422,8 +422,6 @@ function create_pool(){
     else
         pmsg "dmg pool create SUCCESS"
     fi
-
-    sleep 10
 }
 
 function setup_pool(){
