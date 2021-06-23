@@ -29,7 +29,7 @@ function set_default(){
 # Set undefined/default test params
 set_default NUMBER_OF_POOLS 1
 set_default no_of_ps $(($DAOS_CLIENTS * $PPC))
-set_default CONT_RF 0
+set_default CONT_PROP="--properties=dedup:memcmp"
 
 # Print all relevant test params / env variables
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
@@ -44,6 +44,7 @@ echo "SEGMENTS        : ${SEGMENTS}"
 echo "XFER_SIZE       : ${XFER_SIZE}"
 echo "BLOCK_SIZE      : ${BLOCK_SIZE}"
 echo "CONT_RF         : ${CONT_RF}"
+echo "EC_CELL_SIZE    : ${EC_CELL_SIZE}"
 echo "ITERATIONS      : ${ITERATIONS}"
 echo "SW_TIME         : ${SW_TIME}"
 echo "N_FILE          : ${N_FILE}"
@@ -501,15 +502,21 @@ function create_container(){
     #For EC test, set container RF based on number of parity
     if [ -z "$CONT_RF" ] || [ "$CONT_RF" == "0" ]; then
        echo "Daos container created with default RF=0"
-        CONT_RF=""
     else
        echo "Daos container created with RF=$CONT_RF"
-	   CONT_RF=",rf:$CONT_RF"
+       CONT_PROP="$CONT_PROP,rf:$CONT_RF"
+    fi
+
+    #Set EC test with different cell size
+    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == 'default' ]; then
+       echo "Daos container created with default EC Cell size"
+    else
+       echo "Daos container created with EC Cell size=$EC_CELL_SIZE"
+       CONT_PROP="$CONT_PROP,ec_cell:$EC_CELL_SIZE"
     fi
 
     daos_cmd="daos container create --pool=${POOL_UUID} --cont ${CONT_UUID}
-              --sys-name=daos_server --type=POSIX
-			  --properties=dedup:memcmp${CONT_RF}"
+              --sys-name=daos_server --type=POSIX ${CONT_PROP}"
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
     -f ${SLURM_JOB_NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
