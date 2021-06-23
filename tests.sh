@@ -29,6 +29,7 @@ function set_default(){
 # Set undefined/default test params
 set_default NUMBER_OF_POOLS 1
 set_default no_of_ps $(($DAOS_CLIENTS * $PPC))
+set_default CONT_RF 0
 set_default CONT_PROP="--properties=dedup:memcmp"
 
 # Print all relevant test params / env variables
@@ -508,7 +509,7 @@ function create_container(){
     fi
 
     #Set EC test with different cell size
-    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == 'default' ]; then
+    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == '1048576' ]; then
        echo "Daos container created with default EC Cell size"
     else
        echo "Daos container created with EC Cell size=$EC_CELL_SIZE"

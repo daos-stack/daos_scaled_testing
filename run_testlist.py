@@ -980,9 +980,9 @@ class TestList(object):
             if not test['enabled']:
                 continue
 
-            #Set default EC cell size variants
+            #Set default EC cell size variants which is 1M.
             if 'ec_cellsize_variants' not in test:
-                test['ec_cellsize_variants'] = ['default']
+                test['ec_cellsize_variants'] = ['1048576']
 
             env = self._env
             self._expand_default_env_vars(env, test)
