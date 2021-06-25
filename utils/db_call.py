@@ -110,7 +110,7 @@ def main(args):
                 writer.writerow((details[0] for details in cur.description))
                 for row in cur:
                     writer.writerow(row)
-            csv_to_xlsx(tmp[1], args.output_file)
+            csv_to_xlsx(tmp[1], args.output_file, group_by_csv=True)
         finally:
             os.remove(tmp[1])
     conn.close()

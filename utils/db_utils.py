@@ -243,3 +243,18 @@ def get_procedures(conn, name=None):
                 "data_type": arg_row[2]})
 
     return proc_dict
+
+def cur_iter(cur):
+    """Iterator for a cursor's header row + data rows.
+
+    Args:
+        cur (cursor): cursor for the database connection that contains the
+            rows.
+
+    Returns:
+        generator: generator for the header + data rows.
+
+    """
+    yield tuple((details[0] for details in cur.description))
+    for row in cur:
+        yield row
