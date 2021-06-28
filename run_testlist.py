@@ -76,6 +76,11 @@ ec_full_strip_testlist = [{'testcase': 'ec_ior_full_stripe_EC_2P1G1',
                            # Number of servers, number of clients,
                            # timeout in minutes
                            'testvariants': [(4, 8, 5)],
+                           'ec_cellsize_variants': [(65536),
+                                                    (131072),
+                                                    (262144),
+                                                    (524288),
+                                                    (1048576)],
                            'ppc': 32,
                            'env_vars': {
                                'chunk_size': '33554432',
@@ -94,6 +99,11 @@ ec_full_strip_testlist = [{'testcase': 'ec_ior_full_stripe_EC_2P1G1',
                            # Number of servers, number of clients,
                            # timeout in minutes
                            'testvariants': [(6, 12, 5)],
+                           'ec_cellsize_variants': [(65536),
+                                                    (131072),
+                                                    (262144),
+                                                    (524288),
+                                                    (1048576)],
                            'ppc': 32,
                            'env_vars': {
                                'chunk_size': '33554432',
@@ -112,6 +122,11 @@ ec_full_strip_testlist = [{'testcase': 'ec_ior_full_stripe_EC_2P1G1',
                            # Number of servers, number of clients,
                            # timeout in minutes
                            'testvariants': [(10, 20, 5)],
+                           'ec_cellsize_variants': [(65536),
+                                                    (131072),
+                                                    (262144),
+                                                    (524288),
+                                                    (1048576)],
                            'ppc': 32,
                            'env_vars': {
                                'chunk_size': '33554432',
@@ -130,6 +145,11 @@ ec_full_strip_testlist = [{'testcase': 'ec_ior_full_stripe_EC_2P1G1',
                            # Number of servers, number of clients,
                            # timeout in minutes
                            'testvariants': [(18, 36, 5)],
+                           'ec_cellsize_variants': [(65536),
+                                                    (131072),
+                                                    (262144),
+                                                    (524288),
+                                                    (1048576)],
                            'ppc': 32,
                            'env_vars': {
                                'chunk_size': '33554432',
@@ -952,10 +972,17 @@ class TestList(object):
         self._add_partition(env, nodes)
         self._add_timeout(env, timeout)
 
+    def _ec_cell_size_variant(self, env, variant):
+        env['EC_CELL_SIZE'] = str(variant)
+
     def run(self):
         for test in self._testlist:
             if not test['enabled']:
                 continue
+
+            #Set default EC cell size variants which is 1M.
+            if 'ec_cellsize_variants' not in test:
+                test['ec_cellsize_variants'] = ['1048576']
 
             env = self._env
             self._expand_default_env_vars(env, test)
@@ -963,8 +990,9 @@ class TestList(object):
             ppc = test['ppc']
             for variant in test['testvariants']:
                 self._expand_variant(env, ppc, variant)
-                subprocess.Popen(self._script, env=env)
-
+                for ec_variant in test['ec_cellsize_variants']:
+                    self._ec_cell_size_variant(env, ec_variant)
+                    subprocess.Popen(self._script, env=env)
 
 class SelfTestList(TestList):
     def __init__(self, testlist):
