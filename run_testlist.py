@@ -32,6 +32,26 @@ if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
     exit(1)
 
 
+class EnvDict(dict):
+    """Defines a dictionary with explicit replace/add functions."""
+
+    def replace(self, replace_vals):
+        """Replace existing dictionary values."""
+        for k, v in replace_vals.items():
+            if k not in self:
+                raise NameError("{} does not exist".format(k))
+            self[k] = v
+        return self
+
+    def add(self, new_vals):
+        """Add new dictionary values."""
+        for k, v in new_vals.items():
+            if k in self:
+                raise NameError("{} already exists".format(k))
+            self[k] = v
+        return self
+
+
 self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
                   # Number of servers, number of clients, timeout in minutes
                   'testvariants': [
@@ -240,6 +260,21 @@ ior_single_replica_testlist = [{'testcase': 'ior_easy_S2',
                                 }
                                 ]
 
+ior_easy_env_vars = EnvDict({'chunk_size': '1048576',
+                              'pool_size': '85G',
+                              'segments': '1',
+                              'xfer_size': '1M',
+                              'block_size': '150G',
+                              'sw_time': '60',
+                              'iterations': '1'})
+
+ior_hard_env_vars = EnvDict({'chunk_size': '1048576',
+                              'pool_size': '85G',
+                              'segments': '2000000',
+                              'xfer_size': '47008',
+                              'block_size': '47008',
+                              'sw_time': '60',
+                              'iterations': '1'})
 
 ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                  # Number of servers, number of clients, timeout in minutes
@@ -255,18 +290,10 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 1024, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_easy_env_vars
+                    .add({'oclass': 'SX'}),
                  'enabled': False
-                 },
+                },
                 {'testcase': 'ior_easy_c16_sx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
@@ -281,18 +308,10 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 16, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_easy_env_vars
+                    .add({'oclass': 'SX'}),
                  'enabled': False
-                 },
+                },
                 {'testcase': 'ior_easy_1to4_2gx',
                  # Number of servers, number of clients, timeout in minutes
                  'testvariants': [
@@ -306,16 +325,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 1024, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_easy_env_vars
+                    .add({'oclass': 'RP_2GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_easy_c16_2gx',
@@ -331,16 +342,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 16, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_easy_env_vars
+                    .add({'oclass': 'RP_2GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_easy_1to4_3gx',
@@ -355,16 +358,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 1024, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_easy_env_vars
+                    .add({'oclass': 'RP_3GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_easy_c16_3gx',
@@ -379,16 +374,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 16, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_easy_env_vars
+                    .add({'oclass': 'RP_3GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_1to4_sx',
@@ -405,16 +392,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 1024, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_hard_env_vars
+                    .add({'oclass': 'SX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_c16_sx',
@@ -431,16 +410,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 16, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_hard_env_vars
+                    .add({'oclass': 'SX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_1to4_2gx',
@@ -456,16 +427,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 1024, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_hard_env_vars
+                    .add({'oclass': 'RP_2GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_c16_2gx',
@@ -481,16 +444,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 16, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_hard_env_vars
+                    .add({'oclass': 'RP_2GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_1to4_3gx',
@@ -505,16 +460,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 1024, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_hard_env_vars
+                    .add({'oclass': 'RP_3GX'}),
                  'enabled': False
                  },
                 {'testcase': 'ior_hard_c16_3gx',
@@ -529,16 +476,8 @@ ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
                      (256, 16, 5)
                  ],
                  'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
+                 'env_vars': ior_hard_env_vars
+                    .add({'oclass': 'RP_3GX'}),
                  'enabled': False
                  }
                 ]
