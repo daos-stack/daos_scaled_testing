@@ -3,6 +3,7 @@
 import os
 from os.path import isdir, isfile, join
 import subprocess
+import itertools
 
 env = os.environ
 
@@ -32,954 +33,575 @@ if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
     exit(1)
 
 
-self_testlist = [{'testcase': 'st_1tomany_cli2srv_inf1',
-                  # Number of servers, number of clients, timeout in minutes
-                  'testvariants': [
-                      (2, 1, 15),
-                      (4, 1, 15),
-                      (8, 1, 15),
-                      (16, 1, 15),
-                      (32, 1, 15),
-                      (64, 1, 15),
-                      (128, 1, 15),
-                      (256, 1, 15),
-                      (512, 1, 15)
-                  ],
-                  'ppc': 1,
-                  'env_vars': {
-                      'inflight': 1
-                  },
-                  'enabled': False
-                  },
-                 {'testcase': 'st_1tomany_cli2srv_inf16',
-                  # Number of servers, number of clients, timeout in minutes
-                  'testvariants': [
-                      (2, 1, 15),
-                      (4, 1, 15),
-                      (8, 1, 15),
-                      (16, 1, 15),
-                      (32, 1, 15),
-                      (64, 1, 15),
-                      (128, 1, 15),
-                      (256, 1, 15),
-                      (512, 1, 15)
-                  ],
-                  'ppc': 1,
-                  'env_vars': {
-                      'inflight': 16
-                  },
-                  'enabled': False
-                  }
-                 ]
+# TODO refactor to make 'inflight' a variant?
+self_testdict = {
+    'st_1tomany_cli2srv_inf1': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (2, 1, 15),
+            (4, 1, 15),
+            (8, 1, 15),
+            (16, 1, 15),
+            (32, 1, 15),
+            (64, 1, 15),
+            (128, 1, 15),
+            (256, 1, 15),
+            (512, 1, 15)
+        ],
+        'env_vars': {
+            'inflight': 1,
+            'ppc': 1
+        },
+        'enabled': False
+    },
+    'st_1tomany_cli2srv_inf16': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (2, 1, 15),
+            (4, 1, 15),
+            (8, 1, 15),
+            (16, 1, 15),
+            (32, 1, 15),
+            (64, 1, 15),
+            (128, 1, 15),
+            (256, 1, 15),
+            (512, 1, 15)
+        ],
+        'env_vars': {
+            'inflight': 16,
+            'ppc': 1
+        },
+        'enabled': False
+    }
+}
 
-ec_partial_strip_testlist = [{'testcase': 'ec_ior_partial_stripe_EC_2P1GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(4, 8, 5)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '1M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_2P1GX',
-                               'cont_rf': '1',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           },
-                          {'testcase': 'ec_ior_partial_stripe_EC_4P2GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(6, 12, 5)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '1M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_4P2GX',
-                               'cont_rf': '2',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           },
-                          {'testcase': 'ec_ior_partial_stripe_EC_8P2GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(10, 20, 5)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '1M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_8P2GX',
-                               'cont_rf': '2',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           },
-                          {'testcase': 'ec_ior_partial_stripe_EC_16P2GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(18, 36, 5)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '1M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_16P2GX',
-                               'cont_rf': '2',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           }
-                           ]
+ec_partial_stripe_testdict = {
+    'ec_ior_partial_stripe_EC_2P1GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (4, 8, 5)
+        ],
+        'cont_rf': '1',
+        'oclass': 'EC_2P1GX',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '1M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ec_ior_partial_stripe_EC_4P2GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (6, 12, 5)
+        ],
+        'oclass': 'EC_4P2GX',
+        'cont_rf': '2',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '1M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ec_ior_partial_stripe_EC_8P2GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (10, 20, 5)
+        ],
+        'oclass': 'EC_8P2GX',
+        'cont_rf': '2',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '1M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'cont_rf': '2',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ec_ior_partial_stripe_EC_16P2GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (18, 36, 5)
+        ],
+        'oclass': 'EC_16P2GX',
+        'cont_rf': '2',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '1M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    }
+}
 
-ec_full_strip_testlist = [{'testcase': 'ec_ior_full_stripe_EC_2P1GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(4, 8, 5)],
-                           'ec_cellsize_variants': [(65536),
-                                                    (1048576)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '2M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_2P1GX',
-                               'cont_rf': '1',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           },
-                          {'testcase': 'ec_ior_full_stripe_EC_4P2GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(6, 12, 5)],
-                           'ec_cellsize_variants': [(65536),
-                                                    (1048576)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '4M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_4P2GX',
-                               'cont_rf': '2',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           },
-                          {'testcase': 'ec_ior_full_stripe_EC_8P2GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(10, 20, 5)],
-                           'ec_cellsize_variants': [(65536),
-                                                    (1048576)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '8M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_8P2GX',
-                               'cont_rf': '2',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           },
-                          {'testcase': 'ec_ior_full_stripe_EC_16P2GX',
-                           # Number of servers, number of clients,
-                           # timeout in minutes
-                           'testvariants': [(18, 36, 5)],
-                           'ec_cellsize_variants': [(65536),
-                                                    (1048576)],
-                           'ppc': 32,
-                           'env_vars': {
-                               'chunk_size': '33554432',
-                               'pool_size': '85G',
-                               'segments': '1',
-                               'xfer_size': '16M',
-                               'block_size': '1G',
-                               'fpp': '-F',
-                               'oclass': 'EC_16P2GX',
-                               'cont_rf': '2',
-                               'sw_time': '60',
-                               'iterations': '2'},
-                           'enabled': False
-                           }
-                           ]
-
-ior_single_replica_testlist = [{'testcase': 'ior_easy_S2',
-                                # Number of servers, number of clients,
-                                # timeout in minutes
-                                'testvariants': [(4, 8, 5)],
-                                'ppc': 32,
-                                'env_vars': {
-                                    'chunk_size': '1048576',
-                                    'pool_size': '85G',
-                                    'segments': '1',
-                                    'xfer_size': '2M',
-                                    'block_size': '1G',
-                                    'fpp': '-F',
-                                    'oclass': 'S2',
-                                    'sw_time': '60',
-                                    'iterations': '2'
-                                    },
-                                'enabled': False
-                                },
-                                {'testcase': 'ior_easy_S4',
-                                # Number of servers, number of clients,
-                                # timeout in minutes
-                                'testvariants': [(6, 12, 5)],
-                                'ppc': 32,
-                                'env_vars': {
-                                    'chunk_size': '1048576',
-                                    'pool_size': '85G',
-                                    'segments': '1',
-                                    'xfer_size': '4M',
-                                    'block_size': '1G',
-                                    'fpp': '-F',
-                                    'oclass': 'S4',
-                                    'sw_time': '60',
-                                    'iterations': '2'
-                                    },
-                                'enabled': False
-                                },
-                                {'testcase': 'ior_easy_S8',
-                                # Number of servers, number of clients,
-                                # timeout in minutes
-                                'testvariants': [(10, 20, 5)],
-                                'ppc': 32,
-                                'env_vars': {
-                                    'chunk_size': '1048576',
-                                    'pool_size': '85G',
-                                    'segments': '1',
-                                    'xfer_size': '8M',
-                                    'block_size': '1G',
-                                    'fpp': '-F',
-                                    'oclass': 'S8',
-                                    'sw_time': '60',
-                                    'iterations': '2'
-                                    },
-                                'enabled': False
-                                },
-                                {'testcase': 'ior_easy_S16',
-                                # Number of servers, number of clients,
-                                # timeout in minutes
-                                'testvariants': [(18, 36, 10)],
-                                'ppc': 32,
-                                'env_vars': {
-                                    'chunk_size': '1048576',
-                                    'pool_size': '85G',
-                                    'segments': '1',
-                                    'xfer_size': '16M',
-                                    'block_size': '1G',
-                                    'fpp': '-F',
-                                    'oclass': 'S16',
-                                    'sw_time': '60',
-                                    'iterations': '2'
-                                    },
-                                'enabled': False
-                                }
-                                ]
-
-ior_testlist = [{'testcase': 'ior_easy_1to4_sx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (1, 4, 5),
-                     (2, 8, 5),
-                     (4, 16, 5),
-                     (8, 32, 5),
-                     (16, 64, 5),
-                     (32, 128, 5),
-                     (64, 256, 5),
-                     (128, 512, 5),
-                     (256, 1024, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_easy_c16_sx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (1, 16, 5),
-                     (2, 16, 5),
-                     (4, 16, 5),
-                     (8, 16, 5),
-                     (16, 16, 5),
-                     (32, 16, 5),
-                     (64, 16, 5),
-                     (128, 16, 5),
-                     (256, 16, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_easy_1to4_2gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (2, 8, 5),
-                     (4, 16, 5),
-                     (8, 32, 5),
-                     (16, 64, 5),
-                     (32, 128, 5),
-                     (64, 256, 5),
-                     (128, 512, 5),
-                     (256, 1024, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_easy_c16_2gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (2, 16, 5),
-                     (4, 16, 5),
-                     (8, 16, 5),
-                     (16, 16, 5),
-                     (32, 16, 5),
-                     (64, 16, 5),
-                     (128, 16, 5),
-                     (256, 16, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_easy_1to4_3gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (4, 16, 5),
-                     (8, 32, 5),
-                     (16, 64, 5),
-                     (32, 128, 5),
-                     (64, 256, 5),
-                     (128, 512, 5),
-                     (256, 1024, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_easy_c16_3gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (4, 16, 5),
-                     (8, 16, 5),
-                     (16, 16, 5),
-                     (32, 16, 5),
-                     (64, 16, 5),
-                     (128, 16, 5),
-                     (256, 16, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '1',
-                     'xfer_size': '1M',
-                     'block_size': '150G',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_hard_1to4_sx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (1, 4, 5),
-                     (2, 8, 5),
-                     (4, 16, 5),
-                     (8, 32, 5),
-                     (16, 64, 5),
-                     (32, 128, 5),
-                     (64, 256, 5),
-                     (128, 512, 5),
-                     (256, 1024, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_hard_c16_sx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (1, 16, 5),
-                     (2, 16, 5),
-                     (4, 16, 5),
-                     (8, 16, 5),
-                     (16, 16, 5),
-                     (32, 16, 5),
-                     (64, 16, 5),
-                     (128, 16, 5),
-                     (256, 16, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'SX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_hard_1to4_2gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (2, 8, 5),
-                     (4, 16, 5),
-                     (8, 32, 5),
-                     (16, 64, 5),
-                     (32, 128, 5),
-                     (64, 256, 5),
-                     (128, 512, 5),
-                     (256, 1024, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_hard_c16_2gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (2, 16, 5),
-                     (4, 16, 5),
-                     (8, 16, 5),
-                     (16, 16, 5),
-                     (32, 16, 5),
-                     (64, 16, 5),
-                     (128, 16, 5),
-                     (256, 16, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_2GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_hard_1to4_3gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (4, 16, 5),
-                     (8, 32, 5),
-                     (16, 64, 5),
-                     (32, 128, 5),
-                     (64, 256, 5),
-                     (128, 512, 5),
-                     (256, 1024, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 },
-                {'testcase': 'ior_hard_c16_3gx',
-                 # Number of servers, number of clients, timeout in minutes
-                 'testvariants': [
-                     (4, 16, 5),
-                     (8, 16, 5),
-                     (16, 16, 5),
-                     (32, 16, 5),
-                     (64, 16, 5),
-                     (128, 16, 5),
-                     (256, 16, 5)
-                 ],
-                 'ppc': 32,
-                 'env_vars': {
-                     'chunk_size': '1048576',
-                     'pool_size': '85G',
-                     'segments': '2000000',
-                     'xfer_size': '47008',
-                     'block_size': '47008',
-                     'oclass': 'RP_3GX',
-                     'sw_time': '60',
-                     'iterations': '1'
-                 },
-                 'enabled': False
-                 }
-                ]
+ec_full_stripe_testdict = {
+    'ec_ior_full_stripe_EC_2P1GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (4, 8, 5)
+        ],
+        'ec_cell_size': [
+            (65536),
+            (1048576)
+        ],
+        'oclass': 'EC_2P1GX',
+        'cont_rf': '1',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '2M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ec_ior_full_stripe_EC_4P2GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (6, 12, 5)
+        ],
+        'ec_cell_size': [
+            (65536),
+            (1048576)
+        ],
+        'oclass': 'EC_4P2GX',
+        'cont_rf': '2',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '4M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ec_ior_full_stripe_EC_8P2GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (10, 20, 5)
+        ],
+        'ec_cell_size': [
+            (65536),
+            (1048576)
+        ],
+        'oclass': 'EC_8P2GX',
+        'cont_rf': '2',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '8M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ec_ior_full_stripe_EC_16P2GX': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (18, 36, 5)
+        ],
+        'ec_cell_size': [
+            (65536),
+            (1048576)
+        ],
+        'oclass': 'EC_16P2GX',
+        'cont_rf': '2',
+        'env_vars': {
+            'chunk_size': '33554432',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '16M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    }
+}
 
 
-mdtest_testlist = [{'testcase': 'mdtest_easy_1to4_s1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (1, 4, 5),
-                        (2, 8, 5),
-                        (4, 16, 5),
-                        (8, 32, 5),
-                        (16, 64, 5),
-                        (32, 128, 5),
-                        (64, 256, 5),
-                        (128, 512, 5),
-                        (256, 1024, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '300000',
-                        'bytes_read': '0',
-                        'bytes_write': '0',
-                        'tree_depth': '0',
-                        'oclass': 'S1',
-                        'dir_oclass': 'SX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_easy_c16_s1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (1, 16, 5),
-                        (2, 16, 5),
-                        (4, 16, 5),
-                        (8, 16, 5), # sw_time 50
-                        (16, 16, 5),
-                        (32, 16, 5),
-                        (64, 16, 5),
-                        (128, 16, 5),
-                        (256, 16, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '1000000',
-                        'bytes_read': '0',
-                        'bytes_write': '0',
-                        'tree_depth': '0',
-                        'oclass': 'S1',
-                        'dir_oclass': 'SX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_easy_1to4_2g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (2, 8, 15),
-                        (4, 16, 15),
-                        (8, 32, 5),
-                        (16, 64, 5),
-                        (32, 128, 5),
-                        (64, 256, 5),
-                        (128, 512, 5),
-                        (256, 1024, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '0',
-                        'bytes_write': '0',
-                        'tree_depth': '0',
-                        'oclass': 'RP_2G1',
-                        'dir_oclass': 'RP_2GX',
-                        'sw_time': '30'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_easy_c16_2g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (2, 16, 5),
-                        (4, 16, 5),
-                        (8, 16, 5),
-                        (16, 16, 5),
-                        (32, 16, 5),
-                        (64, 16, 5),
-                        (128, 16, 5),
-                        (256, 16, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '0',
-                        'bytes_write': '0',
-                        'tree_depth': '0',
-                        'oclass': 'RP_2G1',
-                        'dir_oclass': 'RP_2GX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_easy_1to4_3g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (4, 16, 15),
-                        (8, 32, 5),
-                        (16, 64, 5),
-                        (32, 128, 5),
-                        (64, 256, 5),
-                        (128, 512, 5),
-                        (256, 1024, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '0',
-                        'bytes_write': '0',
-                        'tree_depth': '0',
-                        'oclass': 'RP_3G1',
-                        'dir_oclass': 'RP_3GX',
-                        'sw_time': '30'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_easy_c16_3g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (4, 16, 15),
-                        (8, 16, 15),
-                        (16, 16, 15),
-                        (32, 16, 15),
-                        (64, 16, 15),
-                        (128, 16, 15),
-                        (256, 16, 15)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '0',
-                        'bytes_write': '0',
-                        'tree_depth': '0',
-                        'oclass': 'RP_3G1',
-                        'dir_oclass': 'RP_3GX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_hard_1to4_s1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (1, 4, 5),
-                        (2, 8, 5),
-                        (4, 16, 5),
-                        (8, 32, 5),
-                        (16, 64, 5),
-                        (32, 128, 5),
-                        (64, 256, 5),
-                        (128, 512, 5),
-                        (256, 1024, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '3901',
-                        'bytes_write': '3901',
-                        'tree_depth': '0/20',
-                        'oclass': 'S1',
-                        'dir_oclass': 'SX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_hard_c16_s1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (1, 16, 5),
-                        (2, 16, 5),
-                        (4, 16, 5),
-                        (8, 16, 5),
-                        (16, 16, 5),
-                        (32, 16, 5),
-                        (64, 16, 5),
-                        (128, 16, 5),
-                        (256, 16, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '3901',
-                        'bytes_write': '3901',
-                        'tree_depth': '0/20',
-                        'oclass': 'S1',
-                        'dir_oclass': 'SX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_hard_1to4_2g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (2, 8, 15),
-                        (4, 16, 5),
-                        (8, 32, 5),
-                        (16, 64, 5),
-                        (32, 128, 5),
-                        (64, 256, 5),
-                        (128, 512, 5),
-                        (256, 1024, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '3901',
-                        'bytes_write': '3901',
-                        'tree_depth': '0/20',
-                        'oclass': 'RP_2G1',
-                        'dir_oclass': 'RP_2GX',
-                        'sw_time': '30'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_hard_c16_2g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (2, 16, 5),
-                        (4, 16, 5),
-                        (8, 16, 5),
-                        (16, 16, 5),
-                        (32, 16, 5),
-                        (64, 16, 5),
-                        (128, 16, 5),
-                        (256, 16, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '3901',
-                        'bytes_write': '3901',
-                        'tree_depth': '0/20',
-                        'oclass': 'RP_2G1',
-                        'dir_oclass': 'RP_2GX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_hard_1to4_3g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (4, 16, 5),
-                        (8, 32, 5),
-                        (16, 64, 5),
-                        (32, 128, 5),
-                        (64, 256, 5),
-                        (128, 512, 5),
-                        (256, 1024, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '3901',
-                        'bytes_write': '3901',
-                        'tree_depth': '0/20',
-                        'oclass': 'RP_3G1',
-                        'dir_oclass': 'RP_3GX',
-                        'sw_time': '30'
-                    },
-                    'enabled': False
-                    },
-                   {'testcase': 'mdtest_hard_c16_3g1',
-                    # Number of servers, number of clients, timeout in minutes
-                    'testvariants': [
-                        (4, 16, 5),
-                        (8, 16, 5),
-                        (16, 16, 5),
-                        (32, 16, 5),
-                        (64, 16, 5),
-                        (128, 16, 5),
-                        (256, 16, 5)
-                    ],
-                    'ppc': 32,
-                    'env_vars': {
-                        'chunk_size': '1048576',
-                        'pool_size': '85G',
-                        'n_file': '200000',
-                        'bytes_read': '3901',
-                        'bytes_write': '3901',
-                        'tree_depth': '0/20',
-                        'oclass': 'RP_3G1',
-                        'dir_oclass': 'RP_3GX',
-                        'sw_time': '60'
-                    },
-                    'enabled': False
-                    }
-                   ]
+ior_single_replica_testdict = {
+    'ior_easy_S2': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (4, 8, 5)
+        ],
+        'oclass': 'S2',
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '2M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ior_easy_S4': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (6, 12, 5)
+        ],
+        'oclass': 'S4',
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '4M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ior_easy_S8': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (40, 20, 5)
+        ],
+        'oclass': 'S8',
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '8M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ior_easy_S16': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (18, 36, 10)
+        ],
+        'oclass': 'S16',
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '16M',
+            'block_size': '1G',
+            'fpp': '-F',
+            'sw_time': '60',
+            'iterations': '2',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+}
 
 
-swim_testlist = [{'testcase': 'rebuild_pool_single',
-                  # Number of servers, number of clients, timeout in minutes
-                  'testvariants': [
-                      (2, 1, 10),
-                      (4, 1, 10),
-                      (8, 1, 10),
-                      (16, 1, 10),
-                  ],
-                  'ppc': 32,
-                  'env_vars': {
-                      'pool_size': '85G',
-                      'number_of_pools': '1'
-                  },
-                  'enabled': False
-                  },
-                  {'testcase': 'rebuild_pool_multi',
-                  # Number of servers, number of clients, timeout in minutes
-                  'testvariants': [
-                      (2, 1, 30),
-                      (4, 1, 30),
-                      (8, 1, 15),
-                      (16, 1, 30),
-                  ],
-                  'ppc': 32,
-                  'env_vars': {
-                      'pool_size': '256MiB', # Minimum 16MiB per rank
-                      'number_of_pools': '73'
-                  },
-                  'enabled': False
-                  }
-                 ]
+ior_testdict = {
+    'ior_easy': {
+        'oclass': [
+            #'SX',
+            #'RP_2GX',
+            #'RP_3GX',
+            #'EC_2P1GX',
+            #'EC_4P1GX'
+        ],
+        'scale': [
+            # 1to4, (num_servers, num_clients, timeout_minutes)
+            #(1, 4, 5),
+            #(2, 8, 5),
+            #(4, 16, 5),
+            #(8, 32, 5),
+            #(16, 64, 5),
+            #(32, 128, 5),
+            #(64, 256, 5),
+            #(128, 512, 5),
+            #(256, 1024, 5),
+
+            # c16, (num_servers, num_clients, timeout_minutes)
+            #(1, 16, 5),
+            #(2, 16, 5),
+            #(4, 16, 5),
+            #(8, 16, 5),
+            #(16, 16, 5),
+            #(32, 16, 5),
+            #(64, 16, 5),
+            #(128, 16, 5),
+            #(256, 16, 5)
+        ],
+        'cont_rf' : [
+            #0,
+            #1,
+            #2
+        ],
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'segments': '1',
+            'xfer_size': '1M',
+            'block_size': '150G',
+            'sw_time': '60',
+            'iterations': '1',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'ior_hard': {
+        'oclass': [
+            #'SX',
+            #'RP_2GX',
+            #'RP_3GX',
+            #'EC_2P1GX',
+            #'EC_4P1GX'
+        ],
+        'scale': [
+            # 1to4, (num_servers, num_clients, timeout_minutes)
+            #(1, 4, 5),
+            #(2, 8, 5),
+            #(4, 16, 5),
+            #(8, 32, 5),
+            #(16, 64, 5),
+            #(32, 128, 5),
+            #(64, 256, 5),
+            #(128, 512, 5),
+            #(256, 1024, 5),
+
+            # c16, (num_servers, num_clients, timeout_minutes)
+            #(1, 16, 5),
+            #(2, 16, 5),
+            #(4, 16, 5),
+            #(8, 16, 5),
+            #(16, 16, 5),
+            #(32, 16, 5),
+            #(64, 16, 5),
+            #(128, 16, 5),
+            #(256, 16, 5)
+        ],
+        'cont_rf' : [
+            #0,
+            #1,
+            #2
+        ],
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'segments': '2000000',
+            'xfer_size': '47008',
+            'block_size': '47008',
+            'sw_time': '60',
+            'iterations': '1',
+            'ppc': 32
+        },
+        'enabled': False
+    }
+}
 
 
-swim_ior_testlist = [{'testcase': 'pool_rebuild_50_load',
-                      # Number of servers, number of clients, timeout in minutes
-                      'testvariants': [
-                          (8, 4, 30),
-                      ],
-                      'ppc': 32,
-                      'env_vars': {
-                          'pool_size': '85G',
-                          'number_of_pools': '1',
-                          'chunk_size': '1048576',
-                          'segments': '1',
-                          'xfer_size': '1M',
-                          'block_size': '2656M',
-                          'oclass': 'SX',
-                          'iterations': '1'
-                      },
-                      'enabled': False
-                      }
-                     ]
+mdtest_testdict = {
+    'mdtest_easy': {
+        'oclass': [
+            #('S1', 'SX'),
+            #('RP_2G1', 'RP_2GX'),
+            #('RP_3G1', 'RP_3GX')
+        ],
+        'scale': [
+            # 1to4, (num_servers, num_clients, timeout_minutes)
+            #(1, 4, 5),
+            #(2, 8, 5),
+            #(4, 16, 5),
+            #(8, 32, 5),
+            #(16, 64, 5),
+            #(32, 128, 5),
+            #(64, 256, 5),
+            #(128, 512, 5),
+            #(256, 1024, 5),
 
+            # c16, (num_servers, num_clients, timeout_minutes)
+            #(1, 16, 5),
+            #(2, 16, 5),
+            #(4, 16, 5),
+            #(8, 16, 5), # sw=50 for S1
+            #(16, 16, 5),
+            #(32, 16, 5),
+            #(64, 16, 5),
+            #(128, 16, 5),
+            #(256, 16, 5)
+        ],
+        'cont_rf' : [
+            #0,
+            #1,
+            #2
+        ],
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'n_file': '1000000',
+            'bytes_read': '0',
+            'bytes_write': '0',
+            'tree_depth': '0',
+            'sw_time': '60', # 30 for RP_2G1, RP_3G1
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'mdtest_hard': {
+        'oclass': [
+            #('S1', 'SX'),
+            #('RP_2G1', 'RP_2GX'),
+            #('RP_3G1', 'RP_3GX')
+        ],
+        'scale': [
+            # 1to4, (num_servers, num_clients, timeout_minutes)
+            #(1, 4, 5),
+            #(2, 8, 5),
+            #(4, 16, 5),
+            #(8, 32, 5),
+            #(16, 64, 5),
+            #(32, 128, 5),
+            #(64, 256, 5),
+            #(128, 512, 5),
+            #(256, 1024, 5),
+
+            # c16, (num_servers, num_clients, timeout_minutes)
+            #(1, 16, 5),
+            #(2, 16, 5),
+            #(4, 16, 5),
+            #(8, 16, 5),
+            #(16, 16, 5),
+            #(32, 16, 5),
+            #(64, 16, 5),
+            #(128, 16, 5),
+            #(256, 16, 5)
+        ],
+        'cont_rf' : [
+            #0,
+            #1,
+            #2
+        ],
+        'env_vars': {
+            'chunk_size': '1048576',
+            'pool_size': '85G',
+            'n_file': '200000',
+            'bytes_read': '3901',
+            'bytes_write': '3901',
+            'tree_depth': '0/20',
+            'sw_time': '60', # 30 for RP_2G1, RP_3G1
+            'ppc': 32
+        },
+        'enabled': False
+    }
+}
+
+
+swim_testdict = {
+    'rebuild_pool_single': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (2, 1, 10),
+            (4, 1, 10),
+            (8, 1, 10),
+            (16, 1, 10),
+        ],
+        'env_vars': {
+            'pool_size': '85G',
+            'number_of_pools': '1',
+            'ppc': 32
+        },
+        'enabled': False
+    },
+    'rebuild_pool_multi': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (2, 1, 15),
+            (4, 1, 15),
+            (8, 1, 15),
+            (16, 1, 15),
+        ],
+        'env_vars': {
+            'pool_size': '256MiB', # Minimum 16MiB per rank
+            'number_of_pools': '73',
+            'ppc': 32
+        },
+        'enabled': False
+    }
+}
+
+
+swim_ior_testdict = {
+    'pool_rebuild_50_load': {
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (8, 4, 30)
+        ],
+        'oclass': 'SX',
+        'env_vars': {
+            'pool_size': '85G',
+            'number_of_pools': '1',
+            'chunk_size': '1048576',
+            'segments': '1',
+            'xfer_size': '1M',
+            'block_size': '2656M',
+            'iterations': '1',
+            'ppc': 32
+        },
+        'enabled': False
+    }
+}
+
+
+
+def is_list_or_tuple(o):
+    """Return True if an object is a list or tuple."""
+    return isinstance(o, list) or isinstance(o, tuple)
 
 
 class TestList(object):
-    def __init__(self, test_group, testlist, env, script='run_sbatch.sh'):
+    def __init__(self, test_group, testdict, env, script='run_sbatch.sh'):
         self._test_group = test_group
-        self._testlist = testlist
-        self._env = env
+        self._testdict = testdict
+        self._env = env.copy()
         self._setup_offset = 10
         self._teardown_offset = 5
         self._pool_create_timeout = 3
@@ -987,17 +609,30 @@ class TestList(object):
         dst_dir = os.getenv('DST_DIR')
         self._script = os.path.join(dst_dir, script)
 
-    def _expand_default_env_vars(self, env, test):
-        env['TEST_GROUP'] = self._test_group
-        env['TESTCASE'] = test['testcase']
-        env['PPC'] = str(test['ppc'])
-        # Default IOR will single shared file
-        env['FPP'] = ''
-        # Default Container RF factor will be 0
-        env['CONT_RF'] = '0'
+    def _expand_default_test_params(self, test_params):
+        for param, default in [
+                ('oclass', ['']),
+                ('ec_cell_size', ['1048576']),
+                ('cont_rf', [0])]:
+            if param not in test_params:
+                # Set default value
+                test_params[param] = default
+            else:
+                if not is_list_or_tuple(test_params[param]):
+                    # Convert singular to list
+                    test_params[param] = [test_params[param]]
+                if not test_params[param]:
+                    # Set empty list to default value
+                    test_params[param] = default
 
-    def _expand_extra_env_vars(self, env, test):
-        env_vars = test.get('env_vars', {})
+    def _expand_default_env_vars(self, env, testcase):
+        env['TEST_GROUP'] = self._test_group
+        env['TESTCASE'] = testcase
+        # Default IOR will use single shared file
+        env['FPP'] = ''
+
+    def _expand_extra_env_vars(self, env, test_params):
+        env_vars = test_params.get('env_vars', {})
         for name, value in env_vars.items():
             env[name.upper()] = str(value)
 
@@ -1019,11 +654,20 @@ class TestList(object):
         env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
         env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
 
-    def _expand_variant(self, env, ppc, variant):
-        srv, cli, timeout = variant
+    def _expand_env_oclass(self, env, oclass):
+        if isinstance(oclass, str):
+            env['OCLASS'] = oclass
+        elif is_list_or_tuple(oclass):
+            env['OCLASS'] = oclass[0]
+            env['DIR_OCLASS'] = oclass[1]
+        else:
+            raise ValueError
+
+    def _expand_env_scale(self, env, scale):
+        srv, cli, timeout = scale
 
         nodes = srv + cli + 1
-        cores = nodes * ppc
+        cores = nodes * int(env['PPC'])
 
         env['DAOS_SERVERS'] = str(srv)
         env['DAOS_CLIENTS'] = str(cli)
@@ -1033,36 +677,67 @@ class TestList(object):
         self._add_partition(env, nodes)
         self._add_timeout(env, timeout)
 
-    def _ec_cell_size_variant(self, env, variant):
-        env['EC_CELL_SIZE'] = str(variant)
+    def _expand_env_ec_cell_size(self, env, ec_cell_size):
+        env['EC_CELL_SIZE'] = str(ec_cell_size)
+
+    def _expand_env_cont_rf(self, env, cont_rf):
+        env['CONT_RF'] = str(cont_rf)
+
+    def _verify_env(self, env):
+        """Check that environment vars are not incompatible."""
+        # TODO easy way to verify OCLASS is compatible with num servers?
+        if int(env['DAOS_SERVERS']) <= int(env['CONT_RF']):
+            print(f"ERR {env['TESTCASE']}: DAOS_SERVERS <= CONT_RF "
+                  f"({env['DAOS_SERVERS']} <= {env['CONT_RF']})")
+            return False
+        return True
 
     def run(self):
-        for test in self._testlist:
-            if not test['enabled']:
+        # Create a list of environments, where each is a test to run
+        variant_env_list = []
+
+        for testcase in self._testdict:
+            test_params = self._testdict[testcase]
+            if not 'enabled' in test_params or not test_params['enabled']:
                 continue
 
-            #Set default EC cell size variants which is 1M.
-            if 'ec_cellsize_variants' not in test:
-                test['ec_cellsize_variants'] = ['1048576']
+            self._expand_default_test_params(test_params)
 
-            env = self._env
-            self._expand_default_env_vars(env, test)
-            self._expand_extra_env_vars(env, test)
-            ppc = test['ppc']
-            for variant in test['testvariants']:
-                self._expand_variant(env, ppc, variant)
-                for ec_variant in test['ec_cellsize_variants']:
-                    self._ec_cell_size_variant(env, ec_variant)
-                    subprocess.Popen(self._script, env=env)
+            # Get an environment for all variants for this testcase
+            testcase_env = self._env.copy()
+            self._expand_default_env_vars(testcase_env, testcase)
+            self._expand_extra_env_vars(testcase_env, test_params)
+
+            for oclass, scale, ec_cell_size, cont_rf in itertools.product(
+                    test_params['oclass'],
+                    test_params['scale'],
+                    test_params['ec_cell_size'],
+                    test_params['cont_rf']):
+                # Get an environment for this testcase variant
+                variant_env = testcase_env.copy()
+                self._expand_env_oclass(variant_env, oclass)
+                self._expand_env_scale(variant_env, scale)
+                self._expand_env_ec_cell_size(variant_env, ec_cell_size)
+                self._expand_env_cont_rf(variant_env, cont_rf)
+                if not self._verify_env(variant_env):
+                    print(f"Check config. Skipping all {testcase} variants")
+                    return
+                variant_env_list.append(variant_env)
+
+        for env in variant_env_list:
+            print(f"Running {env['TESTCASE']} {env['OCLASS']}, "
+                  f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
+                  f"{env['EC_CELL_SIZE']} ec_ell_size, cont_rf={env['CONT_RF']}")
+            subprocess.Popen(self._script, env=env)
 
 class SelfTestList(TestList):
-    def __init__(self, testlist):
-        super(SelfTestList, self).__init__('SELF_TEST', testlist, env)
+    def __init__(self, testdict):
+        super(SelfTestList, self).__init__('SELF_TEST', testdict, env)
 
 
 class IorTestList(TestList):
-    def __init__(self, testlist):
-        super(IorTestList, self).__init__('IOR', testlist, env)
+    def __init__(self, testdict):
+        super(IorTestList, self).__init__('IOR', testdict, env)
 
     def _add_timeout(self, env, test_timeout):
         # ior runs twice, read and write operations are performed separately
@@ -1077,43 +752,43 @@ class IorTestList(TestList):
 
 
 class MdtestTestList(TestList):
-    def __init__(self, testlist):
-        super(MdtestTestList, self).__init__('MDTEST', testlist, env)
+    def __init__(self, testdict):
+        super(MdtestTestList, self).__init__('MDTEST', testdict, env)
 
 
 class SwimTestList(TestList):
-    def __init__(self, testlist):
-        super(SwimTestList, self).__init__('SWIM', testlist, env)
+    def __init__(self, testdict):
+        super(SwimTestList, self).__init__('SWIM', testdict, env)
 
 
 class SwimIORTestList(TestList):
-    def __init__(self, testlist):
-        super(SwimIORTestList, self).__init__('SWIM_IOR', testlist, env)
+    def __init__(self, testdict):
+        super(SwimIORTestList, self).__init__('SWIM_IOR', testdict, env)
 
 def main():
-    self_test = SelfTestList(self_testlist)
+    self_test = SelfTestList(self_testdict)
     self_test.run()
 
-    ior_test = IorTestList(ior_testlist)
+    ior_test = IorTestList(ior_testdict)
     ior_test.run()
 
-    mdtest_test = MdtestTestList(mdtest_testlist)
+    mdtest_test = MdtestTestList(mdtest_testdict)
     mdtest_test.run()
 
-    swim_test = SwimTestList(swim_testlist)
+    swim_test = SwimTestList(swim_testdict)
     swim_test.run()
 
-    swim_ior_test = SwimIORTestList(swim_ior_testlist)
+    swim_ior_test = SwimIORTestList(swim_ior_testdict)
     swim_ior_test.run()
 
-    ec_full_stripe = IorTestList(ec_full_strip_testlist)
+    ec_full_stripe = IorTestList(ec_full_stripe_testdict)
     ec_full_stripe.run()
 
-    ior_single_replica = IorTestList(ior_single_replica_testlist)
+    ior_single_replica = IorTestList(ior_single_replica_testdict)
     ior_single_replica.run()
 
-    ec_partial_strip = IorTestList(ec_partial_strip_testlist)
-    ec_partial_strip.run()    
+    ec_partial_stripe = IorTestList(ec_partial_stripe_testdict)
+    ec_partial_stripe.run()    
 
 if __name__ == '__main__':
     main()
