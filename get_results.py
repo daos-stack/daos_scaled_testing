@@ -15,6 +15,8 @@ import re
 import datetime
 from argparse import ArgumentParser
 import os
+import stat
+import sys
 from os.path import join, dirname, basename
 from pathlib import Path
 import subprocess
@@ -38,8 +40,8 @@ EMAIL_DICT = {
 # Timestamp from test output
 FORMAT_TIMESTAMP_TEST = "%a %b %d %H:%M:%S %Z %Y"
 
-# Timestamp from DAOS logs
-FORMAT_TIMESTAMP_DAOS = "%Y/%m/%d %H:%M:%S"
+# Timestamp from daos_control log
+FORMAT_TIMESTAMP_DAOS_CONTROL = "%Y/%m/%d %H:%M:%S"
 
 # Timestamp for output CSV
 FORMAT_TIMESTAMP_OUT = "%Y-%m-%d %H:%M:%S"
@@ -100,64 +102,22 @@ def format_timestamp(timestamp):
         FORMAT_TIMESTAMP_TEST,
         FORMAT_TIMESTAMP_OUT)
 
-def format_timestamp_daos_log(timestamp):
-    """Format a timestamp from a DAOS log file.
+def format_timestamp_daos_control(timestamp):
+    """Format a timestamp from a daos_control.log.
 
     Args:
-        timestamp (str): The full timestamp from a DAOS log.
+        timestamp (str): The full timestamp from a daos_control.log.
 
     Returns:
         str: A formatted timestamp.
-             Input timestamp on failure.
+             Empty string on failure.
     """
     if not timestamp:
-        return str(timestamp)
+        return ""
     return convert_timestamp(
         timestamp,
-        FORMAT_TIMESTAMP_DAOS,
+        FORMAT_TIMESTAMP_DAOS_CONTROL,
         FORMAT_TIMESTAMP_OUT)
-
-def get_timestamp_diff_rebuild_detect(timestamp1, timestamp2):
-    """Get the difference in minutes and seconds between rebuild kill and rebuild start.
-
-    Args:
-        timestamp1 (str): Representation of the kill timestamp.
-        timestamp2 (str): Representation of the start timestamp.
-
-    Returns:
-        str: Formatted timestamp difference.
-             None on failure.
-    """
-    if not timestamp1 or not timestamp2:
-        return None
-    timestamp_obj1 = datetime.datetime.strptime(timestamp1, FORMAT_TIMESTAMP_TEST)
-    timestamp_obj2 = datetime.datetime.strptime(timestamp2, FORMAT_TIMESTAMP_DAOS)
-    timestamp_diff = timestamp_obj2 - timestamp_obj1
-    total_seconds = int(timestamp_diff.total_seconds())
-    minutes = int(total_seconds / 60)
-    seconds = int(total_seconds % 60)
-    return f"{minutes:02d}:{seconds:02d}"
-
-def get_timestamp_diff_rebuild(timestamp1, timestamp2):
-    """Get the difference in minutes and seconds between two rebuild timestamps.
-
-    Args:
-        timestamp1 (str): Representation of the start timestamp.
-        timestamp2 (str): Representation of the end timestamp.
-
-    Returns:
-        str: Formatted timestamp difference.
-             None on failure.
-    """
-    if not timestamp1 or not timestamp2:
-        return None
-    timestamp_obj1 = datetime.datetime.strptime(timestamp1, FORMAT_TIMESTAMP_DAOS)
-    timestamp_obj2 = datetime.datetime.strptime(timestamp2, FORMAT_TIMESTAMP_DAOS)
-    timestamp_diff = timestamp_obj2 - timestamp_obj1
-    total_seconds = int(timestamp_diff.total_seconds())
-    minutes = int(total_seconds / 60)
-    seconds = int(total_seconds % 60)
-    return f"{minutes:02d}:{seconds:02d}"
 
 def get_lines_after(header, num_lines, output):
     """Get a specified number of lines after a given match.
@@ -195,14 +155,38 @@ def get_daos_commit(output_file_path, slurm_job_id):
         repo_info_path = join(dir_name, f"repo_info_{slurm_job_id}.txt")
     else:
         repo_info_path = join(dir_name, "repo_info.txt")
-    if not os.path.isfile(repo_info_path):
+    repo_info = read_file(repo_info_path)
+    if not repo_info:
         return None
-    with open(repo_info_path, "r") as f:
-        repo_info = f.read()
     match = re.search("^Repo:.*daos\.git\ncommit (.*)", repo_info, re.MULTILINE)
     if not match:
         return None
     return match.group(1)[:7]
+
+def get_num_targets(output_file_path, slurm_job_id):
+    """Get the number of targets from the server config.
+
+    Assumes each engine uses the same number of targets.
+
+    Args:
+        output_file_path (str): path to the log output.
+        slurm_job_id (str): the slurm job id.
+
+    Returns:
+        str: the number of targets
+             None on failure.
+
+    """
+    dir_name = dirname(output_file_path)
+
+    config_path = join(dir_name, slurm_job_id, "daos_server.yml")
+    config = read_file(config_path)
+    if not config:
+        return None
+    match = re.search("^ *targets: ([0-9]+)", config, re.MULTILINE)
+    if not match:
+        return None
+    return match.group(1)
 
 def get_mdtest_metric_max(metric, output):
     """Get the "max" for an mdtest metric.
@@ -286,6 +270,32 @@ def format_ops_to_kops(ops):
         str: kops formatted to 2 decimal places.
     """
     return format_float(float(ops) / 1000)
+
+def read_file(path):
+    """Read a file's contents into a string.
+    
+    Args:
+        path (str): path to the file.
+        
+    Returns:
+        str: the file's contents.
+             None on failure or if the file is too large.
+
+    """
+    max_size = 256 * 1024 * 1024
+    try:
+        file_stat = os.stat(path)
+    except FileNotFoundError:
+        print(f"ERR File not found: {path}", file=sys.stderr)
+        return None
+    if file_stat.st_size > max_size:
+        print(f"ERR File larger than {max_size} bytes: {path}", file=sys.stderr)
+        return None
+    if not stat.S_ISREG(file_stat.st_mode):
+        print(f"ERR Not a file: {path}", file=sys.stderr)
+        return None
+    with open(path, 'r') as f:
+        return f.read()
 
 class TestStatus():
     """Class for managing a test status."""
@@ -522,8 +532,9 @@ class CsvIor(CsvBase):
         Args:
             file_path (str): Path to the result file.
         """
-        with open(file_path, 'r') as f:
-            output = f.read()
+        output = read_file(file_path)
+        if not output:
+            return
 
         row = self.new_row(output)
         status = TestStatus()
@@ -596,8 +607,9 @@ class CsvMdtest(CsvBase):
         Args:
             file_path (str): Path to the result file.
         """
-        with open(file_path, 'r') as f:
-            output = f.read()
+        output = read_file(file_path)
+        if not output:
+            return
 
         row = self.new_row(output)
         status = TestStatus()
@@ -650,24 +662,29 @@ class CsvRebuild(CsvBase):
 
         """
         row_template = {
-            "slurm_job_id":    "Slurm Job ID",
-            "test_case":       "Test Case",
-            "start_time":      "Date",
-            "end_time":        "End",
-            "daos_commit":     "Commit",
-            "num_servers":     "Num_Servers",
-            "num_pools":       "Num_Pools",
-            "rebuild_kill":    "Rebuild Kill",
-            "rebuild_start":   "Rebuild Start",
-            "rebuild_end":     "Rebuild End",
-            "rebuild_detect":  "Rebuild Detection",
-            "rebuild_elapsed": "Rebuild Time",
-            "status":          "Status",
-            "notes":           "Notes"
+            "slurm_job_id":           "Slurm Job ID",
+            "test_case":              "Test Case",
+            "start_time":             "Date",
+            "end_time":               "End",
+            "daos_commit":            "Commit",
+            "num_servers":            "Num Servers",
+            "num_clients":            "Num Clients",
+            "num_targets":            "Num Targets",
+            "ppc":                    "Processes Per Client",
+            "num_pools":              "Num Pools",
+            "pool_size":              "Pool Size",
+            "rebuild_kill_time":      "Rebuild Kill Time",
+            "rebuild_down_time":      "Rebuild Dead Time",
+            "rebuild_queued_time":    "Rebuild Queued Time",
+            "rebuild_completed_time": "Rebuild Completed Time",
+            "status":                 "Status",
+            "notes":                  "Notes"
         }
         row_order = ["test_case", "start_time", "daos_commit",
-                     "num_servers", "num_pools", "rebuild_detect",
-                     "rebuild_elapsed", "end_time", "notes",
+                     "num_servers", "num_pools", "num_targets", "pool_size",
+                     "rebuild_kill_time", "rebuild_down_time",
+                     "rebuild_queued_time", "rebuild_completed_time",
+                     "end_time", "notes",
                      "status"]
         row_sort = [["test_case", str],
                     ["num_servers", int],
@@ -681,15 +698,15 @@ class CsvRebuild(CsvBase):
         Args:
             file_path (str): Path to the result file.
         """
-        with open(file_path, 'r') as f:
-            output = f.read()
+        output = read_file(file_path)
+        if not output:
+            return
 
         row = self.new_row(output)
         status = TestStatus()
 
         num_pools = row["num_pools"]
 
-        kill_time               = get_test_param("Kill Time", ":", output)
         num_pools_after_rebuild = get_test_param("NUM_POOLS_AFTER_REBUILD", ":", output, 0)
         num_pools_rebuild_done  = get_test_param("NUM_POOLS_REBUILD_DONE", ":", output, 0)
 
@@ -700,58 +717,65 @@ class CsvRebuild(CsvBase):
 
         log_dir = join(dirname(file_path), row["slurm_job_id"], "logs")
 
-        rebuild_start = None
-        rebuild_end = None
-        rebuild_detect = None
-        rebuild_elapsed = None
+        rebuild_kill_time      = get_test_param("Kill Time", ":", output)
+        rebuild_queued_time    = None
+        rebuild_down_time      = None
+        rebuild_completed_time = None
 
         # Get a list of all queued and completed times
-        control_log_list = []
-        rebuild_queued = []
+        control_log_list  = []
+        rebuild_down      = []
+        rebuild_queued    = []
         rebuild_completed = []
         if os.path.isdir(log_dir):
             path_obj = Path(log_dir)
             control_log_list = sorted(path_obj.rglob("daos_control.log"))
         for control_log in control_log_list:
-            with open(control_log, 'r') as f:
-                control_log_output = f.read()
-            pattern = re.compile("INFO (.*) daos_engine.*Rebuild \[queued\]", re.MULTILINE)
-            match = pattern.search(control_log_output)
+            control_log_output = read_file(control_log)
+            if not control_log_output:
+                continue
+            match = re.search("INFO (.*) daos_engine.*is down",
+                              control_log_output, re.MULTILINE)
+            if not match:
+                continue
+            rebuild_down.append(match.group(1).strip())
+            match = re.search("INFO (.*) daos_engine.*Rebuild \[queued\]",
+                              control_log_output, re.MULTILINE)
             if not match:
                 continue
             rebuild_queued.append(match.group(1).strip())
-            pattern = re.compile("INFO (.*) daos_engine.*Rebuild \[completed\]", re.MULTILINE)
-            match = pattern.search(control_log_output)
+            match = re.search("INFO (.*) daos_engine.*Rebuild \[completed\]",
+                              control_log_output, re.MULTILINE)
             if not match:
                 continue
             rebuild_completed.append(match.group(1).strip())
 
-        # Start time is when the first rebuild was queued
+        # Down time is when the first down message was logged
+        if rebuild_down:
+            rebuild_down.sort()
+            rebuild_down_time = rebuild_down[0]
+
+        # Queued time is when the first rebuild was queued
         if rebuild_queued:
             rebuild_queued.sort()
-            rebuild_start = rebuild_queued[0]
+            rebuild_queued_time = rebuild_queued[0]
 
-        # End time is when the last rebuild completed
+        # Completed time is when the last rebuild completed
         if rebuild_completed:
             rebuild_completed.sort()
-            rebuild_end = rebuild_completed[-1]
+            rebuild_completed_time = rebuild_completed[-1]
 
-        if rebuild_start:
-            rebuild_detect = get_timestamp_diff_rebuild_detect(kill_time, rebuild_start)
-        if rebuild_start and rebuild_end:
-            rebuild_elapsed = get_timestamp_diff_rebuild(rebuild_start, rebuild_end)
-
-        if not (kill_time and rebuild_start and rebuild_end):
+        if not (rebuild_kill_time and rebuild_down_time and rebuild_queued_time and rebuild_completed_time):
             status.fail("did not finish")
 
-        row["rebuild_kill"]    = format_timestamp(kill_time)
-        row["rebuild_start"]   = format_timestamp_daos_log(rebuild_start)
-        row["rebuild_end"]     = format_timestamp_daos_log(rebuild_end)
-        row["rebuild_detect"]  = rebuild_detect
-        row["rebuild_elapsed"] = rebuild_elapsed
-        row["daos_commit"]     = get_daos_commit(file_path, row["slurm_job_id"])
-        row["status"]          = status.get_status_str()
-        row["notes"]           = status.get_notes_str()
+        row["rebuild_kill_time"]      = format_timestamp(rebuild_kill_time)
+        row["rebuild_down_time"]      = format_timestamp_daos_control(rebuild_down_time)
+        row["rebuild_queued_time"]    = format_timestamp_daos_control(rebuild_queued_time)
+        row["rebuild_completed_time"] = format_timestamp_daos_control(rebuild_completed_time)
+        row["daos_commit"]            = get_daos_commit(file_path, row["slurm_job_id"])
+        row["num_targets"]            = get_num_targets(file_path, row["slurm_job_id"])
+        row["status"]                 = status.get_status_str()
+        row["notes"]                  = status.get_notes_str()
 
 def get_stdout_list(result_path, prefix):
     """Get a list of stdout files for a given prefix.
@@ -793,7 +817,7 @@ def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
         bool: True if results were found; False if not.
     """
     if not issubclass(csv_class, CsvBase):
-        print(f"{csv_class} is not a subclass of CsvBase")
+        print(f"ERR {csv_class} is not a subclass of CsvBase", file=sys.stderr)
         return False
 
     output_file_list = get_stdout_list(result_dir, prefix)
@@ -845,7 +869,7 @@ def email_results(output_list, email_list):
           "\n         ".join(output_list)), flush=True)
     result = subprocess.run(mail_cmd, shell=True)
     if result.returncode != 0:
-        print("Failed to send email.")
+        print("ERR Failed to send email.", file=sys.stderr)
         return False
     return True
 
@@ -869,7 +893,7 @@ def csv_list_to_xlsx(csv_list, xlsx_file_path, group_by=None):
     elif isinstance(group_by, str):
         group_by_name = True
     elif group_by is not None:
-        print("ERROR: group_by must be int or str")
+        print("ERR group_by must be int or str", file=sys.stderr)
         return False
 
     if not csv_list:
@@ -944,11 +968,11 @@ def main(result_path, tests=["all"], output_format="csv", output_style="full",
     output_list = []
 
     if not os.path.isdir(result_path):
-        print(f"ERROR: {result_path} is not a directory")
+        print(f"ERR Not a directory: {result_path}", file=sys.stderr)
         return 1
 
     if output_format == "xlsx" and not xlsxwriter:
-        print("ERROR: xlsxwriter not found")
+        print("ERR xlsxwriter not installed", file=sys.stderr)
         return 1
 
     for i, email in enumerate(email_list):
@@ -958,8 +982,8 @@ def main(result_path, tests=["all"], output_format="csv", output_style="full",
                   or email in EMAIL_DICT.values()):
             # Restrict email addresses se we don't accidentally get blacklisted
             # for email typos.
-            print("ERROR: email must end with 'intel.com' or be in the dictionary:\n" +
-                  get_email_str())
+            print("ERR email must end with 'intel.com' or be in the dictionary:\n" +
+                  get_email_str(), file=sys.stderr)
             return 1
 
     print("\n" +
