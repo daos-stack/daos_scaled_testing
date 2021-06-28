@@ -1,0 +1,9 @@
+slurm_job_id,test_case,start_time,end_time,daos_commit,oclass,num_servers,num_clients,ppc,fpp,segments,xfer_size,block_size,cont_rf,iterations,notes,status,sw_time,write_gib,read_gib
+3110804,ior_easy_1to4_sx,2021-06-17 09:35:35,2021-06-17 09:40:52,104577e,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,3.69,11.23
+3107223,ior_easy_1to4_sx,2021-06-16 14:43:28,2021-06-16 14:48:42,1071704,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,3.72,11.05
+3113311,ior_easy_1to4_sx,2021-06-17 16:47:36,2021-06-17 16:54:47,31528d8,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,11.21,11.38
+3107098,ior_easy_1to4_sx,2021-06-16 13:55:15,,587b710,SX,1,4,32,,1,1M,150G,0,1,"did not finish,write failed,read failed",Fail,60,0.00,0.00
+3112706,ior_easy_1to4_sx,2021-06-17 15:10:01,2021-06-17 15:16:34,5b0a213,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,11.22,11.43
+3112833,ior_easy_1to4_sx,2021-06-17 15:35:41,2021-06-17 15:40:56,9c4e604,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,3.69,10.59
+3113101,ior_easy_1to4_sx,2021-06-17 16:21:40,2021-06-17 16:26:44,b538332,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,3.71,11.37
+3113004,ior_easy_1to4_sx,2021-06-17 16:07:28,2021-06-17 16:12:38,edd7fa8,SX,1,4,32,,1,1M,150G,0,1,,Pass,60,3.69,11.20

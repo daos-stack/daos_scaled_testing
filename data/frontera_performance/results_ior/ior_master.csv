@@ -1,0 +1,7 @@
+slurm_job_id,test_case,start_time,end_time,daos_commit,oclass,num_servers,num_clients,ppc,fpp,segments,xfer_size,block_size,cont_rf,iterations,notes,status,write_gib,read_gib
+3087311,ior_easy_1to4_sx,2021-06-10 14:04:46,2021-06-10 14:09:38,cf0db85,SX,1,4,32,,1,1M,150G,0,1,,Pass,3.14,11.35
+3087310,ior_easy_1to4_sx,2021-06-10 16:35:41,2021-06-10 16:40:49,cf0db85,SX,2,8,32,,1,1M,150G,0,1,,Pass,6.02,22.37
+3087305,ior_easy_1to4_sx,2021-06-10 16:32:19,2021-06-10 16:37:43,cf0db85,SX,4,16,32,,1,1M,150G,0,1,,Pass,11.68,44.39
+3087312,ior_hard_1to4_sx,2021-06-10 15:29:27,2021-06-10 15:34:44,cf0db85,SX,1,4,32,,2000000,47008,47008,0,1,,Pass,3.75,9.70
+3087308,ior_hard_1to4_sx,2021-06-10 16:30:42,2021-06-10 16:36:14,cf0db85,SX,2,8,32,,2000000,47008,47008,0,1,,Pass,7.48,17.75
+3087313,ior_hard_1to4_sx,2021-06-10 16:40:24,2021-06-10 16:45:44,cf0db85,SX,4,16,32,,2000000,47008,47008,0,1,,Pass,13.62,32.39
