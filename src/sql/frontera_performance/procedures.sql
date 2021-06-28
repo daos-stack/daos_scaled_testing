@@ -1,150 +1,3 @@
-DROP DATABASE IF EXISTS frontera_performance;
-CREATE DATABASE frontera_performance COMMENT 'frontera performance metrics';
-USE frontera_performance;
-
-
-/*
-    TABLES
-*/
-
-CREATE OR REPLACE TABLE results_ior (
-    id           bigint PRIMARY KEY DEFAULT uuid_short(),
-    slurm_job_id bigint UNIQUE,
-    test_case    varchar(40) NOT NULL,
-    start_time   datetime NOT NULL,
-    end_time     datetime,
-    test_eta_min int GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, start_time, end_time))
-                 COMMENT "difference in minutes between start_time and end_time",
-    daos_commit  varchar(40) NOT NULL,
-    oclass       varchar(40) NOT NULL,
-    num_servers  int NOT NULL,
-    num_clients  int NOT NULL,
-    ppc          int NOT NULL
-                 COMMENT "processes per client",
-    num_ranks    int GENERATED ALWAYS AS(num_clients * ppc),
-    fpp          bool
-                 COMMENT "file per process",
-    segments     int,
-    xfer_size    varchar(40),
-    block_size   varchar(40),
-    cont_rf      int,
-    ec_cell_size int,
-    iterations   int,
-    sw_time      int,
-    notes        varchar(400),
-    status       varchar(40) NOT NULL
-                 COMMENT "pass/fail/etc.",
-    write_gib    float,
-    read_gib     float
-) COMMENT "ior performance results";
-
-
-CREATE OR REPLACE TABLE results_mdtest (
-    id           bigint PRIMARY KEY DEFAULT uuid_short(),
-    slurm_job_id bigint UNIQUE,
-    test_case    varchar(40) NOT NULL,
-    start_time   datetime NOT NULL,
-    end_time     datetime,
-    test_eta_min int GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, start_time, end_time)),
-    daos_commit  varchar(40) NOT NULL,
-    oclass       varchar(40) NOT NULL,
-    dir_oclass   varchar(40) NOT NULL,
-    num_servers  int NOT NULL,
-    num_clients  int NOT NULL,
-    ppc          int NOT NULL,
-    num_ranks    int GENERATED ALWAYS AS(num_clients * ppc),
-    notes        varchar(400),
-    status       varchar(40) NOT NULL,
-    sw_time      int,
-    n_file       int,
-    chunk_size   varchar(40),
-    bytes_read   int,
-    bytes_write  int,
-    tree_depth   varchar(40),
-    create_kops  float,
-    stat_kops    float,
-    read_kops    float,
-    remove_kops  float
-) COMMENT "mdtest performance results";
-
-
-CREATE OR REPLACE TABLE results_rebuild (
-    id                        bigint PRIMARY KEY DEFAULT uuid_short(),
-    slurm_job_id              bigint UNIQUE,
-    test_case                 varchar(40) NOT NULL,
-    start_time                datetime NOT NULL,
-    end_time                  datetime,
-    test_eta_min              int GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, start_time, end_time)),
-    daos_commit               varchar(40) NOT NULL,
-    num_servers               int NOT NULL,
-    num_clients               int NOT NULL,
-    ppc                       int NOT NULL,
-    num_ranks                 int GENERATED ALWAYS AS (num_clients * ppc),
-    num_pools                 int NOT NULL,
-    num_targets               int NOT NULL,
-    pool_size                 varchar(40) NOT NULL,
-    notes                     varchar(400),
-    status                    varchar(40) NOT NULL,
-    rebuild_kill_time         datetime
-                              COMMENT "when the server was killed",
-    rebuild_down_time         datetime
-                              COMMENT "first down message",
-    rebuild_queued_time       datetime
-                              COMMENT "first rebuild queued message",
-    rebuild_completed_time    datetime
-                              COMMENT "last rebuild completed message",
-    rebuild_kill_to_down      int GENERATED ALWAYS AS (TIMESTAMPDIFF(SECOND, rebuild_kill_time, rebuild_down_time))
-                              COMMENT "time from kill to dead",
-    rebuild_kill_to_queued    int GENERATED ALWAYS AS (TIMESTAMPDIFF(SECOND, rebuild_kill_time, rebuild_queued_time))
-                              COMMENT "time from kill to queued",
-    rebuild_kill_to_completed int GENERATED ALWAYS AS (TIMESTAMPDIFF(SECOND, rebuild_kill_time, rebuild_completed_time))
-                              COMMENT "time from kill to completed"
-) COMMENT "rebuild performance results";
-
-
-/*
-    FUNCTIONS
-*/
-
-DELIMITER //
-CREATE OR REPLACE FUNCTION percent_diff (
-  val1 float,
-  val2 float
-) RETURNS float
-  BEGIN
-    IF val1 IS NULL OR val1 = 0 OR val2 IS NULL OR val2 = 0 THEN
-        RETURN NULL;
-    END IF;
-    RETURN ROUND((val2 - val1) / val1 * 100, 2);
-  END //
-DELIMITER ;
-
-DELIMITER //
-CREATE OR REPLACE FUNCTION compare_null_text(
-  val1 TEXT,
-  val2 TEXT
-) RETURNS BOOL
-  BEGIN
-    RETURN (val1 IS NULL OR val2 IS NULL) OR (val1 = val2);
-  END //
-DELIMITER ;
-
-DELIMITER //
-CREATE OR REPLACE FUNCTION compare_null_int(
-  val1 INT,
-  val2 INT
-) RETURNS BOOL
-  BEGIN
-    RETURN (val1 IS NULL OR val2 IS NULL) OR (val1 = val2);
-  END //
-DELIMITER ;
-
-
-/*
-    PROCEDURES
-*/
-
-
 DELIMITER //
 CREATE OR REPLACE PROCEDURE compare_ior (
   IN test_case_in TEXT,
@@ -171,20 +24,12 @@ CREATE OR REPLACE PROCEDURE compare_ior (
     FROM results_ior ior1 JOIN results_ior ior2
       USING (num_servers, num_clients)
       WHERE ior1.id != ior2.id
-        AND compare_null_int(ior1.fpp, ior2.fpp)                -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.segments, ior2.segments)      -- not necessary if test_case is comprehensive
-        AND compare_null_text(ior1.xfer_size, ior2.xfer_size)   -- not necessary if test_case is comprehensive
-        AND compare_null_text(ior1.block_size, ior2.block_size) -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.cont_rf, ior2.cont_rf)        -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.iterations, ior2.iterations)  -- not necessary if test_case is comprehensive
         AND ior1.oclass LIKE oclass1_in
         AND ior2.oclass LIKE oclass2_in
         AND ior1.test_case LIKE test_case_in
         AND ior2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (ior1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(ior1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (ior2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(ior2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(ior1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(ior2.daos_commit, daos_commit2_in))
       ORDER BY ior1.daos_commit, ior2.daos_commit, ior1.oclass, ior2.oclass, ior1.num_servers, ior1.num_clients;
   END //
 DELIMITER ;
@@ -217,20 +62,12 @@ CREATE OR REPLACE PROCEDURE compare_ior_1to4 (
       USING (num_servers, num_clients)
       WHERE ior1.id != ior2.id
         AND ior1.num_clients = (ior1.num_servers * 4)
-        AND compare_null_int(ior1.fpp, ior2.fpp)                -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.segments, ior2.segments)      -- not necessary if test_case is comprehensive
-        AND compare_null_text(ior1.xfer_size, ior2.xfer_size)   -- not necessary if test_case is comprehensive
-        AND compare_null_text(ior1.block_size, ior2.block_size) -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.cont_rf, ior2.cont_rf)        -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.iterations, ior2.iterations)  -- not necessary if test_case is comprehensive
         AND ior1.oclass LIKE oclass1_in
         AND ior2.oclass LIKE oclass2_in
         AND ior1.test_case LIKE test_case_in
         AND ior2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (ior1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(ior1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (ior2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(ior2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(ior1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(ior2.daos_commit, daos_commit2_in))
       ORDER BY ior1.daos_commit, ior2.daos_commit, ior1.oclass, ior2.oclass, ior1.num_servers, ior1.num_clients;
   END //
 DELIMITER ;
@@ -263,21 +100,107 @@ CREATE OR REPLACE PROCEDURE compare_ior_c16 (
       USING (num_servers, num_clients)
       WHERE ior1.id != ior2.id
         AND ior1.num_clients = 16
-        AND compare_null_int(ior1.fpp, ior2.fpp)                -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.segments, ior2.segments)      -- not necessary if test_case is comprehensive
-        AND compare_null_text(ior1.xfer_size, ior2.xfer_size)   -- not necessary if test_case is comprehensive
-        AND compare_null_text(ior1.block_size, ior2.block_size) -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.cont_rf, ior2.cont_rf)        -- not necessary if test_case is comprehensive
-        AND compare_null_int(ior1.iterations, ior2.iterations)  -- not necessary if test_case is comprehensive
         AND ior1.oclass LIKE oclass1_in
         AND ior2.oclass LIKE oclass2_in
         AND ior1.test_case LIKE test_case_in
         AND ior2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (ior1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(ior1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (ior2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(ior2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(ior1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(ior2.daos_commit, daos_commit2_in))
       ORDER BY ior1.daos_commit, ior2.daos_commit, ior1.oclass, ior2.oclass, ior1.num_servers, ior1.num_clients;
+  END //
+DELIMITER ;
+
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE compare_ior_s_ec (
+  IN test_case_in TEXT,
+  IN ec_oclass_in TEXT,
+  IN s_commit_in TEXT,
+  IN ec_commit_in TEXT
+)
+ BEGIN
+    SELECT s_ior.slurm_job_id         AS "S slurm_job_id",
+           ec_ior.slurm_job_id        AS "EC slurm_job_id",
+           s_ior.daos_commit          AS "S Commit",
+           ec_ior.daos_commit         AS "EC Commit",
+           s_ior.oclass               AS "S Oclass",
+           ec_ior.oclass              AS "EC Oclass",
+           s_ior.num_servers          AS "#Servers",
+           s_ior.num_clients          AS "#Clients",
+           s_ior.chunk_size           AS "S Chunk",
+           s_ior.xfer_size            AS "S Xfer",
+           ec_ior.chunk_size          AS "EC Chunk",
+           ec_ior.xfer_size           AS "EC xfer",
+           round(s_ior.write_gib, 2)  AS "S write_gib",
+           round(ec_ior.write_gib, 2) AS "EC write_gib",
+           round(s_ior.read_gib, 2)   AS "S read_gib",
+           round(ec_ior.read_gib, 2)  AS "EC read_gib",
+           CAST(round(percent_diff(s_ior.write_gib, ec_ior.write_gib), 2) AS CHAR) AS "write_gib%",
+           CAST(round(percent_diff(s_ior.read_gib, ec_ior.read_gib), 2) AS CHAR)   AS "read_gib%"
+    FROM results_ior ec_ior JOIN results_ior s_ior
+      USING (num_servers, num_clients, num_targets)
+      WHERE s_ior.id != ec_ior.id
+        AND ec_ior.oclass LIKE ec_oclass_in
+        AND s_ior.oclass = equivalent_oclass_S(ec_ior.oclass, ec_ior.num_servers, ec_ior.num_targets)
+        AND compare_byte_repr(ec_ior.ec_cell_size, '1M')
+        AND compare_byte_repr(s_ior.chunk_size, ec_ior.ec_cell_size)
+        AND compare_byte_repr(ec_ior.chunk_size, ec_data_cells(ec_ior.oclass) * ec_ior.ec_cell_size)
+        AND compare_byte_repr(s_ior.xfer_size, ec_ior.xfer_size)
+        AND ((test_case_in LIKE '%easy%' AND compare_byte_repr(ec_ior.xfer_size, ec_ior.chunk_size))
+         OR  (test_case_in LIKE '%hard%'))
+        AND s_ior.test_case LIKE test_case_in
+        AND ec_ior.test_case LIKE test_case_in
+        AND ((s_commit_in IS NULL) OR compare_git_hash(s_ior.daos_commit, s_commit_in))
+        AND ((ec_commit_in IS NULL) OR compare_git_hash(ec_ior.daos_commit, ec_commit_in))
+      ORDER BY ec_ior.daos_commit, ec_ior.oclass, ec_ior.num_servers, ec_ior.num_clients;
+  END //
+DELIMITER ;
+
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE compare_mdtest_s_ec (
+  IN test_case_in TEXT,
+  IN ec_oclass_in TEXT,
+  IN s_commit_in TEXT,
+  IN ec_commit_in TEXT
+)
+ BEGIN
+    SELECT s_mdt.slurm_job_id           AS "S slurm_job_id",
+           ec_mdt.slurm_job_id          AS "EC slurm_job_id",
+           s_mdt.daos_commit            AS "S Commit",
+           ec_mdt.daos_commit           AS "EC Commit",
+           s_mdt.oclass                 AS "S Oclass",
+           s_mdt.dir_oclass             AS "S Dir Oclass",
+           ec_mdt.oclass                AS "EC Oclass",
+           ec_mdt.dir_oclass            AS "EC Dir Oclass",
+           s_mdt.num_servers            AS "#Servers",
+           s_mdt.num_clients            AS "#Clients",
+           round(s_mdt.create_kops, 2)  AS "S create_kops",
+           round(ec_mdt.create_kops, 2) AS "EC create_kops",
+           round(s_mdt.stat_kops, 2)    AS "S stat_kops",
+           round(ec_mdt.stat_kops, 2)   AS "EC stat_kops",
+           round(s_mdt.read_kops, 2)    AS "S read_kops",
+           round(ec_mdt.read_kops, 2)   AS "EC read_kops",
+           round(s_mdt.remove_kops, 2)  AS "S remove_kops",
+           round(ec_mdt.remove_kops, 2) AS "EC remove_kops",
+           percent_diff_fm(s_mdt.create_kops, ec_mdt.create_kops, 2) AS "create%",
+           percent_diff_fm(s_mdt.stat_kops, ec_mdt.stat_kops, 2)     AS "stat%",
+           percent_diff_fm(s_mdt.read_kops, ec_mdt.read_kops, 2)     AS "read%",
+           percent_diff_fm(s_mdt.remove_kops, ec_mdt.remove_kops, 2) AS "remove%"
+    FROM results_mdtest ec_mdt JOIN results_mdtest s_mdt
+      USING (num_servers, num_clients, num_targets)
+      WHERE s_mdt.id != ec_mdt.id
+        AND ec_mdt.oclass LIKE ec_oclass_in
+        AND s_mdt.oclass = equivalent_oclass_S(ec_mdt.oclass, ec_mdt.num_servers, ec_mdt.num_targets)
+        AND compare_byte_repr(s_mdt.chunk_size, '1M')
+        AND compare_byte_repr(ec_mdt.chunk_size, ec_data_cells(ec_mdt.oclass) * byte_repr_to_int('1M'))
+        AND compare_byte_repr(s_mdt.bytes_write, ec_mdt.bytes_write)
+        AND compare_byte_repr(s_mdt.bytes_read, ec_mdt.bytes_read)
+        AND s_mdt.test_case LIKE test_case_in
+        AND ec_mdt.test_case LIKE test_case_in
+        AND ((s_commit_in IS NULL) OR compare_git_hash(s_mdt.daos_commit, s_commit_in))
+        AND ((ec_commit_in IS NULL) OR compare_git_hash(ec_mdt.daos_commit, ec_commit_in))
+      ORDER BY ec_mdt.daos_commit, ec_mdt.oclass, ec_mdt.num_servers, ec_mdt.num_clients;
   END //
 DELIMITER ;
 
@@ -318,10 +241,8 @@ CREATE OR REPLACE PROCEDURE compare_mdtest (
         AND mdtest2.oclass LIKE oclass2_in
         AND mdtest1.test_case LIKE test_case_in
         AND mdtest2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (mdtest1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(mdtest1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (mdtest2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(mdtest2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(mdtest1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(mdtest2.daos_commit, daos_commit2_in))
       ORDER BY mdtest1.daos_commit, mdtest2.daos_commit, mdtest1.oclass, mdtest2.oclass, mdtest1.num_servers, mdtest1.num_clients;
   END //
 DELIMITER ;
@@ -364,10 +285,8 @@ CREATE OR REPLACE PROCEDURE compare_mdtest_1to4 (
         AND mdtest2.oclass LIKE oclass2_in
         AND mdtest1.test_case LIKE test_case_in
         AND mdtest2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (mdtest1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(mdtest1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (mdtest2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(mdtest2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(mdtest1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(mdtest2.daos_commit, daos_commit2_in))
       ORDER BY mdtest1.daos_commit, mdtest2.daos_commit, mdtest1.oclass, mdtest2.oclass, mdtest1.num_servers, mdtest1.num_clients;
   END //
 DELIMITER ;
@@ -410,10 +329,8 @@ CREATE OR REPLACE PROCEDURE compare_mdtest_c16 (
         AND mdtest2.oclass LIKE oclass2_in
         AND mdtest1.test_case LIKE test_case_in
         AND mdtest2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (mdtest1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(mdtest1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (mdtest2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(mdtest2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(mdtest1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(mdtest2.daos_commit, daos_commit2_in))
       ORDER BY mdtest1.daos_commit, mdtest2.daos_commit, mdtest1.oclass, mdtest2.oclass, mdtest1.num_servers, mdtest1.num_clients;
   END //
 DELIMITER ;
@@ -457,10 +374,8 @@ CREATE OR REPLACE PROCEDURE compare_mdtest_1server (
         AND mdtest2.oclass LIKE oclass2_in
         AND mdtest1.test_case LIKE test_case_in
         AND mdtest2.test_case LIKE test_case_in
-        AND ((daos_commit1_in IS NULL)
-          OR (mdtest1.daos_commit LIKE CONCAT(SUBSTRING(daos_commit1_in, 1, LENGTH(mdtest1.daos_commit)), "%")))
-        AND ((daos_commit2_in IS NULL)
-          OR (mdtest2.daos_commit LIKE CONCAT(SUBSTRING(daos_commit2_in, 1, LENGTH(mdtest2.daos_commit)), "%")))
+        AND ((daos_commit1_in IS NULL) OR compare_git_hash(mdtest1.daos_commit, daos_commit1_in))
+        AND ((daos_commit2_in IS NULL) OR compare_git_hash(mdtest2.daos_commit, daos_commit2_in))
       ORDER BY mdtest1.daos_commit, mdtest2.daos_commit, mdtest1.oclass, mdtest2.oclass, mdtest1.num_servers, mdtest1.num_clients;
   END //
 DELIMITER ;
@@ -486,8 +401,7 @@ CREATE OR REPLACE PROCEDURE show_rebuild (
            SEC_TO_TIME(rebuild.rebuild_kill_to_completed) AS "Kill->Completed",
            rebuild.status                    AS "Status"
     FROM results_rebuild rebuild
-      WHERE ((daos_commit_in IS NULL)
-          OR ((rebuild.daos_commit LIKE CONCAT(SUBSTRING(daos_commit_in, 1, LENGTH(rebuild.daos_commit)), "%"))))
+      WHERE ((daos_commit_in IS NULL) OR compare_git_hash(rebuild.daos_commit, daos_commit_in))
       ORDER BY rebuild.daos_commit, rebuild.num_servers, rebuild.num_pools, rebuild.pool_size, rebuild.num_targets;
   END //
 DELIMITER ;

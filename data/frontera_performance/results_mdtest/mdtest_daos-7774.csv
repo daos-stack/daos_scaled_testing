@@ -1,0 +1,4 @@
+slurm_job_id,test_case,start_time,end_time,daos_commit,oclass,dir_oclass,num_servers,num_clients,ppc,notes,status,sw_time,n_file,chunk_size,bytes_read,bytes_write,tree_depth,create_kops,stat_kops,read_kops,remove_kops
+3131340,mdtest_easy_1to4_2g1,2021-06-21 11:36:40,2021-06-21 11:42:52,5e2e096,RP_2G1,RP_2GX,4,16,32,sw=30s,Pass,30,200000,1048576,0,0,0,363.20,1520.87,4430.00,86.59
+3131342,mdtest_easy_1to4_3g1,2021-06-21 11:52:23,2021-06-21 12:00:28,5e2e096,RP_3G1,RP_3GX,4,16,32,sw=30s,Pass,30,200000,1048576,0,0,0,196.19,1073.87,3200.33,24.04
+3131341,mdtest_easy_1to4_s1,2021-06-21 11:49:22,2021-06-21 11:58:41,5e2e096,S1,SX,4,16,32,,Pass,60,300000,1048576,0,0,0,1744.14,2795.30,4250.84,780.83
