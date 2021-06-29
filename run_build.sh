@@ -59,8 +59,6 @@ else
     # Use the newer branch
     declare -a DAOS_PATCHES=(
                              "origin/dbohninx-io500-base-daaf038"
-                             #"origin/dbohninx-io500-base-5d740e5"
-                             #"origin/mjmac/io500-202104"
                              )
 fi
 
