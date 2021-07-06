@@ -130,7 +130,6 @@ function install_python_deps() {
     eval ${cmd} || return
 }
 
-
 # Exit if any command fails
 function check_retcode(){
   exit_code=${1}
