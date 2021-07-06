@@ -30,7 +30,7 @@ function set_default(){
 set_default NUMBER_OF_POOLS 1
 set_default no_of_ps $(($DAOS_CLIENTS * $PPC))
 set_default CONT_RF 0
-set_default CONT_PROP="--properties=dedup:memcmp"
+set_default CONT_PROP "--properties=dedup:memcmp"
 
 # Print all relevant test params / env variables
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
