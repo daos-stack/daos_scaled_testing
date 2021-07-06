@@ -115,13 +115,21 @@ function check_daos_linkage() {
 
 function install_python_deps() {
     echo "Installing python build dependencies"
-    cmd="python3 -m pip install --upgrade pip"
+    cmd="python3 -m pip install --user --upgrade pip"
     echo ${cmd}
     eval ${cmd} || return
-    cmd="python3 -m pip install --user --ignore-installed distro scons pyelftools"
+    cmd="python3 -m pip install --user --ignore-installed distro scons"
+    echo ${cmd}
+    eval ${cmd} || return
+    # Hack because scons doesn't propagate the environment
+    cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
+    echo ${cmd}
+    eval ${cmd} || return
+    cmd="/usr/bin/python3 -m pip install --user --ignore-installed pyelftools"
     echo ${cmd}
     eval ${cmd} || return
 }
+
 
 # Exit if any command fails
 function check_retcode(){
