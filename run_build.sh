@@ -118,7 +118,7 @@ function install_python_deps() {
     cmd="python3 -m pip install --upgrade pip"
     echo ${cmd}
     eval ${cmd} || return
-    cmd="python3 -m pip install --user --ignore-installed distro scons"
+    cmd="python3 -m pip install --user --ignore-installed distro scons pyelftools"
     echo ${cmd}
     eval ${cmd} || return
 }
