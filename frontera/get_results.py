@@ -671,6 +671,7 @@ class CsvRebuild(CsvBase):
             "start_time":             "Date",
             "end_time":               "End",
             "daos_commit":            "Commit",
+            "oclass":                 "Oclass",
             "num_servers":            "Num Servers",
             "num_clients":            "Num Clients",
             "num_targets":            "Num Targets",
@@ -684,7 +685,7 @@ class CsvRebuild(CsvBase):
             "status":                 "Status",
             "notes":                  "Notes"
         }
-        row_order = ["test_case", "start_time", "daos_commit",
+        row_order = ["test_case", "start_time", "daos_commit", "oclass",
                      "num_servers", "num_pools", "num_targets", "pool_size",
                      "rebuild_kill_time", "rebuild_down_time",
                      "rebuild_queued_time", "rebuild_completed_time",
