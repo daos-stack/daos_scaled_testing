@@ -58,8 +58,7 @@ if [ "${DAOS_BRANCH}" == "release/1.2" ]; then
 else
     # Use the newer branch
     declare -a DAOS_PATCHES=(
-                             #"origin/mjmac/io500-202104"
-                             "origin/dbohninx-io500-20210601"
+                             "origin/dbohninx-io500-base-daaf038"
                              )
 fi
 
