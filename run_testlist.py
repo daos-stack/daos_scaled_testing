@@ -301,7 +301,7 @@ ior_single_replica_testdict = {
     'ior_easy_S8': {
         'scale': [
             # (num_servers, num_clients, timeout_minutes)
-            (410, 20, 5)
+            (40, 20, 5)
         ],
         'oclass': 'S8',
         'env_vars': {
