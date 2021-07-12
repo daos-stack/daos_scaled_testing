@@ -402,7 +402,9 @@ function create_pool(){
 
     HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
     echo HOST ${HOST}
-    dmg_cmd="dmg -o ${DAOS_CONTROL_YAML} pool create --scm-size ${POOL_SIZE}"
+    dmg_cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
+             --scm-size ${POOL_SIZE}
+             --properties reclaim:disabled"
     cmd="clush -w ${HOST} --command_timeout ${POOL_CREATE_TIMEOUT} -S
         \"export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
         ${dmg_cmd}\""
@@ -426,19 +428,6 @@ function create_pool(){
     fi
 }
 
-function setup_pool(){
-    pmsg "Pool set-prop"
-    run_cmd_on_client "dmg pool set-prop --pool=${POOL_UUID} --name=reclaim --value=disabled -o ${DAOS_CONTROL_YAML}"
-
-    if [ ${RC} -ne 0 ]; then
-        pmsg_err "dmg pool set-prop FAIL"
-        teardown_test
-    else
-        pmsg "dmg pool set-prop SUCCESS"
-    fi
-
-    sleep 10
-}
 
 function query_pools_rebuild(){
     pmsg "Querying all pools for \"Rebuild done\""
@@ -902,7 +891,6 @@ function run_testcase(){
             start_server
             start_agent
             create_pool
-            setup_pool
             create_container
             query_container
             run_ior_write
@@ -912,7 +900,6 @@ function run_testcase(){
             start_server
             start_agent
             create_pool
-            setup_pool
             create_container
             query_container
             run_ior
@@ -926,7 +913,6 @@ function run_testcase(){
             start_server
             start_agent
             create_pool
-            setup_pool
             run_mdtest
             ;;
         *)
