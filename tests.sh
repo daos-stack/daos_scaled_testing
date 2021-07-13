@@ -737,8 +737,6 @@ function run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
     echo
 
-    CONT_UUID=$(uuidgen)
-
     mdtest_cmd="${MDTEST_BIN}
                 -a DFS
                 --dfs.pool ${POOL_UUID}
@@ -927,6 +925,8 @@ function run_testcase(){
             start_agent
             create_pool
             setup_pool
+            create_container
+            query_container
             run_mdtest
             ;;
         *)
