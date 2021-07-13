@@ -1112,8 +1112,8 @@ def main():
     ior_single_replica = IorTestList(ior_single_replica_testlist)
     ior_single_replica.run()
 
-    ec_partial_strip_testlist = IorTestList(ec_partial_strip_testlist)
-    ec_partial_strip_testlist.run()    
+    ec_partial_strip = IorTestList(ec_partial_strip_testlist)
+    ec_partial_strip.run()    
 
 if __name__ == '__main__':
     main()
