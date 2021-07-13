@@ -192,6 +192,9 @@ function run_cmd(){
 function run_cmd_on_client(){
     local DAOS_CMD="$(echo ${1} | tr -s " ")"
     local TEARDOWN_ON_ERROR="${2}"
+    local QUIET="${3}"
+    set_default TEARDOWN_ON_ERROR true
+    set_default QUIET false
     local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
     echo
@@ -205,17 +208,65 @@ function run_cmd_on_client(){
     OUTPUT_CMD="$(eval ${CMD})"
     RC=$?
 
-    echo "${OUTPUT_CMD}"
+    if [ ${QUIET} = false ]; then
+        echo "${OUTPUT_CMD}"
+    fi
 
     check_cmd_timeout ${RC} ${DAOS_CMD} ${TEARDOWN_ON_ERROR}
+}
+
+# Run dmg pool list. Use --verbose (new option) if available
+function dmg_pool_list(){
+    if [ -z "${DMG_POOL_LIST}" ]; then
+        DMG_POOL_LIST="dmg -o ${DAOS_CONTROL_YAML} pool list"
+        run_cmd_on_client "${DMG_POOL_LIST} --help" true true
+        if echo ${OUTPUT_CMD} | grep -qe "--verbose"; then
+            DMG_POOL_LIST+=" --verbose"
+        fi
+    fi
+
+    run_cmd_on_client "${DMG_POOL_LIST}"
+}
+
+# Run dmg pool query. Use --pool (old option) if available
+function dmg_pool_query(){
+    local UUID="${1}"
+    local TEARDOWN_ON_ERROR="${2}"
+
+    if [ -z "${DMG_POOL_QUERY}" ]; then
+        DMG_POOL_QUERY="dmg -o ${DAOS_CONTROL_YAML} pool query"
+        run_cmd_on_client "${DMG_POOL_QUERY} --help" "${TEARDOWN_ON_ERROR}" true
+        if echo ${OUTPUT_CMD} | grep -qe "--pool"; then
+            DMG_POOL_QUERY+=" --pool"
+        fi
+    fi
+
+    run_cmd_on_client "${DMG_POOL_QUERY} ${UUID}" ${TEARDOWN_ON_ERROR}
+}
+
+# Run dmg pool set-prop. Use --pool (old option) if available
+function dmg_pool_set_prop(){
+    local UUID="${1}"
+    local NAME="${2}"
+    local VALUE="${3}"
+
+    if [ -z "${DMG_POOL_SET_PROP}" ]; then
+        DMG_POOL_SET_PROP="dmg -o ${DAOS_CONTROL_YAML} pool set-prop"
+        run_cmd_on_client "${DMG_POOL_SET_PROP} --help" true true
+        if echo ${OUTPUT_CMD} | grep -qe "--pool"; then
+            DMG_POOL_SET_PROP+=" --pool"
+        fi
+    fi
+
+    run_cmd_on_client "${DMG_POOL_SET_PROP} ${UUID} --name=${NAME} --value=${VALUE}"
 }
 
 function get_daos_status(){
     local TEARDOWN_ON_ERROR="${1}"
     set_default TEARDOWN_ON_ERROR true
 
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
+    dmg_pool_list
+    dmg_pool_query "${POOL_UUID}"
 
     get_server_status ${DAOS_SERVERS} true
     RC=$?
@@ -428,7 +479,7 @@ function create_pool(){
 
 function setup_pool(){
     pmsg "Pool set-prop"
-    run_cmd_on_client "dmg pool set-prop --pool=${POOL_UUID} --name=reclaim --value=disabled -o ${DAOS_CONTROL_YAML}"
+    dmg_pool_set_prop "${POOL_UUID}" "reclaim" "disabled"
 
     if [ ${RC} -ne 0 ]; then
         pmsg_err "dmg pool set-prop FAIL"
@@ -443,7 +494,7 @@ function setup_pool(){
 function query_pools_rebuild(){
     pmsg "Querying all pools for \"Rebuild done\""
 
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    dmg_pool_list
     local ALL_POOLS="$(echo "${OUTPUT_CMD}" | grep -Eo -- "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")"
     local NUMBER_OF_POOLS=$(echo "${ALL_POOLS}" | wc -l)
     echo
@@ -461,7 +512,7 @@ function query_pools_rebuild(){
         print_line
         pmsg "Querying pool ${n} of ${NUMBER_OF_POOLS}"
         local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
-        run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${CURRENT_POOL}"
+        dmg_pool_query "${CURRENT_POOL}"
         if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             num_rebuild_done=$[${num_rebuild_done} + 1]
         else
@@ -486,7 +537,7 @@ function create_multiple_pools(){
     done
 
     pmsg "Done, ${NUMBER_OF_POOLS} were created"
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} pool list"
+    dmg_pool_list
 }
 
 #Create Container
@@ -806,18 +857,6 @@ function get_doom_server(){
     echo ${DOOMED_SERVER}
 }
 
-function run_cmd_quiet(){
-    local DAOS_CMD="$(echo ${1} | tr -s " ")"
-    local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
-
-    CMD="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S \"
-         export PATH=${PATH};
-         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-         ${DAOS_CMD} \" "
-
-    OUTPUT_CMD="$(eval ${CMD})"
-}
-
 # Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
 # And wait for rebuild to complete
 function kill_random_server(){
@@ -846,9 +885,7 @@ function kill_random_server(){
     rebuild_done=false
     until [ $[${SECONDS} - ${start_s}] -ge ${REBUILD_MAX_TIME} ]
     do
-        cmd="dmg -o ${DAOS_CONTROL_YAML} pool query --pool ${POOL_UUID}"
-        echo "${cmd}"
-        run_cmd_quiet "${cmd}"
+        dmg_pool_query "${POOL_UUID}" false true
 
         echo "${OUTPUT_CMD}"
 
