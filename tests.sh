@@ -16,21 +16,11 @@ if [ "${MPI_TARGET}" != "mvapich2" ] &&
     exit 1
 fi
 
-# Set default value for a variable that is undefined/empty
-function set_default(){
-    local var_name=${1}
-    local var_default=${2}
-
-    if [ -z "${!var_name}" ]; then
-        eval ${var_name}=\${var_default}
-    fi
-}
-
 # Set undefined/default test params
-set_default NUMBER_OF_POOLS 1
-set_default no_of_ps $(($DAOS_CLIENTS * $PPC))
-set_default CONT_RF 0
-set_default CONT_PROP "--properties=dedup:memcmp"
+NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
+no_of_ps=$(($DAOS_CLIENTS * $PPC))
+CONT_RF="${CONT_RF:-0}"
+CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
 
 # Print all relevant test params / env variables
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
@@ -191,10 +181,8 @@ function run_cmd(){
 # run a command
 function run_cmd_on_client(){
     local DAOS_CMD="$(echo ${1} | tr -s " ")"
-    local TEARDOWN_ON_ERROR="${2}"
-    local QUIET="${3}"
-    set_default TEARDOWN_ON_ERROR true
-    set_default QUIET false
+    local TEARDOWN_ON_ERROR="${2:-true}"
+    local QUIET="${3:-false}"
     local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
     echo
@@ -208,7 +196,7 @@ function run_cmd_on_client(){
     OUTPUT_CMD="$(eval ${CMD})"
     RC=$?
 
-    if [ ${QUIET} = false ]; then
+    if ! ${QUIET}; then
         echo "${OUTPUT_CMD}"
     fi
 
@@ -262,8 +250,7 @@ function dmg_pool_set_prop(){
 }
 
 function get_daos_status(){
-    local TEARDOWN_ON_ERROR="${1}"
-    set_default TEARDOWN_ON_ERROR true
+    local TEARDOWN_ON_ERROR="${1:-true}"
 
     dmg_pool_list
     dmg_pool_query "${POOL_UUID}"
@@ -322,8 +309,7 @@ function check_clock_sync(){
 function check_cmd_timeout(){
     local RC=${1}
     local CMD_NAME="${2}"
-    local TEARDOWN_ON_ERROR="${3}"
-    set_default TEARDOWN_ON_ERROR true
+    local TEARDOWN_ON_ERROR="${3:-true}"
 
     if [ ${RC} -eq 137 ]; then
         pmsg "STATUS: ${CMD_NAME} TIMEOUT"
@@ -344,8 +330,7 @@ function check_cmd_timeout(){
 function get_server_status(){
     local NUM_SERVERS=${1}
     local TARGET_SERVERS=$((${NUM_SERVERS} - 1))
-    local TEARDOWN_ON_ERROR="${2}"
-    set_default TEARDOWN_ON_ERROR false
+    local TEARDOWN_ON_ERROR="${2:-false}"
 
     run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" ${TEARDOWN_ON_ERROR}
     if [ "${TARGET_SERVERS}" -eq 0 ]; then
