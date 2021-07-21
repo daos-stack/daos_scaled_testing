@@ -505,6 +505,7 @@ class CsvIor(CsvBase):
             "daos_commit":  "Commit",
             "oclass":       "Oclass",
             "num_servers":  "Num_Servers",
+            "num_targets":  "Num Targets",
             "num_clients":  "Clients",
             "ppc":          "PPC",
             "fpp":          "File Per Process",
@@ -554,6 +555,7 @@ class CsvIor(CsvBase):
             status.fail()
 
         row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
+        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
         row["write_gib"]   = format_float(wr_gib)
         row["read_gib"]    = format_float(rd_gib)
         row["status"]      = status.get_status_str()
@@ -579,7 +581,8 @@ class CsvMdtest(CsvBase):
             "daos_commit":  "Commit",
             "oclass":       "Oclass",
             "dir_oclass":   "Dir Oclass",
-            "num_servers":  "Num_Servers",
+            "num_servers":  "Num Servers",
+            "num_targets":  "Num Targets",
             "num_clients":  "Clients",
             "ppc":          "PPC",
             "notes":        "Notes",
@@ -649,6 +652,7 @@ class CsvMdtest(CsvBase):
             status.note(f"sw={sw_time}s")
 
         row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
+        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
         row["status"]      = status.get_status_str()
         row["notes"]       = status.get_notes_str()
 
