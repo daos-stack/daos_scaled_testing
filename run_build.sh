@@ -3,7 +3,10 @@
 # Extra arguments to pass to DAOS scons
 EXTRA_BUILD="${1}"
 
-export BUILD_DIR="<path_build_area>"   # e.g. $WORK2/BUILDS/
+# Directory to build in
+export BUILD_DIR="$WORK2/BUILDS/"
+
+# Only if building with mpich or openmpi
 export MPICH_DIR="<path_to_mpich>"     # e.g. /scratch/POC/mpich
 export OPENMPI_DIR="<path_to_openmpi>" # e.g. /scratch/POC/openmpi
 
@@ -49,24 +52,33 @@ declare -a PRECIOUS_FILES=("bin/daos"
                            "ior${MPI_SUFFIX}/bin/${MDTEST_BIN}"
                            )
 
-# Extra branches needed for DAOS to work on frontera
-if [ "${DAOS_BRANCH}" == "release/1.2" ]; then
-    # Need to use the older branch
-    declare -a DAOS_PATCHES=(
-                             "origin/mjmac/io500-frontera"
-                             )
-else
-    # Use the newer branch
-    declare -a DAOS_PATCHES=(
-                             "origin/dbohninx-io500-base-daaf038"
-                             )
-fi
+# Check if git HEAD contains a specified commit
+function git_has_commit() {
+  local commit=$1
+  if git merge-base --is-ancestor "${commit}" $(git symbolic-ref --short HEAD); then
+    echo true
+  else
+    echo false
+  fi
+}
 
-# Also merge user-provided branches
-DAOS_PATCHES+=( "${DAOS_BRANCHES[@]}" )
-
+# Merge a "hack" branch and user-specified branches
 function merge_extra_daos_branches() {
-  for PATCH in "${DAOS_PATCHES[@]}"
+  local hack_branch=""
+  if $(git_has_commit "40f8636") = true; then
+    hack_branch="origin/dbohninx-io500-base-40f8636"
+  elif $(git_has_commit "daaf038") = true; then
+    hack_branch="origin/dbohninx-io500-base-daaf038"
+  elif $(git_has_commit "5d740e5") = true; then
+    hack_branch="origin/dbohninx-io500-base-5d740e5"
+  else
+    hack_branch="origin/mjmac/io500-frontera"
+  fi;
+
+  # Add the hack branch to the user-specified branches
+  DAOS_BRANCHES+=("${hack_branch}")
+
+  for PATCH in "${DAOS_BRANCHES[@]}"
   do
     echo "Merging branch: ${PATCH}"
     git log -n 1 --pretty=format:"commit %H%n" "${PATCH}" || return
