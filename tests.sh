@@ -666,15 +666,15 @@ function run_ior_write(){
     IOR_RC=$?
     popd
 
+    query_container
+    get_daos_status
+
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR WRITE FAIL\n"
         teardown_test
     else
         echo -e "\nSTATUS: IOR WRITE SUCCESS\n"
     fi
-
-    query_container
-    get_daos_status
 }
 
 function run_ior_read(){
@@ -703,15 +703,15 @@ function run_ior_read(){
     IOR_RC=$?
     popd
 
+    query_container
+    get_daos_status
+
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "\nSTATUS: IOR READ FAIL\n"
         teardown_test
     else
         echo -e "\nSTATUS: IOR READ SUCCESS\n"
     fi
-
-    query_container
-    get_daos_status
 }
 
 #Run cart self_test
@@ -803,6 +803,7 @@ function run_mdtest(){
     MDTEST_RC=$?
     popd
 
+    query_container
     get_daos_status
 
     if [ ${MDTEST_RC} -ne 0 ]; then
@@ -812,8 +813,6 @@ function run_mdtest(){
         echo -e "\nSTATUS: MDTEST SUCCESS\n"
     fi
 
-    query_container
-    get_daos_status
 }
 
 # Get a random server name from the SERVER_HOSTLIST_FILE
