@@ -203,6 +203,51 @@ function run_cmd_on_client(){
     check_cmd_timeout ${RC} ${DAOS_CMD} ${TEARDOWN_ON_ERROR}
 }
 
+# Run dmg pool create. Use --label (new, required option) if available
+function dmg_pool_create(){
+    local POOL_LABEL="${1:-test_pool}"
+
+    if [ -z "${DMG_POOL_CREATE}" ]; then
+        DMG_POOL_CREATE="dmg -o ${DAOS_CONTROL_YAML} pool create"
+        run_cmd_on_client "${DMG_POOL_CREATE} --help" true true
+        if echo ${OUTPUT_CMD} | grep -qe "--label"; then
+            DMG_POOL_CREATE_HAS_LABEL=true
+        else
+            DMG_POOL_CREATE_HAS_LABEL=false
+        fi
+    fi
+
+    pmsg "Creating pool ${POOL_LABEL}"
+
+    local cmd="${DMG_POOL_CREATE} --scm-size ${POOL_SIZE}"
+    if ${DMG_POOL_CREATE_HAS_LABEL} = true; then
+        cmd+=" --label ${POOL_LABEL}"
+    fi
+
+    run_cmd_on_client "${cmd}"
+
+    POOL_UUID=$(echo "${OUTPUT_CMD}" | grep "UUID" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//')
+    POOL_SVC=$(echo "${OUTPUT_CMD}" | grep "Service Ranks" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//' | sed 's/[][]//g')
+    echo -e "\n====== POOL INFO ======"
+    echo POOL_UUID: ${POOL_UUID}
+    echo POOL_SVC : ${POOL_SVC}
+}
+
+function dmg_pool_create_multi(){
+    pmsg "Creating ${NUMBER_OF_POOLS} pools"
+
+    local n=1
+    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
+    do
+        pmsg "Creating pool ${n} of ${NUMBER_OF_POOLS}"
+        dmg_pool_create "test_pool_${n}"
+        n=$[${n} + 1]
+    done
+
+    pmsg "Done, ${NUMBER_OF_POOLS} were created"
+    dmg_pool_list
+}
+
 # Run dmg pool list. Use --verbose (new option) if available
 function dmg_pool_list(){
     if [ -z "${DMG_POOL_LIST}" ]; then
@@ -432,36 +477,6 @@ function dump_attach_info(){
     sleep 20
 }
 
-#Create Pool
-function create_pool(){
-    pmsg "Creating pool"
-
-    HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
-    echo HOST ${HOST}
-    dmg_cmd="dmg -o ${DAOS_CONTROL_YAML} pool create --scm-size ${POOL_SIZE}"
-    cmd="clush -w ${HOST} --command_timeout ${POOL_CREATE_TIMEOUT} -S
-        \"export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-        ${dmg_cmd}\""
-
-    pmsg "CMD: ${dmg_cmd}"
-    DAOS_POOL="$(eval ${cmd})"
-    RC=$?
-    echo "${DAOS_POOL}"
-
-    POOL_UUID=$(echo "${DAOS_POOL}" | grep "UUID" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//')
-    POOL_SVC=$(echo "${DAOS_POOL}" | grep "Service Ranks" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//' | sed 's/[][]//g')
-    echo -e "\n====== POOL INFO ======"
-    echo POOL_UUID: ${POOL_UUID}
-    echo POOL_SVC : ${POOL_SVC}
-
-    if [ ${RC} -ne 0 ]; then
-        pmsg_err "dmg pool create FAIL"
-        teardown_test
-    else
-        pmsg "dmg pool create SUCCESS"
-    fi
-}
-
 function setup_pool(){
     pmsg "Pool set-prop"
     dmg_pool_set_prop "${POOL_UUID}" "reclaim" "disabled"
@@ -508,21 +523,6 @@ function query_pools_rebuild(){
 
     pmsg "Done, ${NUMBER_OF_POOLS} were queried"
     echo "NUM_POOLS_REBUILD_DONE : ${num_rebuild_done}"
-}
-
-function create_multiple_pools(){
-    pmsg "Creating ${NUMBER_OF_POOLS} pools"
-
-    local n=1
-    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
-    do
-        pmsg "Creating pool ${n} of ${NUMBER_OF_POOLS}"
-        create_pool
-        n=$[${n} + 1]
-    done
-
-    pmsg "Done, ${NUMBER_OF_POOLS} were created"
-    dmg_pool_list
 }
 
 #Create Container
@@ -913,14 +913,14 @@ function run_testcase(){
         SWIM)
             # Swim stabilization test by checking server fault detection
             start_server
-            create_multiple_pools
+            dmg_pool_create_multi
             kill_random_server
             ;;
         SWIM_IOR)
             # Swim stabilization test by checking server fault detection
             start_server
             start_agent
-            create_pool
+            dmg_pool_create
             setup_pool
             create_container
             query_container
@@ -930,7 +930,7 @@ function run_testcase(){
         IOR)
             start_server
             start_agent
-            create_pool
+            dmg_pool_create
             setup_pool
             create_container
             query_container
@@ -944,7 +944,7 @@ function run_testcase(){
         MDTEST)
             start_server
             start_agent
-            create_pool
+            dmg_pool_create
             setup_pool
             create_container
             query_container
