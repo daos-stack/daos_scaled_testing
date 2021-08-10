@@ -71,6 +71,7 @@ def get_test_param(param, delim, output, default=None):
         return match.group(1).strip()
     return default
 
+from dateutil import parser as date_parser
 def convert_timestamp(timestamp, src_format, dst_format):
     """Convert a timestamp from one format to another.
 
@@ -82,7 +83,7 @@ def convert_timestamp(timestamp, src_format, dst_format):
     Returns:
         str: timestamp formatted in dst_format.
     """
-    timestamp_obj = datetime.datetime.strptime(timestamp, src_format)
+    timestamp_obj = date_parser.parse(timestamp)
     return timestamp_obj.strftime(dst_format)
 
 def format_timestamp(timestamp):

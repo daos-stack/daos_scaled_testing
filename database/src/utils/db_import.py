@@ -5,8 +5,9 @@ from csv import DictReader
 from . import db_utils
 from .io_utils import print_err
 
+
 def import_csv(conn, csv_path, table_name, replace=False):
-    '''Import a csv into the DB.
+    '''Import a CSV into the database.
 
     Args:
         conn (connection): database connection object.
@@ -21,6 +22,7 @@ def import_csv(conn, csv_path, table_name, replace=False):
     '''
     valid_columns = db_utils.get_insertable_columns(conn, table_name)
     if not valid_columns:
+        print_err(f'Failed to get columns for table {table_name}')
         return False
 
     print(f'* Import {csv_path} -> {table_name}', flush=True)
@@ -34,7 +36,8 @@ def import_csv(conn, csv_path, table_name, replace=False):
 
     # Sanity check in case invalid columns are in the csv
     if discarded_columns:
-        print(f'Warning: columns not found in {table_name}: {discarded_columns}')
+        print(
+            f'Warning: columns not found in {table_name}: {discarded_columns}')
 
     # Only keep the columns we are going to insert
     for row in rows:
@@ -50,7 +53,9 @@ def import_csv(conn, csv_path, table_name, replace=False):
     print(f'  {len(rows)} rows inserted\n', flush=True)
     return True
 
+
 def main(args):
+    '''Import a CSV into the database.'''
     parser = ArgumentParser()
     parser.add_argument(
         '--config',

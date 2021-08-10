@@ -39,6 +39,7 @@ DELIMITER ;
 
 /**
  * Compare two git hashes that may be different lengths.
+ * Supports wildcard %.
  */
 DELIMITER //
 CREATE OR REPLACE FUNCTION compare_git_hash (
@@ -46,17 +47,7 @@ CREATE OR REPLACE FUNCTION compare_git_hash (
   hash2 TEXT
 ) RETURNS BOOL
   BEGIN
-    DECLARE len1 INTEGER;
-    DECLARE len2 INTEGER;
-    SET len1 := LENGTH(hash1);
-    SET len2 := LENGTH(hash2);
-    IF len1 > len2 THEN
-        RETURN CONCAT(hash2, "%") LIKE hash1;
-    ELSEIF len2 > len1 THEN
-        RETURN CONCAT(hash1, "%") LIKE hash2;
-    END IF;
-
-    RETURN hash1 = hash2;
+    RETURN hash1 LIKE CONCAT(hash2, "%") OR hash2 LIKE CONCAT(hash1, "%");
   END //
 DELIMITER ;
 
@@ -69,7 +60,7 @@ CREATE OR REPLACE FUNCTION percent_diff (
   val2 float
 ) RETURNS float
   BEGIN
-    IF val1 IS NULL OR val1 = 0 OR val2 IS NULL OR val2 = 0 THEN
+    IF val1 IS NULL OR val1 = 0 THEN
         RETURN NULL;
     END IF;
     RETURN ROUND((val2 - val1) / val1 * 100, 2);
@@ -120,6 +111,9 @@ CREATE OR REPLACE FUNCTION compare_null_int(
 DELIMITER ;
 
 
+/**
+ * Get the number of data cells for an EC object class.
+ */
 DELIMITER //
 CREATE OR REPLACE FUNCTION ec_data_cells(
   oclass TEXT
@@ -136,6 +130,9 @@ CREATE OR REPLACE FUNCTION ec_data_cells(
   END //
 DELIMITER ;
 
+/**
+ * Get the number of parity cells for an EC object class.
+ */
 DELIMITER //
 CREATE OR REPLACE FUNCTION ec_parity_cells(
   oclass TEXT
@@ -152,6 +149,9 @@ CREATE OR REPLACE FUNCTION ec_parity_cells(
   END //
 DELIMITER ;
 
+/**
+ * Get the number of groups for an EC object class.
+ */
 DELIMITER //
 CREATE OR REPLACE FUNCTION ec_groups(
   oclass TEXT
@@ -165,6 +165,10 @@ CREATE OR REPLACE FUNCTION ec_groups(
   END //
 DELIMITER ;
 
+/**
+ * For a given EC object class and number of servers and targets,
+ * get the equivalent rf0 S object class that will use the same number of targets.
+ */
 DELIMITER //
 CREATE OR REPLACE FUNCTION equivalent_oclass_S(
   ec_oclass TEXT,
