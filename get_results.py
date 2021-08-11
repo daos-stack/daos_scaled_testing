@@ -17,7 +17,7 @@ from argparse import ArgumentParser
 import os
 import stat
 import sys
-from os.path import join, dirname, basename
+from os.path import join, dirname, basename, isfile
 from pathlib import Path
 import subprocess
 import csv
@@ -153,7 +153,7 @@ def get_daos_commit(output_file_path, slurm_job_id):
 
     if slurm_job_id:
         repo_info_path = join(dir_name, f"repo_info_{slurm_job_id}.txt")
-    else:
+    if not slurm_job_id or not isfile(repo_info_path):
         repo_info_path = join(dir_name, "repo_info.txt")
     repo_info = read_file(repo_info_path)
     if not repo_info:
@@ -177,6 +177,9 @@ def get_num_targets(output_file_path, slurm_job_id):
              None on failure.
 
     """
+    if not slurm_job_id:
+        return None
+
     dir_name = dirname(output_file_path)
 
     config_path = join(dir_name, slurm_job_id, "daos_server.yml")
