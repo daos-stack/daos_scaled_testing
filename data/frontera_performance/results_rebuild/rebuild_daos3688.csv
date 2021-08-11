@@ -1,0 +1,6 @@
+slurm_job_id,test_case,start_time,end_time,daos_commit,num_servers,num_clients,num_targets,ppc,num_pools,pool_size,rebuild_kill_time,rebuild_down_time,rebuild_queued_time,rebuild_completed_time,status,notes
+3193505,rebuild_pool_multi,2021-06-29 17:31:05,2021-06-29 17:45:07,b25b0b1,8,1,16,32,50,256MiB,2021-06-29 17:34:28,2021-06-29 17:34:38,2021-06-29 17:35:25,,Fail,"num_pools_after_rebuild=0,,num_pools_rebuild_done=0,,did not finish"
+3245506,rebuild_pool_multi,2021-07-07 16:47:08,2021-07-07 16:56:30,4d3150e,128,1,16,32,50,256MiB,2021-07-07 16:50:31,2021-07-07 16:50:41,2021-07-07 16:50:41,2021-07-07 16:50:47,Pass,
+3284491,rebuild_pool_multi,2021-07-16 05:38:10,2021-07-16 05:47:38,e1da9ff,128,1,16,32,50,256MiB,2021-07-16 05:41:37,2021-07-16 05:41:47,2021-07-16 05:41:47,2021-07-16 05:41:52,Pass,
+3246597,rebuild_pool_single,2021-07-07 18:43:21,2021-07-07 18:49:52,4d3150e,128,1,16,32,1,85G,2021-07-07 18:45:57,2021-07-07 18:46:08,2021-07-07 18:46:08,2021-07-07 18:46:16,Pass,
+3284490,rebuild_pool_single,2021-07-15 19:32:30,2021-07-15 19:39:18,e1da9ff,128,1,16,32,1,85G,2021-07-15 19:35:11,2021-07-15 19:35:23,2021-07-15 19:35:23,2021-07-15 19:35:31,Pass,

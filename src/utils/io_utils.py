@@ -1,4 +1,4 @@
-from sys import stderr
+from sys import stderr, stdout
 from os.path import isfile, basename
 import csv
 import subprocess
@@ -9,16 +9,58 @@ except:
     xlsxwriter = None
 
 def print_err(message):
-    """Print a standardized error message.
+    '''Print a standardized error message.
 
     Args:
         message (str): the message to print.
 
-    """
-    print(f"ERR {message}", file=stderr)
+    '''
+    print(f'ERR {message}', file=stderr)
 
-def send_email(address, subject, body="", attachments=[]):
-    """Send an email using the mail command.
+def print_arr_tabular(arr, file=stdout):
+    '''Print a 2D array in a tabular/aligned format.
+
+    Args:
+        arr (iter): 2D iterable object. E.g. list of rows.
+            Rows are assumed to have the same length.
+            Each row is assumed to be string-like.
+        file (file): file-like object to print to.
+            Defaut is stdout.
+
+    '''
+    arr = list(arr)
+    for row_idx, row in enumerate(arr):
+        if row_idx == 0:
+            col_widths = [0] * len(row)
+        for col_idx, val in enumerate(row):
+            col_len = len(str(val))
+            if col_len > col_widths[col_idx]:
+                col_widths[col_idx] = col_len
+    for row_idx, row in enumerate(arr):
+        for col_idx, val in enumerate(row):
+            print(f'{str(val).rjust(col_widths[col_idx])}  ', end='', file=file)
+        print('', file=file)
+
+def confirm(message):
+    '''Get user confirmation for a message.
+
+    Args:
+        message (str): the message to cofirm.
+
+    Returns:
+        True if the message is confirmed. False otherwise.
+
+    '''
+    while True:
+        response = input(f'{message} (Yes/No): ').lower()
+        if response in ('y', 'yes'):
+            return True
+        if response in ('n', 'no'):
+            return False
+        print('Invalid response (Yes/No)')
+
+def send_email(address, subject, body='', attachments=[]):
+    '''Send an email using the mail command.
 
     Args:
         address (str/list): single string or list of addresses to send to.
@@ -30,29 +72,29 @@ def send_email(address, subject, body="", attachments=[]):
     Returns:
         bool: True if successful. False otherwise.
 
-    """
+    '''
     if not isinstance(address, list):
         address = [address]
     if not isinstance(attachments, list):
         attachments = [attachments]
 
-    address_str = " ".join(address)
-    attach_str = ""
+    address_str = ' '.join(address)
+    attach_str = ''
     for path in attach_str:
         if not isfile(path):
-            print_err(f"Not a file: {path}")
+            print_err(f'Not a file: {path}')
             return False
-        attach_str += f"-a '{path}' "
+        attach_str += f'-a "{path}" '
 
-    mail_cmd = f"echo '{body}' | mail -s '{subject}' {attach_str} {address_str}"
+    mail_cmd = f'echo "{body}" | mail -s "{subject}" {attach_str} {address_str}'
     result = subprocess.run(mail_cmd, shell=True)
     if result.returncode != 0:
-        print_err("Failed to send email.")
+        print_err('Failed to send email.')
         return False
     return True
 
 def list_to_csv(data, csv_path):
-    """Covnert an iterable object to CSV.
+    '''Convert an iterable object to CSV.
 
     Args:
         data (list): iterable object.
@@ -61,7 +103,7 @@ def list_to_csv(data, csv_path):
     Returns:
         bool: True if successful. False otherwise.
 
-    """
+    '''
     with open(csv_path, 'w') as f:
         writer = csv.writer(f)
         for row in data:
@@ -69,7 +111,7 @@ def list_to_csv(data, csv_path):
     return True
 
 def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False):
-    """Convert a single or list of CSV files to XLSX format.
+    '''Convert a single or list of CSV files to XLSX format.
 
     Args:
         csv_list (str/list): single string or list of CSV file paths.
@@ -82,17 +124,17 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False)
     Returns:
         bool: True on success. False otherwise.
 
-    """
+    '''
     if xlsxwriter is None:
-        print_err("Not installed: xlsxwriter")
+        print_err('Not installed: xlsxwriter')
         return False
 
     if not csv_list:
-        print_err("No CSVs provided")
+        print_err('No CSVs provided')
         return False
 
     if group_by_col and group_by_csv:
-        print_err("group_by_col is not compatible with group_by_csv")
+        print_err('group_by_col is not compatible with group_by_csv')
         return False
 
     if not isinstance(csv_list, list):
@@ -100,7 +142,7 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False)
 
     for csv_file in csv_list:
         if not isfile(csv_file):
-            print_err(f"Not a file: {csv_file}")
+            print_err(f'Not a file: {csv_file}')
             return False
 
     # Allow grouping by an integer col index or string col name
@@ -111,17 +153,17 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False)
     elif isinstance(group_by_col, str):
         group_by_name = group_by_col
     elif group_by_col is not None:
-        print_err("group_by_col must be int or str")
+        print_err('group_by_col must be int or str')
         return False
 
     # Create a dictionary where each entry is an array
     # containing all results for a given group.
-    # Each row is grouped by group_by, or "other" if not matching.
+    # Each row is grouped by group_by, or 'other' if not matching.
     group_dict = {}
     for csv_file_path in csv_list:
         with open(csv_file_path, 'rt') as csv_file:
             reader = csv.DictReader(csv_file)
-            this_group = "other"
+            this_group = 'other'
             group_by_key = None
             if group_by_index:
                 group_by_key = reader.fieldnames[group_by_index]
@@ -144,7 +186,7 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False)
     with xlsxwriter.Workbook(xlsx_file_path) as xlsx_file:
         if group_by_col or group_by_csv:
             # Create a main worksheet that will link to all other worksheets
-            main_worksheet = xlsx_file.add_worksheet("main")
+            main_worksheet = xlsx_file.add_worksheet('main')
             main_row = 0
 
         for group in group_dict:
@@ -153,9 +195,9 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False)
                 # link between main<->group
                 worksheet_name = group
                 worksheet = xlsx_file.add_worksheet(worksheet_name)
-                worksheet.write_url(0, 0, "internal:main!A1", string="Go back to main")
+                worksheet.write_url(0, 0, 'internal:main!A1', string='Go back to main')
                 main_worksheet.write_url(main_row, 0,
-                                         f"internal:{group}!A1",
+                                         f"internal:'{group}'!A1",
                                          string=group)
                 main_row += 1
                 row_offset = 1
