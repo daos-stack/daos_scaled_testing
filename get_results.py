@@ -136,26 +136,42 @@ def get_lines_after(header, num_lines, output):
         return None
     return "\n".join(match.group(0).split("\n")[:num_lines])
 
-def get_daos_commit(output_file_path, slurm_job_id):
-    """Get the DAOS commit for a given log file.
-
-    First tries repo_info_{slurm_job_id}.txt, then defaults to repo_info.txt.
+def get_repo_info(output_file_path, job_id):
+    """Get the repo_info file for a given log file.
 
     Args:
         output_file_path (str): Path to the log output.
-        slurm_job_id (str): The slurm job id.
+        job_id (str): The job id.
+
+    Returns:
+        str: the repo_info contents. None if not found.
+
+    """
+    dir_name = dirname(output_file_path)
+
+    # Try to get the repo_info file, but maintain backwards compatibility.
+    repo_info_paths = []
+    if job_id:
+        repo_info_paths.append(join(dir_name, job_id, "repo_info.txt"))
+        repo_info_paths.append(join(dir_name, f"repo_info_{job_id}.txt"))
+    repo_info_paths.append(join(dir_name, "repo_info.txt"))
+    for repo_info_path in repo_info_paths:
+        if isfile(repo_info_path):
+            return read_file(repo_info_path)
+    return None
+
+def get_daos_commit(output_file_path, job_id):
+    """Get the DAOS commit for a given log file.
+
+    Args:
+        output_file_path (str): Path to the log output.
+        job_id (str): The job id.
 
     Returns:
         str: The DAOS commit hash.
             None if not found.
     """
-    dir_name = dirname(output_file_path)
-
-    if slurm_job_id:
-        repo_info_path = join(dir_name, f"repo_info_{slurm_job_id}.txt")
-    if not slurm_job_id or not isfile(repo_info_path):
-        repo_info_path = join(dir_name, "repo_info.txt")
-    repo_info = read_file(repo_info_path)
+    repo_info = get_repo_info(output_file_path, job_id)
     if not repo_info:
         return None
     match = re.search("^Repo:.*daos\.git\ncommit (.*)", repo_info, re.MULTILINE)
@@ -163,27 +179,44 @@ def get_daos_commit(output_file_path, slurm_job_id):
         return None
     return match.group(1)[:7]
 
-def get_num_targets(output_file_path, slurm_job_id):
+def get_server_config(output_file_path, job_id):
+    """Get the server config for a given log file.
+
+    Args:
+        output_file_path (str): path to the log output.
+        job_id (str): the job id.
+
+    Returns:
+        str: the server config contents. None on failure.
+
+    """
+    if not job_id:
+        return None
+
+    dir_name = dirname(output_file_path)
+
+    config_paths = []
+    config_paths.append(join(dir_name, job_id, "daos_server.yml")) # New
+    config_paths.append(join(dir_name, "daos_server.yml"))         # Old
+    for config_path in config_paths:
+        if isfile(config_path):
+            return read_file(config_path)
+    return None
+
+def get_num_targets(output_file_path, job_id):
     """Get the number of targets from the server config.
 
     Assumes each engine uses the same number of targets.
 
     Args:
         output_file_path (str): path to the log output.
-        slurm_job_id (str): the slurm job id.
+        job_id (str): the job id.
 
     Returns:
-        str: the number of targets
-             None on failure.
+        str: the number of targets. None on failure.
 
     """
-    if not slurm_job_id:
-        return None
-
-    dir_name = dirname(output_file_path)
-
-    config_path = join(dir_name, slurm_job_id, "daos_server.yml")
-    config = read_file(config_path)
+    config = get_server_config(output_file_path, job_id)
     if not config:
         return None
     match = re.search("^ *targets: ([0-9]+)", config, re.MULTILINE)
@@ -408,6 +441,7 @@ class CsvBase():
             output (str): The output to search in.
         """
         for key, label in [["slurm_job_id", "SLURM_JOB_ID"],
+                           ["job_id", "JOB_ID"],
                            ["test_case", "TESTCASE"],
                            ["oclass", "OCLASS"],
                            ["dir_oclass", "DIR_OCLASS"],
@@ -430,6 +464,10 @@ class CsvBase():
                            ["pool_size", "POOL_SIZE"]]:
             if key in row:
                 row[key] = get_test_param(label, ":=", output)
+
+        # Default the new job_id to the old slurm_job_id
+        if row["slurm_job_id"] and not row["job_id"]:
+            row["job_id"] = row["slurm_job_id"]
 
         if "fpp" in row:
             if get_test_param("FPP", ":", output):
@@ -501,6 +539,7 @@ class CsvIor(CsvBase):
         # Key names should match the table column names
         row_template = {
             "slurm_job_id": "Slurm Job ID",
+            "job_id":       "Job ID",
             "test_case":    "Test Case",
             "start_time":   "Date",
             "end_time":     "End",
@@ -556,8 +595,8 @@ class CsvIor(CsvBase):
         if (wr_gib <= 0) and (rd_gib <= 0):
             status.fail()
 
-        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
-        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
+        row["daos_commit"] = get_daos_commit(file_path, row["job_id"])
+        row["num_targets"] = get_num_targets(file_path, row["job_id"])
         row["write_gib"]   = format_float(wr_gib)
         row["read_gib"]    = format_float(rd_gib)
         row["status"]      = status.get_status_str()
@@ -577,6 +616,7 @@ class CsvMdtest(CsvBase):
         # Key names should match the table column names
         row_template = {
             "slurm_job_id": "Slurm Job ID",
+            "job_id":       "Job ID",
             "test_case":    "Test Case",
             "start_time":   "Date",
             "end_time":     "End",
@@ -653,8 +693,8 @@ class CsvMdtest(CsvBase):
         if sw_time and (int(sw_time) != 60):
             status.note(f"sw={sw_time}s")
 
-        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
-        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
+        row["daos_commit"] = get_daos_commit(file_path, row["job_id"])
+        row["num_targets"] = get_num_targets(file_path, row["job_id"])
         row["status"]      = status.get_status_str()
         row["notes"]       = status.get_notes_str()
 
@@ -671,6 +711,7 @@ class CsvRebuild(CsvBase):
         """
         row_template = {
             "slurm_job_id":           "Slurm Job ID",
+            "job_id":                 "Job ID",
             "test_case":              "Test Case",
             "start_time":             "Date",
             "end_time":               "End",
@@ -723,7 +764,10 @@ class CsvRebuild(CsvBase):
         if int(num_pools_rebuild_done) != int(num_pools):
             status.warn(f"num_pools_rebuild_done={num_pools_rebuild_done},")
 
-        log_dir = join(dirname(file_path), row["slurm_job_id"], "logs")
+        # Maintain backward compatibility with older organization
+        log_dir = join(dirname(file_path), "logs")
+        if not isdir(log_dir):
+            log_dir = join(dirname(file_path), row["job_id"], "logs")
 
         rebuild_kill_time      = get_test_param("Kill Time", ":", output)
         rebuild_queued_time    = None
@@ -780,8 +824,8 @@ class CsvRebuild(CsvBase):
         row["rebuild_down_time"]      = format_timestamp_daos_control(rebuild_down_time)
         row["rebuild_queued_time"]    = format_timestamp_daos_control(rebuild_queued_time)
         row["rebuild_completed_time"] = format_timestamp_daos_control(rebuild_completed_time)
-        row["daos_commit"]            = get_daos_commit(file_path, row["slurm_job_id"])
-        row["num_targets"]            = get_num_targets(file_path, row["slurm_job_id"])
+        row["daos_commit"]            = get_daos_commit(file_path, row["job_id"])
+        row["num_targets"]            = get_num_targets(file_path, row["job_id"])
         row["status"]                 = status.get_status_str()
         row["notes"]                  = status.get_notes_str()
 
@@ -797,14 +841,21 @@ def get_stdout_list(result_path, prefix):
         list: List of sorted paths to stdout files.
     """
     # Recursively drill down to find each stdout file in each log directory
-    # in each directory
+    # in each directory.
+    # Also maintain some backward compatibility with older organization.
+    # TODO - Maybe automatically update older organization to the new?
     path_obj = Path(result_path)
-    glob_path = f"{prefix}_*/log_*/stdout*"
-    output_file_list = sorted(path_obj.rglob(glob_path))
-    if not output_file_list and prefix in result_path:
-        output_file_list = sorted(path_obj.rglob("log_*/stdout*"))
-    if not output_file_list and prefix in result_path:
-        output_file_list = sorted(path_obj.rglob("stdout*"))
+    glob_paths = []
+    glob_paths.append(f"{prefix}_*/log_*/*/output.txt") # Newer - output in run/job_id directory
+    glob_paths.append(f"{prefix}_*/log_*/*/stdout*") # New - stdout in run/job_id directory
+    glob_paths.append(f"{prefix}_*/log_*/stdout*")   # Old - stdout in run directory
+    output_file_list = []
+    for glob_path in glob_paths:
+        found_list = path_obj.rglob(glob_path)
+        if found_list:
+            output_file_list += found_list
+    output_file_list = sorted(output_file_list)
+
     if not output_file_list:
         print(f"No {prefix} log files found", flush=True)
     return output_file_list

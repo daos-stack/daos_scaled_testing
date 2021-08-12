@@ -3,15 +3,23 @@
 #Run daos tests like IOR/MDtest and self_test(cart)
 #----------------------------------------------------
 
-# Configurable parameters to be updated for each sbatch
+# Configurable parameters to be updated for each job
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
-MPI_TARGET="mvapich2" #supports mvapich2, openmpi, or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
-if [ "${MPI_TARGET}" != "mvapich2" ] &&
-   [ "${MPI_TARGET}" != "openmpi" ] &&
-   [ "${MPI_TARGET}" != "mpich" ]; then
+if [ "${MPI_TARGET}" == "mvapich2" ] || [ "${MPI_TARGET}" == "mpich" ]; then
+    MPI_CMD="mpirun
+             -np ${no_of_ps} -map-by node
+             -hostfile ${CLIENT_HOSTLIST_FILE}"
+elif [ "${MPI_TARGET}" == "openmpi" ]; then
+    MPI_CMD="orterun ${OMPI_PARAM}
+             -x CPATH -x PATH -x LD_LIBRARY_PATH
+             -x FI_UNIVERSE_SIZE
+             -x D_LOG_FILE -x D_LOG_MASK
+             --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
+             --hostfile ${CLIENT_HOSTLIST_FILE}"
+else
     echo "Unknown MPI_TARGET. Please specify either mvapich2, openmpi, or mpich"
     exit 1
 fi
@@ -23,7 +31,9 @@ CONT_RF="${CONT_RF:-0}"
 CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
 
 # Print all relevant test params / env variables
-echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
+echo "JOB_MANAGER     : ${JOB_MANAGER}"
+echo "JOB_ID          : ${JOB_ID}"
+echo "JOB_DIR         : ${JOB_DIR}"
 echo "TESTCASE        : ${TESTCASE}"
 echo "OCLASS          : ${OCLASS}"
 echo "DIR_OCLASS      : ${DIR_OCLASS}"
@@ -54,14 +64,14 @@ module unload impi pmix hwloc intel
 module list
 
 # Other parameters
-SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
-DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
-DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
-SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
-ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
-CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
-DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
+NUM_NODES="$(( ${DAOS_SERVERS} + ${DAOS_CLIENTS} + 1))"
+DAOS_SERVER_YAML="${JOB_DIR}/daos_server.yml"
+DAOS_AGENT_YAML="${JOB_DIR}/daos_agent.yml"
+DAOS_CONTROL_YAML="${JOB_DIR}/daos_control.yml"
+ALL_HOSTLIST_FILE="${JOB_DIR}/hostlist_all"
+SERVER_HOSTLIST_FILE="${JOB_DIR}/hostlist_servers"
+CLIENT_HOSTLIST_FILE="${JOB_DIR}/hostlist_clients"
+DUMP_DIR="${JOB_DIR}/core_dumps"
 
 
 # Time to wait for servers to start
@@ -80,21 +90,6 @@ PROCESSES="'(daos|orteun|mpirun)'"
 # Time in milliseconds
 CLOCK_DRIFT_THRESHOLD=500
 
-PREFIX_MVAPICH2="mpirun
-                 -np ${no_of_ps} -map-by node
-                 -hostfile ${CLIENT_HOSTLIST_FILE}"
-
-PREFIX_MPICH="mpirun
-              -np ${no_of_ps} -map-by node
-              -hostfile ${CLIENT_HOSTLIST_FILE}"
-
-PREFIX_OPENMPI="orterun ${OMPI_PARAM}
-                -x CPATH -x PATH -x LD_LIBRARY_PATH
-                -x FI_UNIVERSE_SIZE
-                -x D_LOG_FILE -x D_LOG_MASK
-                --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
-                --hostfile ${CLIENT_HOSTLIST_FILE}"
-
 HOSTNAME=$(hostname)
 echo "hostname:"
 echo $HOSTNAME
@@ -103,12 +98,13 @@ echo "DAOS_DIR:"
 BUILD=`ls -ald $(realpath ${DAOS_DIR}/../.)`
 echo $BUILD
 
-mkdir -p ${RUN_DIR}
-cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
-cat ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
+# Copy the build info file
+mkdir -p ${JOB_DIR}
+cp -v ${DAOS_DIR}/../repo_info.txt ${JOB_DIR}/repo_info.txt
+cat ${JOB_DIR}/repo_info.txt
 
-source ${DST_DIR}/env_daos ${DAOS_DIR}
-source ${DST_DIR}/build_env.sh ${MPI_TARGET}
+source ${SCRIPT_DIR}/env_daos ${DAOS_DIR}
+source ${SCRIPT_DIR}/build_env.sh ${MPI_TARGET}
 
 export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
 export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
@@ -119,55 +115,75 @@ echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo
 
 # Generate timestamp
-function time_stamp(){
+function time_stamp() {
     date +%m/%d-%H:%M:%S
 }
 
-# Print message, timestamp is prefixed
-function pmsg(){
-    echo
-    echo "$(time_stamp) ${@}"
+# Print a timestamped message
+function pmsg() {
+    local message="$@"
+    printf "\n%s %s\n" "$(time_stamp)" "${message}"
 }
 
-function pmsg_err(){
-    echo
-    echo "$(time_stamp) ERR ${@}"
+# Print a timestamped error message
+function pmsg_err() {
+    local message="$@"
+    printf "\n%s ERR %s\n" "$(time_stamp)" "${message}"
 }
 
-function print_line() {
+# Print a separator ======
+function print_separator() {
     printf '%80s\n' | tr ' ' =
 }
 
+# TODO verify this works
 function cleanup(){
     pmsg "Removing temporary files"
-    ${SRUN_CMD} ${DST_DIR}/cleanup.sh
+    local cmd='
+        rm -rf /dev/shm/* &&
+        rm -rf /tmp/daos*log
+    '
+    run_cmd_on_all_nodes "${cmd}" false
     echo "End Time: $(date)"
 }
 
+# TODO verify this works
 function collect_test_logs(){
     pmsg "Collecting metrics and logs"
 
     # Server nodes
-    clush --hostfile ${SERVER_HOSTLIST_FILE} \
-    --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
-    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
-    export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-    ${DST_DIR}/copy_log_files.sh server "
+    local server_cmd='
+        LOG_DIR="${JOB_DIR}/logs/$(hostname)" &&
+        echo "Copying logs from node $(hostname)" &&
+        timeout --signal SIGKILL 1m daos_metrics -i 1 --csv > ${LOG_DIR}/daos_metrics.csv 2>&1 &&
+        timeout --signal SIGKILL 1m dmesg > ${LOG_DIR}/dmesg_output.txt 2>&1
+    '
+    clush --hostfile "${SERVER_HOSTLIST_FILE}" \
+          --command_timeout "${CMD_TIMEOUT}" --groupbase -S \
+          " export PATH=${PATH}; \
+            export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \ 
+            export JOB_DIR=${JOB_DIR}; \
+            ${server_cmd}"
 
     # Client nodes
+    local client_cmd='
+        LOG_DIR="${JOB_DIR}/logs/$(hostname)" &&
+        echo "Copying logs from node $(hostname)" &&
+        timeout --signal SIGKILL 1m dmesg > ${LOG_DIR}/dmesg_output.txt 2>&1
+    '
     clush --hostfile ${CLIENT_HOSTLIST_FILE} \
-    --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
-    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
-    export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-    ${DST_DIR}/copy_log_files.sh client "
+          --command_timeout "${CMD_TIMEOUT}" --groupbase -S \
+          " export PATH=${PATH}; \
+            export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
+            export JOB_DIR=${JOB_DIR}; \
+            ${client_cmd}"
 }
 
 # Print command and run it, timestamp is prefixed
 function run_cmd(){
     local CMD="$(echo ${1} | tr -s " ")"
 
-    echo
-    echo "$(time_stamp) CMD: ${CMD}"
+    pmsg "CMD: ${CMD}"
 
     OUTPUT_CMD="$(timeout --signal SIGKILL ${CMD_TIMEOUT} ${CMD})"
     RC=$?
@@ -177,30 +193,76 @@ function run_cmd(){
     check_cmd_timeout "${RC}" "${CMD}"
 }
 
-# Get a random client node name from the CLIENT_HOSTLIST_FILE and then
-# run a command
-function run_cmd_on_client(){
-    local DAOS_CMD="$(echo ${1} | tr -s " ")"
+# Run a command on a single client node
+# exports PATH and LD_LIBRARY_PATH
+function run_cmd_on_client() {
+    local CMD="$(echo ${1} | tr -s " ")"
     local TEARDOWN_ON_ERROR="${2:-true}"
     local QUIET="${3:-false}"
-    local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
-    echo
-    echo "$(time_stamp) CMD: ${DAOS_CMD}"
+    pmsg "CMD: ${CMD}"
 
-    CMD="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S \"
+    CLUSH_CMD="clush --hostfile ${CLIENT_HOSTLIST_FILE} --pick 1 --command_timeout ${CMD_TIMEOUT} -S \"
          export PATH=${PATH};
          export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-         ${DAOS_CMD} \" "
+         ${CMD} \" "
 
-    OUTPUT_CMD="$(eval ${CMD})"
+    OUTPUT_CMD="$(eval ${CLUSH_CMD})"
     RC=$?
 
     if ! ${QUIET}; then
         echo "${OUTPUT_CMD}"
     fi
 
-    check_cmd_timeout "${RC}" "${DAOS_CMD}" "${TEARDOWN_ON_ERROR}"
+    check_cmd_timeout "${RC}" "${CMD}" "${TEARDOWN_ON_ERROR}"
+}
+
+# Run a command on all client nodes
+# exports PATH and LD_LIBRARY_PATH
+function run_cmd_on_all_clients() {
+    local CMD="$(echo ${1} | tr -s " ")"
+    local TEARDOWN_ON_ERROR="${2:-true}"
+    local QUIET="${3:-false}"
+
+    pmsg "CMD: ${CMD}"
+
+    CLUSH_CMD="clush --hostfile ${CLIENT_HOSTLIST_FILE} -f ${DAOS_CLIENTS} --command_timeout ${CMD_TIMEOUT} -S \"
+         export PATH=${PATH};
+         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+         ${CMD} \" "
+
+    OUTPUT_CMD="$(eval ${CLUSH_CMD})"
+    RC=$?
+
+    if ! ${QUIET}; then
+        echo "${OUTPUT_CMD}"
+    fi
+
+    check_cmd_timeout "${RC}" "${CMD}" "${TEARDOWN_ON_ERROR}"
+}
+
+# Run a command on all nodes
+# exports PATH and LD_LIBRARY_PATH
+function run_cmd_on_all_nodes() {
+    local CMD="$(echo ${1} | tr -s " ")"
+    local TEARDOWN_ON_ERROR="${2:-true}"
+    local QUIET="${3:-false}"
+
+    pmsg "CMD: ${CMD}"
+
+    CLUSH_CMD="clush --hostfile ${ALL_HOSTLIST_FILE} -f ${NUM_NODES} --command_timeout ${CMD_TIMEOUT} -S \"
+         export PATH=${PATH};
+         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+         ${CMD} \" "
+
+    OUTPUT_CMD="$(eval ${CLUSH_CMD})"
+    RC=$?
+
+    if ! ${QUIET}; then
+        echo "${OUTPUT_CMD}"
+    fi
+
+    check_cmd_timeout "${RC}" "${CMD}" "${TEARDOWN_ON_ERROR}"
 }
 
 # Run dmg pool create
@@ -280,7 +342,7 @@ function teardown_test(){
     local exit_message="${1}"
     local exit_rc="${2:-0}"
     local CSH_PREFIX="clush --hostfile ${ALL_HOSTLIST_FILE} \
-                      -f ${SLURM_JOB_NUM_NODES}"
+                      -f ${NUM_NODES}"
 
     if [ ${exit_rc} -eq 0 ]; then
         pmsg "${exit_message}"
@@ -314,12 +376,12 @@ function teardown_test(){
 function check_clock_sync(){
     pmsg "Retrieving local time of each node"
     run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
-                   -f ${SLURM_JOB_NUM_NODES} \
-                   ${DST_DIR}/print_node_local_time.sh"
+                   -f ${NUM_NODES} \
+                   ${SCRIPT_DIR}/print_node_local_time.sh"
 
     pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
     clush -S --hostfile ${ALL_HOSTLIST_FILE} \
-          -f ${SLURM_JOB_NUM_NODES} --groupbase \
+          -f ${NUM_NODES} --groupbase \
           "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
     local RC=$?
 
@@ -397,21 +459,27 @@ function wait_for_servers_to_start(){
 	pmsg "Done, ${NUM_SERVERS} DAOS servers are up and running"
 }
 
+# Create the log directory on each node
+# TODO verify this works
+function create_log_dir() {
+    local cmd="JOB_DIR=${JOB_DIR}"'
+        LOG_DIR=${JOB_DIR}/logs/$(hostname) &&
+        mkdir -p ${LOG_DIR} &&
+        pushd /tmp &&
+        rm -f daos_logs &&
+        ln -s ${LOG_DIR} daos_logs &&
+        popd
+    '
+    run_cmd_on_all_nodes "${cmd}"
+}
+
 #Create server/client hostfile.
 function prepare(){
     #Create the folder for server/client logs.
-    mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}
+    mkdir -p ${JOB_DIR}
     mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test}
-    cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
-    ${SRUN_CMD} ${DST_DIR}/create_log_dir.sh
-
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        ${DST_DIR}/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        ${DST_DIR}/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    else
-        ${DST_DIR}/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    fi
+    cp -v ${SCRIPT_DIR}/daos_*.yml ${JOB_DIR}
+    create_log_dir
 
     ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
 
@@ -419,9 +487,9 @@ function prepare(){
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
     sed -i "s/^\- .*/\- $ACCESS_POINT:$ACCESS_PORT/" ${DAOS_CONTROL_YAML}
 
-    #Create the daos_agent folder
-    srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_agent
-    srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_server
+    # Create the daos_agent folder
+    # TODO create only on the nodes that need each
+    run_cmd_on_all_nodes "mkdir -p /tmp/daos_agent && mkdir -p /tmp/daos_server"
 }
 
 #Start DAOS agent
@@ -429,7 +497,7 @@ function start_agent(){
     echo -e "\nCMD: Starting agent...\n"
     daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
-    -f ${SLURM_JOB_NUM_NODES} \"
+    -f ${NUM_NODES} \"
     pushd ${DUMP_DIR}/agent;
     ulimit -c unlimited;
     export PATH=${PATH};
@@ -446,7 +514,7 @@ function start_agent(){
 #Dump attach info
 function dump_attach_info(){
     echo -e "\nCMD: Dump attach info file...\n"
-    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
+    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${JOB_DIR}/daos_server.attach_info_tmp"
     echo $cmd
     echo
     eval $cmd &
@@ -471,7 +539,7 @@ function query_pools_rebuild(){
     local num_rebuild_done=0
     until [ ${n} -gt ${NUMBER_OF_POOLS} ]
     do
-        print_line
+        print_separator
         pmsg "Querying pool ${n} of ${NUMBER_OF_POOLS}"
         local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
         dmg_pool_query "${CURRENT_POOL}"
@@ -515,7 +583,7 @@ function create_container(){
     daos_cmd="daos container create --pool=${POOL_UUID} --cont ${CONT_UUID}
               --sys-name=daos_server --type=POSIX ${CONT_PROP}"
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
-    -f ${SLURM_JOB_NUM_NODES} \"
+    -f ${NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=${CPATH};
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
@@ -541,7 +609,7 @@ function query_container(){
     HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
     daos_cmd="daos container query --pool=${POOL_UUID} --cont=${CONT_UUID}"
     cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
-    -f ${SLURM_JOB_NUM_NODES} \"
+    -f ${NUM_NODES} \"
     export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
     export CPATH=${CPATH};
     export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
@@ -565,7 +633,7 @@ function start_server(){
     echo -e "\nCMD: Starting server...\n"
     daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
-    -f $SLURM_JOB_NUM_NODES \"
+    -f $NUM_NODES \"
     pushd ${DUMP_DIR}/server;
     ulimit -c unlimited;
     export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
@@ -576,7 +644,9 @@ function start_server(){
     pmsg "CMD: ${daos_cmd}"
     eval $cmd &
 
-    if [ $? -ne 0 ]; then
+    # If the command is not still running, it must have failed
+    sleep 2
+    if ! (ps | grep $!); then
         teardown_test "daos_server start FAILED" 1
     fi
 
@@ -591,7 +661,7 @@ function run_ior(){
         SW_CMD=""
     else
         SW_CMD="-O stoneWallingWearOut=1
-                -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID}
+                -O stoneWallingStatusFile=${JOB_DIR}/ior.sw
                 -D ${SW_TIME}"
     fi
 
@@ -607,13 +677,7 @@ function run_ior_write(){
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
                 --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        wr_cmd="${PREFIX_MVAPICH2} ${IOR_WR_CMD}"
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        wr_cmd="${PREFIX_OPENMPI} ${IOR_WR_CMD}"
-    else
-        wr_cmd="${PREFIX_MPICH} ${IOR_WR_CMD}"
-    fi
+    wr_cmd="${MPI_CMD} ${IOR_WR_CMD}"
 
     echo ${wr_cmd}
     echo
@@ -644,13 +708,7 @@ function run_ior_read(){
                --dfs.group daos_server --dfs.pool ${POOL_UUID}
                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        rd_cmd="${PREFIX_MVAPICH2} ${IOR_RD_CMD}"
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        rd_cmd="${PREFIX_OPENMPI} ${IOR_RD_CMD}"
-    else
-        rd_cmd="${PREFIX_MPICH} ${IOR_RD_CMD}"
-    fi
+    rd_cmd="${MPI_CMD} ${IOR_RD_CMD}"
 
     echo ${rd_cmd}
     echo
@@ -680,7 +738,7 @@ function run_self_test(){
     let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
 
     st_cmd="self_test
-        --path ${RUN_DIR}/${SLURM_JOB_ID}
+        --path ${JOB_DIR}
         --group-name daos_server --endpoint 0-${last_srv_index}:0
         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
@@ -743,15 +801,9 @@ function run_mdtest(){
                 --dfs.dir_oclass ${DIR_OCLASS}
                 -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
-                -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
+                -n ${N_FILE} -x ${JOB_DIR}/mdtest.sw -v"
 
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        cmd="${PREFIX_MVAPICH2} ${mdtest_cmd}"
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        cmd="${PREFIX_OPENMPI} ${mdtest_cmd}"
-    else
-        cmd="${PREFIX_MPICH} ${mdtest_cmd}"
-    fi
+    cmd="${MPI_CMD} ${mdtest_cmd}"
 
     echo $cmd
     echo
@@ -886,11 +938,11 @@ function run_testcase(){
             ;;
         IOR)
             start_server
-            start_agent
-            dmg_pool_create
-            create_container
-            query_container
-            run_ior
+            #start_agent
+            #dmg_pool_create
+            #create_container
+            #query_container
+            #run_ior
             ;;
         SELF_TEST)
             start_server
@@ -906,7 +958,7 @@ function run_testcase(){
             run_mdtest
             ;;
         *)
-            echo "Unknown test: Please use IOR, SELF_TEST or MDTEST"
+            echo "Unknown test ${testcase}: Please use IOR, SELF_TEST or MDTEST"
     esac
 
     pmsg "End of testcase ${TESTCASE}"

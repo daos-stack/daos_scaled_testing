@@ -11,25 +11,51 @@ env['PATH'] = "/opt/apps/xalt/xalt/bin:/opt/apps/intel19/python3/3.7.0/bin:/opt/
 
 env['LD_LIBRARY_PATH'] = "/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugger_2019/libipt/intel64/lib:/opt/intel/compilers_and_libraries_2019.5.281/linux/daal/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/tbb/lib/intel64_lin/gcc4.7:/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/ipp/lib/intel64:/opt/intel/compilers_and_libraries_2019.5.281/linux/compiler/lib/intel64_lin:/opt/apps/gcc/8.3.0/lib64:/opt/apps/gcc/8.3.0/lib:/usr/lib64/:/usr/lib64/"
 
-env['JOBNAME']     = "<sbatch_jobname>"
-env['EMAIL']       = "<email>" # <first.last@email.com>
-env['DAOS_DIR']    = "<path_to_daos>" # E.g. /work2/08126/dbohninx/frontera/BUILDS/latest/daos
-env['DST_DIR']     = "<path_to_daos_scaled_testing>" # E.g. /scratch/TESTS/daos_scaled_testing
-env['RES_DIR']     = "<path_to_result_dir>" # E.g. /home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
+env['JOB_MANAGER'] = 'NONE' # SLURM, NONE
+env['JOBNAME']     = "dev_generic"
+env['EMAIL']       = "dalton.bohning@intel.com" # <first.last@email.com>
+env['DAOS_DIR']    = "/work2/08126/dbohninx/frontera/BUILDS/latest/daos" # E.g. /work2/08126/dbohninx/frontera/BUILDS/latest/daos
+env['SCRIPT_DIR']  = "/scratch1/08126/dbohninx/TESTS/dev" # E.g. /scratch/TESTS/daos_scaled_testing
+env['RES_DIR']     = "/work2/08126/dbohninx/frontera/RESULTS_dev_generic" # E.g. /home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
+
+# Only valid for JOB_MANAGER=NONE
+env['HOSTNAMES_SERVERS'] = 'node1,node2'
+env['HOSTNAMES_CLIENTS'] = 'node3,node4'
 
 # Only if using MPICH or OPENMPI
+env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi mpich
 env['MPICH_DIR']   = "<path_to_mpich>" #e.g./scratch/POC/mpich
 env['OPENMPI_DIR'] = "<path_to_openmpi>" #e.g./scratch/POC/openmpi
 
+# Verify JOB_MANAGER
+if not env['JOB_MANAGER']:
+    env['JOB_MANAGER'] = 'NONE'
+if env['JOB_MANAGER'] not in ('SLURM', 'NONE'):
+    print('ERROR: Invalid JOB_MANAGER {}'.format(env['JOB_MANAGER']))
+    exit(1)
+if env['JOB_MANAGER'] == 'NONE':
+    if not env['HOSTNAMES_SERVERS']:
+        print('ERROR: HOSTNAMES_SERVERS is required')
+        exit(1)
+    if not env['HOSTNAMES_CLIENTS']:
+        print('ERROR: HOSTNAMES_CLIENTS is required')
+        exit(1)
+
 # Sanity check that directories exist
-for check_dir in (env['DAOS_DIR'], env['DST_DIR']):
+for check_dir in (env['DAOS_DIR'], env['SCRIPT_DIR']):
     if not isdir(check_dir):
         print("ERROR: Not a directory: {}".format(check_dir))
         exit(1)
 
 # Sanity check that it's actually a DAOS installation
+# TODO don't rely on repo_info
 if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
     print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
+    exit(1)
+
+# Sanity check MPI target is valid
+if not env['MPI_TARGET'] in ('mvapich2', 'openmpi', 'mpich'):
+    print("ERROR: invalid MPI_TARGET {}".format(env['MPI_TARGET']))
     exit(1)
 
 
@@ -333,7 +359,7 @@ ior_single_replica_testdict = {
 ior_testdict = {
     'ior_easy': {
         'oclass': [
-            #'SX',
+            'SX',
             #'RP_2GX',
             #'RP_3GX',
             #'EC_2P1GX',
@@ -341,7 +367,7 @@ ior_testdict = {
         ],
         'scale': [
             # 1to4, (num_servers, num_clients, timeout_minutes)
-            #(1, 4, 5),
+            (1, 1, -5),
             #(2, 8, 5),
             #(4, 16, 5),
             #(8, 32, 5),
@@ -368,11 +394,11 @@ ior_testdict = {
             'segments': '1',
             'xfer_size': '1M',
             'block_size': '150G',
-            'sw_time': '60',
+            'sw_time': '10',
             'iterations': '1',
             'ppc': 32
         },
-        'enabled': False
+        'enabled': True
     },
     'ior_hard': {
         'oclass': [
@@ -569,7 +595,7 @@ def is_list_or_tuple(o):
 
 
 class TestList(object):
-    def __init__(self, test_group, testdict, env, script='run_sbatch.sh'):
+    def __init__(self, test_group, testdict, env, script='run_job.sh'):
         self._test_group = test_group
         self._testdict = testdict
         self._env = env.copy()
@@ -577,8 +603,8 @@ class TestList(object):
         self._teardown_offset = 5
         self._pool_create_timeout = 3
         self._cmd_timeout = 2
-        dst_dir = os.getenv('DST_DIR')
-        self._script = os.path.join(dst_dir, script)
+        script_dir = os.getenv('SCRIPT_DIR')
+        self._script = os.path.join(script_dir, script)
 
     def _expand_default_test_params(self, test_params):
         for param, default in [
