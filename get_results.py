@@ -515,6 +515,7 @@ class CsvIor(CsvBase):
             "segments":     "Segments",
             "xfer_size":    "Xfer Size",
             "block_size":   "Block Size",
+            "chunk_size":   "Chunk Size",
             "cont_rf":      "Cont RF",
             "ec_cell_size": "Cell Size",
             "iterations":   "Iterations",
