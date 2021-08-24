@@ -66,13 +66,13 @@ function git_has_commit() {
 function merge_extra_daos_branches() {
   local hack_branch=""
   if $(git_has_commit "af19e7f") = true; then
-    hack_branch="origin/dbohninx-io500-base-af19e7f"
+    hack_branch="origin/dbohning-io500-base-af19e7f"
   elif $(git_has_commit "40f8636") = true; then
-    hack_branch="origin/dbohninx-io500-base-40f8636"
+    hack_branch="origin/dbohning-io500-base-40f8636"
   elif $(git_has_commit "daaf038") = true; then
-    hack_branch="origin/dbohninx-io500-base-daaf038"
+    hack_branch="origin/dbohning-io500-base-daaf038"
   elif $(git_has_commit "5d740e5") = true; then
-    hack_branch="origin/dbohninx-io500-base-5d740e5"
+    hack_branch="origin/dbohning-io500-base-5d740e5"
   else
     hack_branch="origin/mjmac/io500-frontera"
   fi;
