@@ -81,7 +81,6 @@ ec_partial_stripe_testdict = {
             # (num_servers, num_clients, timeout_minutes)
             (4, 8, 5)
         ],
-        'cont_rf': '1',
         'oclass': 'EC_2P1GX',
         'env_vars': {
             'chunk_size': '33554432',
@@ -102,7 +101,6 @@ ec_partial_stripe_testdict = {
             (6, 12, 5)
         ],
         'oclass': 'EC_4P2GX',
-        'cont_rf': '2',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -122,7 +120,6 @@ ec_partial_stripe_testdict = {
             (10, 20, 5)
         ],
         'oclass': 'EC_8P2GX',
-        'cont_rf': '2',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -130,7 +127,6 @@ ec_partial_stripe_testdict = {
             'xfer_size': '1M',
             'block_size': '1G',
             'fpp': '-F',
-            'cont_rf': '2',
             'sw_time': '60',
             'iterations': '2',
             'ppc': 32
@@ -143,7 +139,6 @@ ec_partial_stripe_testdict = {
             (18, 36, 5)
         ],
         'oclass': 'EC_16P2GX',
-        'cont_rf': '2',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -170,7 +165,6 @@ ec_full_stripe_testdict = {
             (1048576)
         ],
         'oclass': 'EC_2P1GX',
-        'cont_rf': '1',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -194,7 +188,6 @@ ec_full_stripe_testdict = {
             (1048576)
         ],
         'oclass': 'EC_4P2GX',
-        'cont_rf': '2',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -218,7 +211,6 @@ ec_full_stripe_testdict = {
             (1048576)
         ],
         'oclass': 'EC_8P2GX',
-        'cont_rf': '2',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -242,7 +234,6 @@ ec_full_stripe_testdict = {
             (1048576)
         ],
         'oclass': 'EC_16P2GX',
-        'cont_rf': '2',
         'env_vars': {
             'chunk_size': '33554432',
             'pool_size': '85G',
@@ -371,11 +362,6 @@ ior_testdict = {
             #(128, 16, 5),
             #(256, 16, 5)
         ],
-        'cont_rf' : [
-            #0,
-            #1,
-            #2
-        ],
         'env_vars': {
             'chunk_size': '1048576',
             'pool_size': '85G',
@@ -418,11 +404,6 @@ ior_testdict = {
             #(64, 16, 5),
             #(128, 16, 5),
             #(256, 16, 5)
-        ],
-        'cont_rf' : [
-            #0,
-            #1,
-            #2
         ],
         'env_vars': {
             'chunk_size': '1048576',
@@ -469,11 +450,6 @@ mdtest_testdict = {
             #(128, 16, 5),
             #(256, 16, 5)
         ],
-        'cont_rf' : [
-            #0,
-            #1,
-            #2
-        ],
         'env_vars': {
             'chunk_size': '1048576',
             'pool_size': '85G',
@@ -514,11 +490,6 @@ mdtest_testdict = {
             #(64, 16, 5),
             #(128, 16, 5),
             #(256, 16, 5)
-        ],
-        'cont_rf' : [
-            #0,
-            #1,
-            #2
         ],
         'env_vars': {
             'chunk_size': '1048576',
@@ -612,8 +583,7 @@ class TestList(object):
     def _expand_default_test_params(self, test_params):
         for param, default in [
                 ('oclass', ['']),
-                ('ec_cell_size', ['1048576']),
-                ('cont_rf', [0])]:
+                ('ec_cell_size', ['1048576'])]:
             if param not in test_params:
                 # Set default value
                 test_params[param] = default
@@ -680,18 +650,6 @@ class TestList(object):
     def _expand_env_ec_cell_size(self, env, ec_cell_size):
         env['EC_CELL_SIZE'] = str(ec_cell_size)
 
-    def _expand_env_cont_rf(self, env, cont_rf):
-        env['CONT_RF'] = str(cont_rf)
-
-    def _verify_env(self, env):
-        """Check that environment vars are not incompatible."""
-        # TODO easy way to verify OCLASS is compatible with num servers?
-        if int(env['DAOS_SERVERS']) <= int(env['CONT_RF']):
-            print(f"ERR {env['TESTCASE']}: DAOS_SERVERS <= CONT_RF "
-                  f"({env['DAOS_SERVERS']} <= {env['CONT_RF']})")
-            return False
-        return True
-
     def run(self):
         # Create a list of environments, where each is a test to run
         variant_env_list = []
@@ -708,26 +666,21 @@ class TestList(object):
             self._expand_default_env_vars(testcase_env, testcase)
             self._expand_extra_env_vars(testcase_env, test_params)
 
-            for oclass, scale, ec_cell_size, cont_rf in itertools.product(
+            for oclass, scale, ec_cell_size in itertools.product(
                     test_params['oclass'],
                     test_params['scale'],
-                    test_params['ec_cell_size'],
-                    test_params['cont_rf']):
+                    test_params['ec_cell_size']):
                 # Get an environment for this testcase variant
                 variant_env = testcase_env.copy()
                 self._expand_env_oclass(variant_env, oclass)
                 self._expand_env_scale(variant_env, scale)
                 self._expand_env_ec_cell_size(variant_env, ec_cell_size)
-                self._expand_env_cont_rf(variant_env, cont_rf)
-                if not self._verify_env(variant_env):
-                    print(f"Check config. Skipping all {testcase} variants")
-                    return
                 variant_env_list.append(variant_env)
 
         for env in variant_env_list:
             print(f"Running {env['TESTCASE']} {env['OCLASS']}, "
                   f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
-                  f"{env['EC_CELL_SIZE']} ec_ell_size, cont_rf={env['CONT_RF']}")
+                  f"{env['EC_CELL_SIZE']} ec_ell_size")
             subprocess.Popen(self._script, env=env)
 
 class SelfTestList(TestList):
