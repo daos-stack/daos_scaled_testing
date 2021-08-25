@@ -174,7 +174,7 @@ function run_cmd(){
 
     echo "${OUTPUT_CMD}"
 
-    check_cmd_timeout ${RC} ${CMD}
+    check_cmd_timeout "${RC}" "${CMD}"
 }
 
 # Get a random client node name from the CLIENT_HOSTLIST_FILE and then
@@ -200,7 +200,7 @@ function run_cmd_on_client(){
         echo "${OUTPUT_CMD}"
     fi
 
-    check_cmd_timeout ${RC} ${DAOS_CMD} ${TEARDOWN_ON_ERROR}
+    check_cmd_timeout "${RC}" "${DAOS_CMD}" "${TEARDOWN_ON_ERROR}"
 }
 
 # Run dmg pool create. Use --label (new, required option) if available
@@ -274,7 +274,7 @@ function dmg_pool_query(){
         fi
     fi
 
-    run_cmd_on_client "${DMG_POOL_QUERY} ${UUID}" ${TEARDOWN_ON_ERROR}
+    run_cmd_on_client "${DMG_POOL_QUERY} ${UUID}" "${TEARDOWN_ON_ERROR}"
 }
 
 # Run dmg pool set-prop. Use --pool (old option) if available
@@ -377,7 +377,7 @@ function get_server_status(){
     local TARGET_SERVERS=$((${NUM_SERVERS} - 1))
     local TEARDOWN_ON_ERROR="${2:-false}"
 
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" ${TEARDOWN_ON_ERROR}
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${TEARDOWN_ON_ERROR}"
     if [ "${TARGET_SERVERS}" -eq 0 ]; then
         if echo ${OUTPUT_CMD} | grep -q "0\s*Joined"; then
             return 0
@@ -621,7 +621,7 @@ function start_server(){
         teardown_test
     fi
 
-    wait_for_servers_to_start ${DAOS_SERVERS}
+    wait_for_servers_to_start "${DAOS_SERVERS}"
 }
 
 #Run IOR
