@@ -70,7 +70,7 @@ def main():
         total_wait_s += interval_s
         num_jobs = get_num_jobs(username, jobname)
         if num_jobs == 0:
-            return get_results(result_path, email_list=["daltonx.bohning@intel.com"])
+            return get_results(result_path, email_list=["dalton.bohning@intel.com"])
 
 if __name__ == "__main__":
     exit(main())

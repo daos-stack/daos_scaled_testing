@@ -32,7 +32,7 @@ except:
 # Shorthand for mapping names to emails.
 # Useful for avoiding email typos.
 EMAIL_DICT = {
-    "dalton": "daltonx.bohning@intel.com",
+    "dalton": "dalton.bohning@intel.com",
     "sylvia": "sylvia.oi.yee.chan@intel.com",
     "samir":  "samir.raval@intel.com"
 }
