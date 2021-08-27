@@ -543,7 +543,7 @@ function create_container(){
     fi
 
     #Set EC test with different cell size
-    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == '1048576' ]; then
+    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == '1048576' ] || [ "$EC_CELL_SIZE" == '1M' ]; then
        echo "Daos container created with default EC Cell size"
     else
        echo "Daos container created with EC Cell size=$EC_CELL_SIZE"
