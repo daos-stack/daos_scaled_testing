@@ -203,26 +203,16 @@ function run_cmd_on_client(){
     check_cmd_timeout "${RC}" "${DAOS_CMD}" "${TEARDOWN_ON_ERROR}"
 }
 
-# Run dmg pool create. Use --label (new, required option) if available
+# Run dmg pool create
 function dmg_pool_create(){
     local POOL_LABEL="${1:-test_pool}"
 
-    if [ -z "${DMG_POOL_CREATE}" ]; then
-        DMG_POOL_CREATE="dmg -o ${DAOS_CONTROL_YAML} pool create"
-        run_cmd_on_client "${DMG_POOL_CREATE} --help" true true
-        if echo ${OUTPUT_CMD} | grep -qe "--label"; then
-            DMG_POOL_CREATE_HAS_LABEL=true
-        else
-            DMG_POOL_CREATE_HAS_LABEL=false
-        fi
-    fi
-
     pmsg "Creating pool ${POOL_LABEL}"
 
-    local cmd="${DMG_POOL_CREATE} --scm-size ${POOL_SIZE}"
-    if ${DMG_POOL_CREATE_HAS_LABEL} = true; then
-        cmd+=" --label ${POOL_LABEL}"
-    fi
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
+               --scm-size ${POOL_SIZE}
+               --label ${POOL_LABEL}
+               --properties reclaim:disabled"
 
     run_cmd_on_client "${cmd}"
 
@@ -248,50 +238,29 @@ function dmg_pool_create_multi(){
     dmg_pool_list
 }
 
-# Run dmg pool list. Use --verbose (new option) if available
+# Run dmg pool list.
+# Use --verbose (new option) if available, added in v1.3.104-tb
 function dmg_pool_list(){
     if [ -z "${DMG_POOL_LIST}" ]; then
         DMG_POOL_LIST="dmg -o ${DAOS_CONTROL_YAML} pool list"
         run_cmd_on_client "${DMG_POOL_LIST} --help" true true
         if echo ${OUTPUT_CMD} | grep -qe "--verbose"; then
-            DMG_POOL_LIST+=" --verbose"
+            DMG_POOL_LIST+=" --verbose --no-query"
         fi
     fi
 
     run_cmd_on_client "${DMG_POOL_LIST}"
 }
 
-# Run dmg pool query. Use --pool (old option) if available
+# Run dmg pool query.
 function dmg_pool_query(){
     local UUID="${1}"
     local TEARDOWN_ON_ERROR="${2}"
 
-    if [ -z "${DMG_POOL_QUERY}" ]; then
-        DMG_POOL_QUERY="dmg -o ${DAOS_CONTROL_YAML} pool query"
-        run_cmd_on_client "${DMG_POOL_QUERY} --help" "${TEARDOWN_ON_ERROR}" true
-        if echo ${OUTPUT_CMD} | grep -qe "--pool"; then
-            DMG_POOL_QUERY+=" --pool"
-        fi
-    fi
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool query
+              ${UUID}"
 
-    run_cmd_on_client "${DMG_POOL_QUERY} ${UUID}" "${TEARDOWN_ON_ERROR}"
-}
-
-# Run dmg pool set-prop. Use --pool (old option) if available
-function dmg_pool_set_prop(){
-    local UUID="${1}"
-    local NAME="${2}"
-    local VALUE="${3}"
-
-    if [ -z "${DMG_POOL_SET_PROP}" ]; then
-        DMG_POOL_SET_PROP="dmg -o ${DAOS_CONTROL_YAML} pool set-prop"
-        run_cmd_on_client "${DMG_POOL_SET_PROP} --help" true true
-        if echo ${OUTPUT_CMD} | grep -qe "--pool"; then
-            DMG_POOL_SET_PROP+=" --pool"
-        fi
-    fi
-
-    run_cmd_on_client "${DMG_POOL_SET_PROP} ${UUID} --name=${NAME} --value=${VALUE}"
+    run_cmd_on_client "${cmd}" "${TEARDOWN_ON_ERROR}"
 }
 
 function get_daos_status(){
@@ -482,19 +451,6 @@ function dump_attach_info(){
     echo
     eval $cmd &
     sleep 20
-}
-
-function setup_pool(){
-    pmsg "Pool set-prop"
-    dmg_pool_set_prop "${POOL_UUID}" "reclaim" "disabled"
-
-    if [ ${RC} -ne 0 ]; then
-        teardown_test "dmg pool set-prop FAIL" 1
-    else
-        pmsg "dmg pool set-prop SUCCESS"
-    fi
-
-    sleep 10
 }
 
 function query_pools_rebuild(){
@@ -923,7 +879,6 @@ function run_testcase(){
             start_server
             start_agent
             dmg_pool_create
-            setup_pool
             create_container
             query_container
             run_ior_write
@@ -933,7 +888,6 @@ function run_testcase(){
             start_server
             start_agent
             dmg_pool_create
-            setup_pool
             create_container
             query_container
             run_ior
@@ -947,7 +901,6 @@ function run_testcase(){
             start_server
             start_agent
             dmg_pool_create
-            setup_pool
             create_container
             query_container
             run_mdtest
