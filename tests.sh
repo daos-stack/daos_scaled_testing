@@ -272,14 +272,22 @@ function get_daos_status(){
     get_server_status ${DAOS_SERVERS} true
     RC=$?
     if [ ${TEARDOWN_ON_ERROR} = true ] && [ $RC -ne 0 ]; then
-        pmsg_err "Bad server status"
-        teardown_test
+        teardown_test "Bad server status" 1
     fi
 }
 
 function teardown_test(){
+    local exit_message="${1}"
+    local exit_rc="${2:-0}"
     local CSH_PREFIX="clush --hostfile ${ALL_HOSTLIST_FILE} \
                       -f ${SLURM_JOB_NUM_NODES}"
+
+    if [ ${exit_rc} -eq 0 ]; then
+        pmsg "${exit_message}"
+    else
+        pmsg_err "${exit_message}"
+    fi
+
     pmsg "Starting teardown"
 
     collect_test_logs
@@ -298,7 +306,9 @@ function teardown_test(){
 
     pmsg "End of teardown"
 
-    exit 0
+    echo "EXIT_MESSAGE : ${exit_message}"
+    echo "EXIT_RC      : ${exit_rc}"
+    exit ${exit_rc}
 }
 
 function check_clock_sync(){
@@ -311,10 +321,10 @@ function check_clock_sync(){
     clush -S --hostfile ${ALL_HOSTLIST_FILE} \
           -f ${SLURM_JOB_NUM_NODES} --groupbase \
           "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
+    local RC=$?
 
-    if [ $? -ne 0 ]; then
-        pmsg_err "clock drift is too high"
-        teardown_test
+    if [ ${RC} -ne 0 ]; then
+        teardown_test "clock drift is too high" 1
     else
         pmsg "Clock drift test Pass"
     fi
@@ -326,13 +336,11 @@ function check_cmd_timeout(){
     local TEARDOWN_ON_ERROR="${3:-true}"
 
     if [ ${RC} -eq 137 ]; then
-        pmsg "STATUS: ${CMD_NAME} TIMEOUT"
-        teardown_test
+        teardown_test "STATUS: ${CMD_NAME} TIMEOUT" 1
     elif [ ${RC} -ne 0 ]; then
-        pmsg "STATUS: ${CMD_NAME} FAIL"
         echo "RC: ${RC}"
         if [ ${TEARDOWN_ON_ERROR} = true ]; then
-            teardown_test
+            teardown_test "STATUS: ${CMD_NAME} FAIL" 1
         fi
     else
         pmsg "STATUS: ${CMD_NAME} SUCCESS"
@@ -383,8 +391,7 @@ function wait_for_servers_to_start(){
     done
 
     if [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]; then
-        pmsg_err "Failed to start all ${NUM_SERVERS} DAOS servers"
-        teardown_test
+        teardown_test "Failed to start all ${NUM_SERVERS} DAOS servers" 1
     fi
 
 	pmsg "Done, ${NUM_SERVERS} DAOS servers are up and running"
@@ -521,8 +528,7 @@ function create_container(){
     eval ${cmd}
 
     if [ $? -ne 0 ]; then
-        pmsg_err "Daos container create FAIL"
-        teardown_test
+        teardown_test "Daos container create FAIL" 1
     else
         pmsg "Daos container create SUCCESS"
     fi
@@ -548,8 +554,7 @@ function query_container(){
     eval ${cmd}
 
     if [ $? -ne 0 ]; then
-        pmsg_err "Daos container query FAIL"
-        teardown_test
+        teardown_test "Daos container query FAIL" 1
     else
         pmsg "Daos container query SUCCESS"
     fi
@@ -572,8 +577,7 @@ function start_server(){
     eval $cmd &
 
     if [ $? -ne 0 ]; then
-        pmsg_err "daos_server start FAILED"
-        teardown_test
+        teardown_test "daos_server start FAILED" 1
     fi
 
     wait_for_servers_to_start "${DAOS_SERVERS}"
@@ -618,15 +622,15 @@ function run_ior_write(){
     pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
     eval ${wr_cmd}
-    IOR_RC=$?
+    local IOR_RC=$?
     popd
 
     query_container
     get_daos_status
 
     if [ ${IOR_RC} -ne 0 ]; then
-        echo -e "\nSTATUS: IOR WRITE FAIL\n"
-        teardown_test
+        echo -e "IOR_RC: ${IOR_RC}\n"
+        teardown_test "IOR WRITE FAIL" 1
     else
         echo -e "\nSTATUS: IOR WRITE SUCCESS\n"
     fi
@@ -655,15 +659,15 @@ function run_ior_read(){
     pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
     eval ${rd_cmd}
-    IOR_RC=$?
+    local IOR_RC=$?
     popd
 
     query_container
     get_daos_status
 
     if [ ${IOR_RC} -ne 0 ]; then
-        echo -e "\nSTATUS: IOR READ FAIL\n"
-        teardown_test
+        echo -e "IOR_RC: ${IOR_RC}\n"
+        teardown_test "IOR READ FAIL" 1
     else
         echo -e "\nSTATUS: IOR READ SUCCESS\n"
     fi
@@ -714,11 +718,12 @@ function run_self_test(){
     pushd ${DUMP_DIR}/self_test
     ulimit -c unlimited
     eval $cmd
+    local CART_RC=$?
     popd
 
-    if [ $? -ne 0 ]; then
-        echo -e "\nSTATUS: CART self_test FAIL\n"
-        teardown_test
+    if [ ${CART_RC} -ne 0 ]; then
+        echo -e "CART_RC: ${CART_RC}\n"
+        teardown_test "CART self_test FAIL" 1
     else
         echo -e "\nSTATUS: CART self_test SUCCESS\n"
     fi
@@ -755,15 +760,15 @@ function run_mdtest(){
     pushd ${DUMP_DIR}/mdtest
     ulimit -c unlimited
     eval $cmd
-    MDTEST_RC=$?
+    local MDTEST_RC=$?
     popd
 
     query_container
     get_daos_status
 
     if [ ${MDTEST_RC} -ne 0 ]; then
-        echo -e "\nSTATUS: MDTEST FAIL\n"
-        teardown_test
+        echo -e "MDTEST_RC: ${MDTEST_RC}\n"
+        teardown_test "MDTEST FAIL" 1
     else
         echo -e "\nSTATUS: MDTEST SUCCESS\n"
     fi
@@ -789,8 +794,7 @@ function get_doom_server(){
     done
 
     if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
-        pmsg_err "hostlist too small and we have really bad lucky"
-        teardown_test
+        teardown_test "failed to get random doomed server" 1
     fi
 
     echo ${DOOMED_SERVER}
@@ -839,8 +843,7 @@ function kill_random_server(){
     done
 
     if [ ${rebuild_done} = false ]; then
-        pmsg_err "Failed to rebuild pool ${POOL_UUID} within ${REBUILD_MAX_TIME} seconds"
-        teardown_test
+        teardown_test "Failed to rebuild pool ${POOL_UUID} within ${REBUILD_MAX_TIME} seconds" 1
     fi
 
     pmsg "Pool rebuild completed"
@@ -907,7 +910,7 @@ function run_testcase(){
     esac
 
     pmsg "End of testcase ${TESTCASE}"
-    teardown_test
+    teardown_test "Success!" 0
 }
 
 run_testcase $1
