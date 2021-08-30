@@ -83,7 +83,7 @@ ec_partial_stripe_testdict = {
         ],
         'oclass': 'EC_2P1GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '1M',
@@ -102,7 +102,7 @@ ec_partial_stripe_testdict = {
         ],
         'oclass': 'EC_4P2GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '1M',
@@ -121,7 +121,7 @@ ec_partial_stripe_testdict = {
         ],
         'oclass': 'EC_8P2GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '1M',
@@ -140,7 +140,7 @@ ec_partial_stripe_testdict = {
         ],
         'oclass': 'EC_16P2GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '1M',
@@ -161,12 +161,12 @@ ec_full_stripe_testdict = {
             (4, 8, 5)
         ],
         'ec_cell_size': [
-            (65536),
-            (1048576)
+            ('64K'),
+            ('1M')
         ],
         'oclass': 'EC_2P1GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '2M',
@@ -184,12 +184,12 @@ ec_full_stripe_testdict = {
             (6, 12, 5)
         ],
         'ec_cell_size': [
-            (65536),
-            (1048576)
+            ('64K'),
+            ('1M')
         ],
         'oclass': 'EC_4P2GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '4M',
@@ -207,12 +207,12 @@ ec_full_stripe_testdict = {
             (10, 20, 5)
         ],
         'ec_cell_size': [
-            (65536),
-            (1048576)
+            ('64K'),
+            ('1M')
         ],
         'oclass': 'EC_8P2GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '8M',
@@ -230,12 +230,12 @@ ec_full_stripe_testdict = {
             (18, 36, 5)
         ],
         'ec_cell_size': [
-            (65536),
-            (1048576)
+            ('64K'),
+            ('1M')
         ],
         'oclass': 'EC_16P2GX',
         'env_vars': {
-            'chunk_size': '33554432',
+            'chunk_size': '32M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '16M',
@@ -258,7 +258,7 @@ ior_single_replica_testdict = {
         ],
         'oclass': 'S2',
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '2M',
@@ -277,7 +277,7 @@ ior_single_replica_testdict = {
         ],
         'oclass': 'S4',
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '4M',
@@ -296,7 +296,7 @@ ior_single_replica_testdict = {
         ],
         'oclass': 'S8',
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '8M',
@@ -315,7 +315,7 @@ ior_single_replica_testdict = {
         ],
         'oclass': 'S16',
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '16M',
@@ -363,7 +363,7 @@ ior_testdict = {
             #(256, 16, 5)
         ],
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'segments': '1',
             'xfer_size': '1M',
@@ -406,7 +406,7 @@ ior_testdict = {
             #(256, 16, 5)
         ],
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'segments': '2000000',
             'xfer_size': '47008',
@@ -451,7 +451,7 @@ mdtest_testdict = {
             #(256, 16, 5)
         ],
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'n_file': '1000000',
             'bytes_read': '0',
@@ -492,7 +492,7 @@ mdtest_testdict = {
             #(256, 16, 5)
         ],
         'env_vars': {
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'pool_size': '85G',
             'n_file': '200000',
             'bytes_read': '3901',
@@ -550,7 +550,7 @@ swim_ior_testdict = {
         'env_vars': {
             'pool_size': '85G',
             'number_of_pools': '1',
-            'chunk_size': '1048576',
+            'chunk_size': '1M',
             'segments': '1',
             'xfer_size': '1M',
             'block_size': '2656M',
@@ -583,7 +583,7 @@ class TestList(object):
     def _expand_default_test_params(self, test_params):
         for param, default in [
                 ('oclass', ['']),
-                ('ec_cell_size', ['1048576'])]:
+                ('ec_cell_size', ['1M'])]:
             if param not in test_params:
                 # Set default value
                 test_params[param] = default
