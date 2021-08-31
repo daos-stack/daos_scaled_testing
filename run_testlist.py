@@ -17,6 +17,8 @@ env['DAOS_DIR']    = "<path_to_daos>" # E.g. /work2/08126/dbohninx/frontera/BUIL
 env['DST_DIR']     = "<path_to_daos_scaled_testing>" # E.g. /scratch/TESTS/daos_scaled_testing
 env['RES_DIR']     = "<path_to_result_dir>" # E.g. /home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
 
+env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
+
 # Only if using MPICH or OPENMPI
 env['MPICH_DIR']   = "<path_to_mpich>" #e.g./scratch/POC/mpich
 env['OPENMPI_DIR'] = "<path_to_openmpi>" #e.g./scratch/POC/openmpi
@@ -32,6 +34,10 @@ if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
     print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
     exit(1)
 
+# Sanity check MPI target is valid
+if not env['MPI_TARGET'] in ('mvapich2', 'openmpi', 'mpich'):
+    print("ERROR: invalid MPI_TARGET {}".format(env['MPI_TARGET']))
+    exit(1)
 
 # TODO refactor to make 'inflight' a variant?
 self_testdict = {

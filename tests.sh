@@ -6,21 +6,40 @@
 # Configurable parameters to be updated for each sbatch
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
-MPI_TARGET="mvapich2" #supports mvapich2, openmpi, or mpich
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
-
-if [ "${MPI_TARGET}" != "mvapich2" ] &&
-   [ "${MPI_TARGET}" != "openmpi" ] &&
-   [ "${MPI_TARGET}" != "mpich" ]; then
-    echo "Unknown MPI_TARGET. Please specify either mvapich2, openmpi, or mpich"
-    exit 1
-fi
 
 # Set undefined/default test params
 NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
 no_of_ps=$(($DAOS_CLIENTS * $PPC))
 CONT_RF="${CONT_RF:-0}"
 CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
+
+# Set common params/paths
+SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
+DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
+DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
+DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
+SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
+ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
+CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
+DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
+
+# Set common MPI command
+if [ "${MPI_TARGET}" == "mvapich2" ] || [ "${MPI_TARGET}" == "mpich" ]; then
+    MPI_CMD="mpirun
+             -np ${no_of_ps} -map-by node
+             -hostfile ${CLIENT_HOSTLIST_FILE}"
+elif [ "${MPI_TARGET}" == "openmpi" ]; then
+    MPI_CMD="orterun ${OMPI_PARAM}
+             -x CPATH -x PATH -x LD_LIBRARY_PATH
+             -x FI_UNIVERSE_SIZE
+             -x D_LOG_FILE -x D_LOG_MASK
+             --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
+             --hostfile ${CLIENT_HOSTLIST_FILE}"
+else
+    echo "Unknown MPI_TARGET. Please specify either mvapich2, openmpi, or mpich"
+    exit 1
+fi
 
 # Print all relevant test params / env variables
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
@@ -53,16 +72,6 @@ echo "MPI_TARGET      : ${MPI_TARGET}"
 module unload impi pmix hwloc intel
 module list
 
-# Other parameters
-SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
-DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
-DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
-SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
-ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
-CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
-DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
-
 
 # Time to wait for servers to start
 INITIAL_BRINGUP_WAIT_TIME=30s
@@ -79,21 +88,6 @@ PROCESSES="'(daos|orteun|mpirun)'"
 
 # Time in milliseconds
 CLOCK_DRIFT_THRESHOLD=500
-
-PREFIX_MVAPICH2="mpirun
-                 -np ${no_of_ps} -map-by node
-                 -hostfile ${CLIENT_HOSTLIST_FILE}"
-
-PREFIX_MPICH="mpirun
-              -np ${no_of_ps} -map-by node
-              -hostfile ${CLIENT_HOSTLIST_FILE}"
-
-PREFIX_OPENMPI="orterun ${OMPI_PARAM}
-                -x CPATH -x PATH -x LD_LIBRARY_PATH
-                -x FI_UNIVERSE_SIZE
-                -x D_LOG_FILE -x D_LOG_MASK
-                --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
-                --hostfile ${CLIENT_HOSTLIST_FILE}"
 
 HOSTNAME=$(hostname)
 echo "hostname:"
@@ -123,18 +117,20 @@ function time_stamp(){
     date +%m/%d-%H:%M:%S
 }
 
-# Print message, timestamp is prefixed
+# Print a timestamped message
 function pmsg(){
     echo
     echo "$(time_stamp) ${@}"
 }
 
+# Print a timestamped error message
 function pmsg_err(){
     echo
     echo "$(time_stamp) ERR ${@}"
 }
 
-function print_line() {
+# Print a separator ======
+function print_separator(){
     printf '%80s\n' | tr ' ' =
 }
 
@@ -471,7 +467,7 @@ function query_pools_rebuild(){
     local num_rebuild_done=0
     until [ ${n} -gt ${NUMBER_OF_POOLS} ]
     do
-        print_line
+        print_separator
         pmsg "Querying pool ${n} of ${NUMBER_OF_POOLS}"
         local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
         dmg_pool_query "${CURRENT_POOL}"
@@ -600,20 +596,14 @@ function run_ior(){
 }
 
 function run_ior_write(){
-    IOR_WR_CMD="${IOR_BIN}
+    local ior_wr_cmd="${IOR_BIN}
                 -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k ${FPP}
                 -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
                 -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
                 --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        wr_cmd="${PREFIX_MVAPICH2} ${IOR_WR_CMD}"
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        wr_cmd="${PREFIX_OPENMPI} ${IOR_WR_CMD}"
-    else
-        wr_cmd="${PREFIX_MPICH} ${IOR_WR_CMD}"
-    fi
+    local wr_cmd="${MPI_CMD} ${ior_wr_cmd}"
 
     echo ${wr_cmd}
     echo
@@ -637,20 +627,14 @@ function run_ior_write(){
 }
 
 function run_ior_read(){
-    IOR_RD_CMD="${IOR_BIN}
+    local ior_rd_cmd="${IOR_BIN}
                -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k ${FPP}
                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
                -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                --dfs.group daos_server --dfs.pool ${POOL_UUID}
                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        rd_cmd="${PREFIX_MVAPICH2} ${IOR_RD_CMD}"
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        rd_cmd="${PREFIX_OPENMPI} ${IOR_RD_CMD}"
-    else
-        rd_cmd="${PREFIX_MPICH} ${IOR_RD_CMD}"
-    fi
+    local rd_cmd="${MPI_CMD} ${ior_rd_cmd}"
 
     echo ${rd_cmd}
     echo
@@ -733,7 +717,7 @@ function run_mdtest(){
     echo -e "\nCMD: Starting MDTEST...\n"
     echo
 
-    mdtest_cmd="${MDTEST_BIN}
+    local mdtest_cmd="${MDTEST_BIN}
                 -a DFS
                 --dfs.pool ${POOL_UUID}
                 --dfs.group daos_server
@@ -745,13 +729,7 @@ function run_mdtest(){
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
 
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        cmd="${PREFIX_MVAPICH2} ${mdtest_cmd}"
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        cmd="${PREFIX_OPENMPI} ${mdtest_cmd}"
-    else
-        cmd="${PREFIX_MPICH} ${mdtest_cmd}"
-    fi
+    local cmd="${MPI_CMD} ${mdtest_cmd}"
 
     echo $cmd
     echo
