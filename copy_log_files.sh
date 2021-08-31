@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Copy daos_metrics and dmesg output.
+#
 
 NODE_TYPE="${1}"
 LOG_DIR=${RUN_DIR}/${SLURM_JOB_ID}/logs/$(hostname)
