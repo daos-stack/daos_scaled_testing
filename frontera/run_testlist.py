@@ -33,6 +33,8 @@ for check_dir in (env['DAOS_DIR'], env['DST_DIR']):
         print("ERROR: Not a directory: {}".format(check_dir))
         exit(1)
 
+# TODO create RES_DIR here first to make sure it's valid
+
 # Sanity check that it's actually a DAOS installation
 if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
     print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
@@ -579,7 +581,7 @@ def is_list_or_tuple(o):
 
 
 class TestList(object):
-    def __init__(self, test_group, testdict, env, script='run_sbatch.sh'):
+    def __init__(self, test_group, testdict, env, script='frontera/run_sbatch.sh'):
         self._test_group = test_group
         self._testdict = testdict
         self._env = env.copy()

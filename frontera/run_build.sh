@@ -35,8 +35,8 @@ MPI_TARGET="mvapich2"
 IOR_COMMIT=""
 
 # Unload modules that are not needed on Frontera
-module unload impi pmix hwloc
-module list
+module unload impi pmix hwloc || exit
+module list || exit
 
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 TIMESTAMP=$(date +%Y%m%d)
@@ -45,7 +45,7 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 export PATH=~/.local/bin:$PATH
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
-source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET}
+source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET} || exit
 
 declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"

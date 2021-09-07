@@ -5,8 +5,4 @@
 #SBATCH -A STAR-Intel           # Project Name
 #SBATCH --mail-type=all         # Send email at begin and end of job
 
-mkdir -p ${RUN_DIR}
-
-${DST_DIR}/tests.sh ${1} |& tee ${RUN_DIR}/output_${SLURM_JOB_ID}.txt
-
-exit ${PIPESTATUS[0]}
+${DST_DIR}/frontera/run_build.sh "-j32" |& tee build_output_${SLURM_JOB_ID}.txt
