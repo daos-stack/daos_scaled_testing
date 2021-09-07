@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Build DAOS locally.
+#
 
 # Extra arguments to pass to DAOS scons
 EXTRA_BUILD="${1}"

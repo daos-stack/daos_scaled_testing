@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+'''
+    Generate and execute test environments.
+'''
+
 import os
 from os.path import isdir, isfile, join
 import subprocess

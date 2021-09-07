@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Build DAOS locally, executed on a compute node.
+#
 
 JOBNAME="<sbatch_jobname>"
 EMAIL="<email>" #<first.last@email.com>

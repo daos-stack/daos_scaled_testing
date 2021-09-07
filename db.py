@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+'''
+    Wrapper for database tools.
+'''
+
 import sys
 from argparse import ArgumentParser
 from os.path import join, dirname, realpath

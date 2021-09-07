@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Build and install hwloc, openmpi, and mpich locally.
+#
 
 if [ $# -gt 0 ]; then
     echo "Usage: $(basename $0)"

@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Create the DAOS log directory on a node.
+#
 
 LOG_DIR=${RUN_DIR}/${SLURM_JOB_ID}/logs/$(hostname)
 

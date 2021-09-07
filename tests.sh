@@ -1,7 +1,7 @@
 #!/bin/bash
-#----------------------------------------------------
-#Run daos tests like IOR/MDtest and self_test(cart)
-#----------------------------------------------------
+# ----------------------------------------------------
+# Run daos tests like IOR/MDtest and self_test(cart)
+# ----------------------------------------------------
 
 # Configurable parameters to be updated for each sbatch
 DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"

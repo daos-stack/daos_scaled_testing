@@ -1,6 +1,13 @@
 # daos_scaled_testing
 This repo contains execution scripts for Frontera.
 
+## Usage
+See [DAOS on Frontera](https://daosio.atlassian.net/wiki/spaces/DC/pages/4866835913/DAOS+on+Frontera)
+for documentation on how to use these scripts.
+
+## Database
+View the [Database README](README_database.md) for database usage.
+
 ## Version Compatibility
 Not all versions of this repo are compatible with all versions of DAOS.
 It may be necessary to use a specific commit when building or running tests
