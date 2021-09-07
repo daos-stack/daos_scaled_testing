@@ -8,3 +8,5 @@
 mkdir -p ${RUN_DIR}
 
 ${DST_DIR}/tests.sh ${1} |& tee ${RUN_DIR}/output_${SLURM_JOB_ID}.txt
+
+exit ${PIPESTATUS[0]}
