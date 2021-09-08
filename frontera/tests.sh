@@ -101,8 +101,8 @@ mkdir -p ${RUN_DIR}
 cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
 cat ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
 
-source ${DST_DIR}/env_daos ${DAOS_DIR}
-source ${DST_DIR}/build_env.sh ${MPI_TARGET}
+source ${DST_DIR}/frontera/env_daos ${DAOS_DIR}
+source ${DST_DIR}/frontera/build_env.sh ${MPI_TARGET}
 
 export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
 export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
@@ -136,7 +136,7 @@ function print_separator(){
 
 function cleanup(){
     pmsg "Removing temporary files"
-    ${SRUN_CMD} ${DST_DIR}/cleanup.sh
+    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup.sh
     echo "End Time: $(date)"
 }
 
@@ -148,14 +148,14 @@ function collect_test_logs(){
     --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
     export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
     export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-    ${DST_DIR}/copy_log_files.sh server "
+    ${DST_DIR}/frontera/copy_log_files.sh server "
 
     # Client nodes
     clush --hostfile ${CLIENT_HOSTLIST_FILE} \
     --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
     export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
     export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-    ${DST_DIR}/copy_log_files.sh client "
+    ${DST_DIR}/frontera/copy_log_files.sh client "
 }
 
 # Print command and run it, timestamp is prefixed
@@ -311,7 +311,7 @@ function check_clock_sync(){
     pmsg "Retrieving local time of each node"
     run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
                    -f ${SLURM_JOB_NUM_NODES} \
-                   ${DST_DIR}/print_node_local_time.sh"
+                   ${DST_DIR}/frontera/print_node_local_time.sh"
 
     pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
     clush -S --hostfile ${ALL_HOSTLIST_FILE} \
@@ -398,15 +398,15 @@ function prepare(){
     #Create the folder for server/client logs.
     mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}
     mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test}
-    cp -v ${DST_DIR}/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
-    ${SRUN_CMD} ${DST_DIR}/create_log_dir.sh
+    cp -v ${DST_DIR}/frontera/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
+    ${SRUN_CMD} ${DST_DIR}/frontera/create_log_dir.sh
 
     if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        ${DST_DIR}/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
+        ${DST_DIR}/frontera/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        ${DST_DIR}/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
+        ${DST_DIR}/frontera/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     else
-        ${DST_DIR}/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
+        ${DST_DIR}/frontera/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     fi
 
     ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
