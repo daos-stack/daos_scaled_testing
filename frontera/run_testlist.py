@@ -173,8 +173,8 @@ ec_full_stripe_testdict = {
             (4, 8, 5)
         ],
         'ec_cell_size': [
-            ('64K'),
-            ('1M')
+            (65536),
+            (1048576)
         ],
         'oclass': 'EC_2P1GX',
         'env_vars': {
@@ -196,8 +196,8 @@ ec_full_stripe_testdict = {
             (6, 12, 5)
         ],
         'ec_cell_size': [
-            ('64K'),
-            ('1M')
+            (65536),
+            (1048576)
         ],
         'oclass': 'EC_4P2GX',
         'env_vars': {
@@ -219,8 +219,8 @@ ec_full_stripe_testdict = {
             (10, 20, 5)
         ],
         'ec_cell_size': [
-            ('64K'),
-            ('1M')
+            (65536),
+            (1048576)
         ],
         'oclass': 'EC_8P2GX',
         'env_vars': {
@@ -242,8 +242,8 @@ ec_full_stripe_testdict = {
             (18, 36, 5)
         ],
         'ec_cell_size': [
-            ('64K'),
-            ('1M')
+            (65536),
+            (1048576)
         ],
         'oclass': 'EC_16P2GX',
         'env_vars': {
@@ -595,7 +595,7 @@ class TestList(object):
     def _expand_default_test_params(self, test_params):
         for param, default in [
                 ('oclass', ['']),
-                ('ec_cell_size', ['1M'])]:
+                ('ec_cell_size', ['1048576'])]:
             if param not in test_params:
                 # Set default value
                 test_params[param] = default
