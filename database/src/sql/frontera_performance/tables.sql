@@ -30,7 +30,7 @@ CREATE TABLE results_ior (
     chunk_size   varchar(40),
     xfer_size    varchar(40),
     block_size   varchar(40),
-    ec_cell_size int,
+    ec_cell_size VARCHAR(40),
     iterations   int,
     sw_time      int,
     notes        varchar(400),

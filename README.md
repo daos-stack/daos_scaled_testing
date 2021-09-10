@@ -8,4 +8,4 @@ See [./frontera](frontera)
 See [./edv](edv)
 
 ## Database
-View the [Database README](README_database.md) for database usage.
+See [./database](database)

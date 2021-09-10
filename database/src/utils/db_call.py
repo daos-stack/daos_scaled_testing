@@ -9,6 +9,7 @@ from . import io_utils
 from . import db_utils
 
 def main(args):
+    '''Call a database procedure.'''
     parser = ArgumentParser()
     parser.add_argument(
         '--config',
@@ -44,7 +45,7 @@ def main(args):
         return 1
 
     if not args.proc_name and not args.list_procs:
-        print('Either --list-procs or procedure name should be specified')
+        print('Either --list-procs or procedure name must be specified')
         parser.print_help()
         return 1
 

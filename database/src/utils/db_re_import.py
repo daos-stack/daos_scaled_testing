@@ -5,6 +5,7 @@ import glob
 from .io_utils import print_err
 from . import db_import
 
+
 def main(args):
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
@@ -14,7 +15,7 @@ def main(args):
     parser.add_argument(
         '--data_dir',
         type=str,
-        default=join(realpath(join(dirname(__file__), '..', '..')), 'data'),
+        default=join(realpath(join(dirname(__file__), '..', '..')), 'raw'),
         help='data directory to import')
     parser.add_argument(
         '--database',
@@ -48,7 +49,8 @@ def main(args):
     for table_dir in table_dirs:
         for csv_path in glob.iglob(join(table_dir, '*.csv')):
             table_name = basename(table_dir)
-            rc = db_import.main(['--config', f'{args.config}', table_name, csv_path, '--replace'])
+            rc = db_import.main(
+                ['--config', f'{args.config}', table_name, csv_path, '--replace'])
             if rc != 0:
                 return rc
 
