@@ -482,44 +482,50 @@ function query_pools_rebuild(){
     echo "NUM_POOLS_REBUILD_DONE : ${num_rebuild_done}"
 }
 
-#Create Container
-function create_container(){
-    echo -e "\nCMD: Creating container\n"
+# Run daos cont create
+function daos_cont_create(){
+    local pool="${1:-${POOL_UUID}}"
+    local cont_label="${2:-test_cont}"
+    local cont_uuid="${3:-$(uuidgen)}"
+    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
 
-    CONT_UUID=$(uuidgen)
-    HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
-    echo CONT_UUID = $CONT_UUID
-    echo HOST ${HOST}
+    CONT_UUID="${cont_uuid}"
 
-    #For EC test, set container RF based on number of parity
+    pmsg "Creating container ${cont_label} ${cont_uuid}"
+
+    # If CONT_RF is not the default, add to create properties
     if [ -z "$CONT_RF" ] || [ "$CONT_RF" == "0" ]; then
-       echo "Daos container created with default RF=0"
+       pmsg "Using default rf:0"
     else
-       echo "Daos container created with RF=$CONT_RF"
+       pmsg "Using rf:$CONT_RF"
        CONT_PROP="$CONT_PROP,rf:$CONT_RF"
     fi
 
-    #Set EC test with different cell size
+    # If EC_CELL_SIZE is not the default, add to create properties
     if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == '1048576' ] || [ "$EC_CELL_SIZE" == '1M' ]; then
-       echo "Daos container created with default EC Cell size"
+       pmsg "Using default ec_cell:1048576"
     else
-       echo "Daos container created with EC Cell size=$EC_CELL_SIZE"
+       pmsg "Using ec_cell:$EC_CELL_SIZE"
        CONT_PROP="$CONT_PROP,ec_cell:$EC_CELL_SIZE"
     fi
 
-    daos_cmd="daos container create --pool=${POOL_UUID} --cont ${CONT_UUID}
-              --sys-name=daos_server --type=POSIX ${CONT_PROP}"
-    cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
-    -f ${SLURM_JOB_NUM_NODES} \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-    export CPATH=${CPATH};
-    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-    export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
-    export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-    export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-    $daos_cmd\""
+    daos_cmd="daos container create
+              --pool=${pool}
+              --cont ${cont_uuid}
+              --label ${cont_label}
+              --sys-name=daos_server
+              --type=POSIX ${CONT_PROP}"
+    cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
+         -f ${SLURM_JOB_NUM_NODES} \"
+         export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+         export CPATH=${CPATH};
+         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
+         export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
+         export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
+         export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+         $daos_cmd\""
 
-    pmsg "CMD: ${daos_cmd}"
+    pmsg "CMD: $(echo ${daos_cmd} | tr -s ' ')"
     eval ${cmd}
 
     if [ $? -ne 0 ]; then
@@ -529,21 +535,24 @@ function create_container(){
     fi
 }
 
-#Query Container
-function query_container(){
-    echo -e "\nCMD: Query container\n"
+# Run daos cont query
+function daos_cont_query(){
+    local pool="${1:-${POOL_UUID}}"
+    local cont="${2:-${CONT_UUID}}"
+    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
 
-    HOST=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
-    daos_cmd="daos container query --pool=${POOL_UUID} --cont=${CONT_UUID}"
-    cmd="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S
-    -f ${SLURM_JOB_NUM_NODES} \"
-    export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-    export CPATH=${CPATH};
-    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-    export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
-    export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-    export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-    $daos_cmd\""
+    pmsg "Querying container ${pool}:${cont}"
+
+    daos_cmd="daos container query --pool=${pool} --cont=${cont}"
+    cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
+         -f ${SLURM_JOB_NUM_NODES} \"
+         export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+         export CPATH=${CPATH};
+         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
+         export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
+         export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
+         export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+         $daos_cmd\""
 
     pmsg "CMD: ${daos_cmd}"
     eval ${cmd}
@@ -615,7 +624,7 @@ function run_ior_write(){
     local IOR_RC=$?
     popd
 
-    query_container
+    daos_cont_query
     get_daos_status
 
     if [ ${IOR_RC} -ne 0 ]; then
@@ -649,7 +658,7 @@ function run_ior_read(){
     local IOR_RC=$?
     popd
 
-    query_container
+    daos_cont_query
     get_daos_status
 
     if [ ${IOR_RC} -ne 0 ]; then
@@ -744,7 +753,7 @@ function run_mdtest(){
     local MDTEST_RC=$?
     popd
 
-    query_container
+    daos_cont_query
     get_daos_status
 
     if [ ${MDTEST_RC} -ne 0 ]; then
@@ -860,8 +869,8 @@ function run_testcase(){
             start_server
             start_agent
             dmg_pool_create
-            create_container
-            query_container
+            daos_cont_create
+            daos_cont_query
             run_ior_write
             kill_random_server
             ;;
@@ -869,8 +878,8 @@ function run_testcase(){
             start_server
             start_agent
             dmg_pool_create
-            create_container
-            query_container
+            daos_cont_create
+            daos_cont_query
             run_ior
             ;;
         SELF_TEST)
@@ -882,8 +891,8 @@ function run_testcase(){
             start_server
             start_agent
             dmg_pool_create
-            create_container
-            query_container
+            daos_cont_create
+            daos_cont_query
             run_mdtest
             ;;
         *)
