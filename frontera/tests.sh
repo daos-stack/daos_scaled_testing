@@ -579,26 +579,27 @@ function start_server(){
     wait_for_servers_to_start "${DAOS_SERVERS}"
 }
 
-#Run IOR
-function run_ior(){
-    echo -e "\nCMD: Starting IOR..."
-
-    if [ -z ${SW_TIME+x} ]; then
-        SW_CMD=""
-    else
-        SW_CMD="-O stoneWallingWearOut=1
+if [ -z ${SW_TIME+x} ]; then
+    IOR_SW_CMD=""
+else
+    IOR_SW_CMD="-O stoneWallingWearOut=1
                 -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID}
                 -D ${SW_TIME}"
-    fi
+fi
 
+# Run IOR write and read
+function run_ior(){
     run_ior_write
     run_ior_read
 }
 
+# Run IOR write
 function run_ior_write(){
+    pmsg "Running IOR WRITE"
+
     local ior_wr_cmd="${IOR_BIN}
                 -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k ${FPP}
-                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
+                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${IOR_SW_CMD}
                 -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
                 --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
@@ -621,15 +622,18 @@ function run_ior_write(){
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "IOR_RC: ${IOR_RC}\n"
         teardown_test "IOR WRITE FAIL" 1
-    else
-        echo -e "\nSTATUS: IOR WRITE SUCCESS\n"
     fi
+
+    pmsg "IOR WRITE SUCCESS"
 }
 
+# Run IOR read
 function run_ior_read(){
+    pmsg "Running IOR READ"
+
     local ior_rd_cmd="${IOR_BIN}
                -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k ${FPP}
-               -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${SW_CMD}
+               -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${IOR_SW_CMD}
                -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                --dfs.group daos_server --dfs.pool ${POOL_UUID}
                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
@@ -652,9 +656,9 @@ function run_ior_read(){
     if [ ${IOR_RC} -ne 0 ]; then
         echo -e "IOR_RC: ${IOR_RC}\n"
         teardown_test "IOR READ FAIL" 1
-    else
-        echo -e "\nSTATUS: IOR READ SUCCESS\n"
     fi
+
+    pmsg "IOR READ SUCCESS"
 }
 
 #Run cart self_test

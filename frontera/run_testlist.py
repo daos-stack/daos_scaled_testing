@@ -585,7 +585,7 @@ class TestList(object):
         self._test_group = test_group
         self._testdict = testdict
         self._env = env.copy()
-        self._setup_offset = 10
+        self._setup_offset = 5
         self._teardown_offset = 5
         self._pool_create_timeout = 3
         self._cmd_timeout = 2
