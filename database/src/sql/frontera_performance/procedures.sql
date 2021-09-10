@@ -1,4 +1,55 @@
 DELIMITER //
+CREATE OR REPLACE PROCEDURE simple_ior (
+  IN test_case_in TEXT,
+  IN oclass1_in TEXT,
+  IN daos_commit1_in TEXT,
+  IN subtype_in TEXT
+)
+ BEGIN
+    IF oclass1_in IS NULL THEN SET oclass1_in := '%'; END IF;
+    IF daos_commit1_in IS NULL THEN SET daos_commit1_in := '%'; END IF;
+
+    SELECT ior1.slurm_job_id        AS "slurm_job_id",
+           ior1.daos_commit         AS "DAOS Commit",
+           ior1.oclass              AS "oclass",
+           ior1.num_servers         AS "#Servers",
+           ior1.num_clients         AS "#Clients",
+           round(ior1.write_gib, 2) AS "write_gib",
+           round(ior1.read_gib, 2)  AS "read_gib"
+    FROM results_ior ior1
+      WHERE ((subtype_in IS NULL)
+          OR (subtype_in = '1to4' AND ior1.num_clients = (ior1.num_servers * 4))
+          OR (subtype_in = 'c16' AND ior1.num_clients = 16))
+        AND ior1.oclass LIKE oclass1_in
+        AND ior1.test_case LIKE test_case_in
+        AND compare_git_hash(ior1.daos_commit, daos_commit1_in)
+      ORDER BY ior1.daos_commit, ior1.oclass, ior1.num_servers, ior1.num_clients;
+  END //
+DELIMITER ;
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE simple_ior_1to4 (
+  IN test_case_in TEXT,
+  IN oclass1_in TEXT,
+  IN daos_commit1_in TEXT
+)
+ BEGIN
+    CALL simple_ior(test_case_in, oclass1_in, daos_commit1_in, '1to4');
+  END //
+DELIMITER ;
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE simple_ior_c16 (
+  IN test_case_in TEXT,
+  IN oclass1_in TEXT,
+  IN daos_commit1_in TEXT
+)
+ BEGIN
+    CALL simple_ior(test_case_in, oclass1_in, daos_commit1_in, 'c16');
+  END //
+DELIMITER ;
+
+DELIMITER //
 CREATE OR REPLACE PROCEDURE compare_ior (
   IN test_case_in TEXT,
   IN oclass1_in TEXT,
@@ -123,6 +174,51 @@ DELIMITER ;
 
 
 DELIMITER //
+CREATE OR REPLACE PROCEDURE compare_ior_s_ec_simple (
+  IN test_case_in TEXT,
+  IN ec_oclass_in TEXT,
+  IN s_commit_in TEXT,
+  IN ec_commit_in TEXT
+)
+ BEGIN
+    IF ec_oclass_in IS NULL THEN SET ec_oclass_in := '%'; END IF;
+    IF s_commit_in IS NULL THEN SET s_commit_in := '%'; END IF;
+    IF ec_commit_in IS NULL THEN SET ec_commit_in := '%'; END IF;
+
+    SELECT s_ior.slurm_job_id         AS "SX slurm_job_id",
+           ec_ior.slurm_job_id        AS "EC slurm_job_id",
+           s_ior.daos_commit          AS "SX Commit",
+           ec_ior.daos_commit         AS "EC Commit",
+           s_ior.oclass               AS "SX Oclass",
+           ec_ior.oclass              AS "EC Oclass",
+           s_ior.num_servers          AS "#Servers",
+           s_ior.num_clients          AS "#Clients",
+           s_ior.chunk_size           AS "SX Chunk",
+           s_ior.xfer_size            AS "SX Xfer",
+           ec_ior.chunk_size          AS "EC Chunk",
+           ec_ior.xfer_size           AS "EC xfer",
+           round(s_ior.write_gib, 2)  AS "SX write_gib",
+           round(ec_ior.write_gib, 2) AS "EC write_gib",
+           round(s_ior.read_gib, 2)   AS "SX read_gib",
+           round(ec_ior.read_gib, 2)  AS "EC read_gib",
+           CAST(round(percent_diff(s_ior.write_gib, ec_ior.write_gib), 2) AS CHAR) AS "write_gib%",
+           CAST(round(percent_diff(s_ior.read_gib, ec_ior.read_gib), 2) AS CHAR)   AS "read_gib%"
+    FROM results_ior ec_ior JOIN results_ior s_ior
+      USING (num_servers, num_clients, num_targets)
+      WHERE s_ior.id != ec_ior.id
+        AND ec_ior.oclass LIKE ec_oclass_in
+        AND s_ior.oclass = 'SX'
+        AND compare_byte_repr(s_ior.xfer_size, ec_ior.xfer_size)
+        AND s_ior.test_case LIKE test_case_in
+        AND ec_ior.test_case LIKE test_case_in
+        AND compare_git_hash(s_ior.daos_commit, s_commit_in)
+        AND compare_git_hash(ec_ior.daos_commit, ec_commit_in)
+      ORDER BY ec_ior.daos_commit, ec_ior.oclass, ec_ior.num_servers, ec_ior.num_clients;
+  END //
+DELIMITER ;
+
+
+DELIMITER //
 CREATE OR REPLACE PROCEDURE compare_mdtest_s_ec (
   IN test_case_in TEXT,
   IN ec_oclass_in TEXT,
@@ -170,6 +266,61 @@ CREATE OR REPLACE PROCEDURE compare_mdtest_s_ec (
         AND compare_git_hash(s_mdt.daos_commit, s_commit_in)
         AND compare_git_hash(ec_mdt.daos_commit, ec_commit_in)
       ORDER BY ec_mdt.daos_commit, ec_mdt.oclass, ec_mdt.num_servers, ec_mdt.num_clients;
+  END //
+DELIMITER ;
+
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE simple_mdtest (
+  IN test_case_in TEXT,
+  IN oclass1_in TEXT,
+  IN daos_commit1_in TEXT,
+  IN subtype_in TEXT
+)
+ BEGIN
+    IF oclass1_in IS NULL THEN SET oclass1_in := '%'; END IF;
+    IF daos_commit1_in IS NULL THEN SET daos_commit1_in := '%'; END IF;
+
+    SELECT mdtest1.slurm_job_id          AS "slurm_job_id1",
+           mdtest1.daos_commit           AS "DAOS Commit1",
+           mdtest1.oclass                AS "oclass1",
+           mdtest1.num_servers           AS "#Servers",
+           mdtest1.num_clients           AS "#Clients",
+           round(mdtest1.create_kops, 2) AS "create_kops1",
+           round(mdtest1.stat_kops, 2)   AS "stat_kops1",
+           round(mdtest1.read_kops, 2)   AS "read_kops1",
+           round(mdtest1.remove_kops, 2) AS "remove_kops1"
+    FROM results_mdtest mdtest1
+      WHERE ((subtype_in IS NULL)
+          OR (subtype_in = '1to4' AND mdtest1.num_clients = (mdtest1.num_servers * 4))
+          OR (subtype_in = 'c16' AND mdtest1.num_clients = 16))
+        AND mdtest1.oclass LIKE oclass1_in
+        AND mdtest1.test_case LIKE test_case_in
+        AND compare_git_hash(mdtest1.daos_commit, daos_commit1_in)
+      ORDER BY mdtest1.daos_commit, mdtest1.oclass, mdtest1.num_servers, mdtest1.num_clients;
+  END //
+DELIMITER ;
+
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE simple_mdtest_1to4 (
+  IN test_case_in TEXT,
+  IN oclass1_in TEXT,
+  IN daos_commit1_in TEXT
+)
+ BEGIN
+    CALL simple_mdtest(test_case_in, oclass1_in, daos_commit1_in, '1to4');
+  END //
+DELIMITER ;
+
+DELIMITER //
+CREATE OR REPLACE PROCEDURE simple_mdtest_c16 (
+  IN test_case_in TEXT,
+  IN oclass1_in TEXT,
+  IN daos_commit1_in TEXT
+)
+ BEGIN
+    CALL simple_mdtest(test_case_in, oclass1_in, daos_commit1_in, 'c16');
   END //
 DELIMITER ;
 
