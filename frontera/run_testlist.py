@@ -33,8 +33,6 @@ for check_dir in (env['DAOS_DIR'], env['DST_DIR']):
         print("ERROR: Not a directory: {}".format(check_dir))
         exit(1)
 
-# TODO create RES_DIR here first to make sure it's valid
-
 # Sanity check that it's actually a DAOS installation
 if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
     print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
@@ -45,7 +43,6 @@ if not env['MPI_TARGET'] in ('mvapich2', 'openmpi', 'mpich'):
     print("ERROR: invalid MPI_TARGET {}".format(env['MPI_TARGET']))
     exit(1)
 
-# TODO refactor to make 'inflight' a variant?
 self_testdict = {
     'st_1tomany_cli2srv_inf1': {
         'scale': [
