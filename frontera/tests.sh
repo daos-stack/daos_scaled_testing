@@ -43,6 +43,8 @@ fi
 
 # Print all relevant test params / env variables
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
+echo "JOBNAME         : ${JOBNAME}"
+echo "EMAIL           : ${EMAIL}"
 echo "TESTCASE        : ${TESTCASE}"
 echo "OCLASS          : ${OCLASS}"
 echo "DIR_OCLASS      : ${DIR_OCLASS}"
@@ -89,13 +91,10 @@ PROCESSES="'(daos|orteun|mpirun)'"
 # Time in milliseconds
 CLOCK_DRIFT_THRESHOLD=500
 
-HOSTNAME=$(hostname)
-echo "hostname:"
-echo $HOSTNAME
+echo "Test runner hostname: ${HOSTNAME}"
 echo
 echo "DAOS_DIR:"
-BUILD=`ls -ald $(realpath ${DAOS_DIR}/../.)`
-echo $BUILD
+echo "$(ls -ald $(realpath ${DAOS_DIR}/../.))"
 
 mkdir -p ${RUN_DIR}
 cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
