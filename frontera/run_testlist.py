@@ -5,7 +5,11 @@
 '''
 
 import os
+import sys
+from argparse import ArgumentParser
 from os.path import isdir, isfile, join, expandvars, realpath
+from os.path import splitext, dirname, basename
+from importlib import import_module
 import subprocess
 import itertools
 
@@ -43,534 +47,6 @@ if not env['MPI_TARGET'] in ('mvapich2', 'openmpi', 'mpich'):
     print("ERROR: invalid MPI_TARGET {}".format(env['MPI_TARGET']))
     exit(1)
 
-self_testdict = {
-    'st_1tomany_cli2srv_inf1': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (2, 1, 15),
-            (4, 1, 15),
-            (8, 1, 15),
-            (16, 1, 15),
-            (32, 1, 15),
-            (64, 1, 15),
-            (128, 1, 15),
-            (256, 1, 15),
-            (512, 1, 15)
-        ],
-        'env_vars': {
-            'inflight': 1,
-            'ppc': 1
-        },
-        'enabled': False
-    },
-    'st_1tomany_cli2srv_inf16': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (2, 1, 15),
-            (4, 1, 15),
-            (8, 1, 15),
-            (16, 1, 15),
-            (32, 1, 15),
-            (64, 1, 15),
-            (128, 1, 15),
-            (256, 1, 15),
-            (512, 1, 15)
-        ],
-        'env_vars': {
-            'inflight': 16,
-            'ppc': 1
-        },
-        'enabled': False
-    }
-}
-
-ec_partial_stripe_testdict = {
-    'ec_ior_partial_stripe_EC_2P1GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (4, 8, 5)
-        ],
-        'oclass': 'EC_2P1GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '1M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ec_ior_partial_stripe_EC_4P2GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (6, 12, 5)
-        ],
-        'oclass': 'EC_4P2GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '1M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ec_ior_partial_stripe_EC_8P2GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (10, 20, 5)
-        ],
-        'oclass': 'EC_8P2GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '1M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ec_ior_partial_stripe_EC_16P2GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (18, 36, 5)
-        ],
-        'oclass': 'EC_16P2GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '1M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    }
-}
-
-ec_full_stripe_testdict = {
-    'ec_ior_full_stripe_EC_2P1GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (4, 8, 5)
-        ],
-        'ec_cell_size': [
-            (65536),
-            (1048576)
-        ],
-        'oclass': 'EC_2P1GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '2M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ec_ior_full_stripe_EC_4P2GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (6, 12, 5)
-        ],
-        'ec_cell_size': [
-            (65536),
-            (1048576)
-        ],
-        'oclass': 'EC_4P2GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '4M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ec_ior_full_stripe_EC_8P2GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (10, 20, 5)
-        ],
-        'ec_cell_size': [
-            (65536),
-            (1048576)
-        ],
-        'oclass': 'EC_8P2GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '8M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ec_ior_full_stripe_EC_16P2GX': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (18, 36, 5)
-        ],
-        'ec_cell_size': [
-            (65536),
-            (1048576)
-        ],
-        'oclass': 'EC_16P2GX',
-        'env_vars': {
-            'chunk_size': '32M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '16M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    }
-}
-
-
-ior_single_replica_testdict = {
-    'ior_easy_S2': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (4, 8, 5)
-        ],
-        'oclass': 'S2',
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '2M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ior_easy_S4': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (6, 12, 5)
-        ],
-        'oclass': 'S4',
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '4M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ior_easy_S8': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (40, 20, 5)
-        ],
-        'oclass': 'S8',
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '8M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ior_easy_S16': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (18, 36, 10)
-        ],
-        'oclass': 'S16',
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '16M',
-            'block_size': '1G',
-            'fpp': '-F',
-            'sw_time': '60',
-            'iterations': '2',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-}
-
-
-ior_testdict = {
-    'ior_easy': {
-        'oclass': [
-            #'SX',
-            #'RP_2GX',
-            #'RP_3GX',
-            #'EC_2P1GX',
-            #'EC_4P1GX'
-        ],
-        'scale': [
-            # 1to4, (num_servers, num_clients, timeout_minutes)
-            #(1, 4, 5),
-            #(2, 8, 5),
-            #(4, 16, 5),
-            #(8, 32, 5),
-            #(16, 64, 5),
-            #(32, 128, 5),
-            #(64, 256, 5),
-            #(128, 512, 5),
-            #(256, 1024, 5),
-
-            # c16, (num_servers, num_clients, timeout_minutes)
-            #(1, 16, 5),
-            #(2, 16, 5),
-            #(4, 16, 5),
-            #(8, 16, 5),
-            #(16, 16, 5),
-            #(32, 16, 5),
-            #(64, 16, 5),
-            #(128, 16, 5),
-            #(256, 16, 5)
-        ],
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'segments': '1',
-            'xfer_size': '1M',
-            'block_size': '150G',
-            'sw_time': '60',
-            'iterations': '1',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'ior_hard': {
-        'oclass': [
-            #'SX',
-            #'RP_2GX',
-            #'RP_3GX',
-            #'EC_2P1GX',
-            #'EC_4P1GX'
-        ],
-        'scale': [
-            # 1to4, (num_servers, num_clients, timeout_minutes)
-            #(1, 4, 5),
-            #(2, 8, 5),
-            #(4, 16, 5),
-            #(8, 32, 5),
-            #(16, 64, 5),
-            #(32, 128, 5),
-            #(64, 256, 5),
-            #(128, 512, 5),
-            #(256, 1024, 5),
-
-            # c16, (num_servers, num_clients, timeout_minutes)
-            #(1, 16, 5),
-            #(2, 16, 5),
-            #(4, 16, 5),
-            #(8, 16, 5),
-            #(16, 16, 5),
-            #(32, 16, 5),
-            #(64, 16, 5),
-            #(128, 16, 5),
-            #(256, 16, 5)
-        ],
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'segments': '2000000',
-            'xfer_size': '47008',
-            'block_size': '47008',
-            'sw_time': '60',
-            'iterations': '1',
-            'ppc': 32
-        },
-        'enabled': False
-    }
-}
-
-
-mdtest_testdict = {
-    'mdtest_easy': {
-        'oclass': [
-            #('S1', 'SX'),
-            #('RP_2G1', 'RP_2GX'),
-            #('RP_3G1', 'RP_3GX')
-        ],
-        'scale': [
-            # 1to4, (num_servers, num_clients, timeout_minutes)
-            #(1, 4, 5),
-            #(2, 8, 5),
-            #(4, 16, 5),
-            #(8, 32, 5),
-            #(16, 64, 5),
-            #(32, 128, 5),
-            #(64, 256, 5),
-            #(128, 512, 5),
-            #(256, 1024, 5),
-
-            # c16, (num_servers, num_clients, timeout_minutes)
-            #(1, 16, 5),
-            #(2, 16, 5),
-            #(4, 16, 5),
-            #(8, 16, 5), # sw=50 for S1
-            #(16, 16, 5),
-            #(32, 16, 5),
-            #(64, 16, 5),
-            #(128, 16, 5),
-            #(256, 16, 5)
-        ],
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'n_file': '1000000',
-            'bytes_read': '0',
-            'bytes_write': '0',
-            'tree_depth': '0',
-            'sw_time': '60', # 30 for RP_2G1, RP_3G1
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'mdtest_hard': {
-        'oclass': [
-            #('S1', 'SX'),
-            #('RP_2G1', 'RP_2GX'),
-            #('RP_3G1', 'RP_3GX')
-        ],
-        'scale': [
-            # 1to4, (num_servers, num_clients, timeout_minutes)
-            #(1, 4, 5),
-            #(2, 8, 5),
-            #(4, 16, 5),
-            #(8, 32, 5),
-            #(16, 64, 5),
-            #(32, 128, 5),
-            #(64, 256, 5),
-            #(128, 512, 5),
-            #(256, 1024, 5),
-
-            # c16, (num_servers, num_clients, timeout_minutes)
-            #(1, 16, 5),
-            #(2, 16, 5),
-            #(4, 16, 5),
-            #(8, 16, 5),
-            #(16, 16, 5),
-            #(32, 16, 5),
-            #(64, 16, 5),
-            #(128, 16, 5),
-            #(256, 16, 5)
-        ],
-        'env_vars': {
-            'chunk_size': '1M',
-            'pool_size': '85G',
-            'n_file': '200000',
-            'bytes_read': '3901',
-            'bytes_write': '3901',
-            'tree_depth': '0/20',
-            'sw_time': '60', # 30 for RP_2G1, RP_3G1
-            'ppc': 32
-        },
-        'enabled': False
-    }
-}
-
-
-swim_testdict = {
-    'rebuild_pool_single': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (2, 1, 10),
-            (4, 1, 10),
-            (8, 1, 10),
-            (16, 1, 10),
-        ],
-        'env_vars': {
-            'pool_size': '85G',
-            'number_of_pools': '1',
-            'ppc': 32
-        },
-        'enabled': False
-    },
-    'rebuild_pool_multi': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (2, 1, 15),
-            (4, 1, 15),
-            (8, 1, 15),
-            (16, 1, 15),
-        ],
-        'env_vars': {
-            'pool_size': '256MiB', # Minimum 16MiB per rank
-            'number_of_pools': '73',
-            'ppc': 32
-        },
-        'enabled': False
-    }
-}
-
-
-swim_ior_testdict = {
-    'pool_rebuild_50_load': {
-        'scale': [
-            # (num_servers, num_clients, timeout_minutes)
-            (8, 4, 30)
-        ],
-        'oclass': 'SX',
-        'env_vars': {
-            'pool_size': '85G',
-            'number_of_pools': '1',
-            'chunk_size': '1M',
-            'segments': '1',
-            'xfer_size': '1M',
-            'block_size': '2656M',
-            'iterations': '1',
-            'ppc': 32
-        },
-        'enabled': False
-    }
-}
-
-
 
 def is_list_or_tuple(o):
     """Return True if an object is a list or tuple."""
@@ -578,16 +54,15 @@ def is_list_or_tuple(o):
 
 
 class TestList(object):
-    def __init__(self, test_group, testdict, env, script='frontera/run_sbatch.sh'):
-        self._test_group = test_group
-        self._testdict = testdict
+    def __init__(self, testlist, env, script='frontera/run_sbatch.sh'):
+        self._testlist = testlist
         self._env = env.copy()
         self._setup_offset = 5
         self._teardown_offset = 5
         self._pool_create_timeout = 3
         self._cmd_timeout = 2
         dst_dir = os.getenv('DST_DIR')
-        self._script = os.path.join(dst_dir, script)
+        self._script = join(dst_dir, script)
 
     def _expand_default_test_params(self, test_params):
         for param, default in [
@@ -604,15 +79,15 @@ class TestList(object):
                     # Set empty list to default value
                     test_params[param] = default
 
-    def _expand_default_env_vars(self, env, testcase):
-        env['TEST_GROUP'] = self._test_group
-        env['TESTCASE'] = testcase
+    def _expand_default_env_vars(self, env, test_params):
+        env['TESTCASE'] = test_params.get('test_name')
+        env['TEST_GROUP'] = test_params.get('test_group')
         # Default IOR will use single shared file
         env['FPP'] = ''
-
-    def _expand_extra_env_vars(self, env, test_params):
         env_vars = test_params.get('env_vars', {})
         for name, value in env_vars.items():
+            if value is None:
+                raise ValueError(f"None-type env_var found for {env['TESTCASE']}")
             env[name.upper()] = str(value)
 
     def _add_partition(self, env, nodes):
@@ -628,7 +103,7 @@ class TestList(object):
         h = timeout // 60
         m = timeout % 60
         s = 0
-        env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
+        env['TIMEOUT'] = str(h) + ':' + str(m) + ':' + str(s)
         env['OMPI_TIMEOUT'] = str(test_timeout * 60)
         env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
         env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
@@ -659,12 +134,18 @@ class TestList(object):
     def _expand_env_ec_cell_size(self, env, ec_cell_size):
         env['EC_CELL_SIZE'] = str(ec_cell_size)
 
-    def run(self):
+    def run(self, dryrun=False):
+        '''Run the test list.
+
+        Args:
+            dryrun (bool, optional): if True, print tests to be ran, but do not run.
+                Default is False.
+
+        '''
         # Create a list of environments, where each is a test to run
         variant_env_list = []
 
-        for testcase in self._testdict:
-            test_params = self._testdict[testcase]
+        for test_params in self._testlist:
             if not 'enabled' in test_params or not test_params['enabled']:
                 continue
 
@@ -672,8 +153,7 @@ class TestList(object):
 
             # Get an environment for all variants for this testcase
             testcase_env = self._env.copy()
-            self._expand_default_env_vars(testcase_env, testcase)
-            self._expand_extra_env_vars(testcase_env, test_params)
+            self._expand_default_env_vars(testcase_env, test_params)
 
             for oclass, scale, ec_cell_size in itertools.product(
                     test_params['oclass'],
@@ -690,67 +170,90 @@ class TestList(object):
             print(f"Running {env['TESTCASE']} {env['OCLASS']}, "
                   f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
                   f"{env['EC_CELL_SIZE']} ec_ell_size")
-            subprocess.Popen(self._script, env=env)
+            if not dryrun:
+                subprocess.Popen(self._script, env=env)
 
-class SelfTestList(TestList):
-    def __init__(self, testdict):
-        super(SelfTestList, self).__init__('SELF_TEST', testdict, env)
+def _import_paths(paths, recurse=False):
+    '''Import tests from a list of paths.
+
+    Args:
+        paths (list): list of paths to python file to import tests from.
+        recurse (bool): whether to recursively import from directories.
+            Default is False.
+
+    Returns:
+        list: list of imported tests.
+            None on failure.
+
+    '''
+    if not is_list_or_tuple(paths):
+        paths = [paths]
+
+    all_tests = []
+
+    for path in paths:
+        if '__pycache__' in path:
+            continue
+
+        if isdir(path):
+            if not recurse:
+                print(f'Skipping directory {path}')
+                continue
+            for sub_path in os.listdir(path):
+                tests = _import_paths(join(path, sub_path), recurse)
+                if tests is None:
+                    print(f'Failed to import tests from {path}')
+                    return None
+                all_tests += tests
+            continue
+
+        if not path.endswith('.py'):
+            print(f'Skipping non-python path: {path}')
+            continue
+
+        print(f'Importing tests from {path}')
+        try:
+            _path = splitext(path)[0]
+            _name = f'.{basename(_path)}'
+            _package = dirname(_path).replace('/', '.')
+            package = import_module(_name, _package)
+            all_tests += package.tests
+        except Exception as e:
+            print(e)
+            print(f'Failed to import tests from {path}')
+            return None
+
+    return all_tests
 
 
-class IorTestList(TestList):
-    def __init__(self, testdict):
-        super(IorTestList, self).__init__('IOR', testdict, env)
+def main(args):
+    '''Run a test list.'''
+    parser = ArgumentParser()
+    parser.add_argument(
+        '--recurse', '-r',
+        default=False,
+        action='store_true',
+        help='recurse on directories')
+    parser.add_argument(
+        '--dryrun',
+        default=False,
+        action='store_true',
+        help='print tests to be ran, but do not run.')
+    parser.add_argument(
+        'config',
+        nargs='+',
+        type=str,
+        help='path(s) to python config files')
+    parser_args = parser.parse_args(args)
 
-    def _add_timeout(self, env, test_timeout):
-        # ior runs twice, read and write operations are performed separately
-        timeout = self._setup_offset + (test_timeout * 2) + self._teardown_offset
-        h = timeout // 60
-        m = timeout % 60
-        s = 0
-        env['TIMEOUT'] = str(h) + ":" + str(m) + ":" + str(s)
-        env['OMPI_TIMEOUT'] = str(test_timeout * 60)
-        env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
-        env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
+    tests = _import_paths(parser_args.config, parser_args.recurse)
+    if tests is None:
+        return 1
 
-
-class MdtestTestList(TestList):
-    def __init__(self, testdict):
-        super(MdtestTestList, self).__init__('MDTEST', testdict, env)
-
-
-class SwimTestList(TestList):
-    def __init__(self, testdict):
-        super(SwimTestList, self).__init__('SWIM', testdict, env)
-
-
-class SwimIORTestList(TestList):
-    def __init__(self, testdict):
-        super(SwimIORTestList, self).__init__('SWIM_IOR', testdict, env)
-
-def main():
-    self_test = SelfTestList(self_testdict)
-    self_test.run()
-
-    ior_test = IorTestList(ior_testdict)
-    ior_test.run()
-
-    mdtest_test = MdtestTestList(mdtest_testdict)
-    mdtest_test.run()
-
-    swim_test = SwimTestList(swim_testdict)
-    swim_test.run()
-
-    swim_ior_test = SwimIORTestList(swim_ior_testdict)
-    swim_ior_test.run()
-
-    ec_full_stripe = IorTestList(ec_full_stripe_testdict)
-    ec_full_stripe.run()
-
-    ior_single_replica = IorTestList(ior_single_replica_testdict)
-    ior_single_replica.run()
-
-    ec_partial_stripe = IorTestList(ec_partial_stripe_testdict)
-    ec_partial_stripe.run()    
+    test_list = TestList(tests, env)
+    test_list.run(parser_args.dryrun)
+    return 0
 
 if __name__ == '__main__':
-    main()
+    rc = main(sys.argv[1:])
+    sys.exit(rc)
