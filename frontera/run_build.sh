@@ -7,11 +7,11 @@
 EXTRA_BUILD="${1}"
 
 # Directory to build in
-export BUILD_DIR="$WORK2/BUILDS/"
+export BUILD_DIR="${WORK}/BUILDS/"
 
 # Only if building with mpich or openmpi
-export MPICH_DIR="<path_to_mpich>"     # e.g. /scratch/POC/mpich
-export OPENMPI_DIR="<path_to_openmpi>" # e.g. /scratch/POC/openmpi
+export MPICH_DIR="${WORK}/TOOLS/mpich" # Path to locally built mpich
+export OPENMPI_DIR="${WORK}/TOOLS/openmpi" # Path to locally built openmpi
 
 # DAOS branch to clone
 DAOS_BRANCH="master"

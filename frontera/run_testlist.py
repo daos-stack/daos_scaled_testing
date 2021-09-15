@@ -5,7 +5,7 @@
 '''
 
 import os
-from os.path import isdir, isfile, join
+from os.path import isdir, isfile, join, expandvars, realpath
 import subprocess
 import itertools
 
@@ -17,15 +17,15 @@ env['LD_LIBRARY_PATH'] = "/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugge
 
 env['JOBNAME']     = "<sbatch_jobname>"
 env['EMAIL']       = "<email>" # <first.last@email.com>
-env['DAOS_DIR']    = "<path_to_daos>" # E.g. /work2/08126/dbohninx/frontera/BUILDS/latest/daos
-env['DST_DIR']     = "<path_to_daos_scaled_testing>" # E.g. /scratch/TESTS/daos_scaled_testing
-env['RES_DIR']     = "<path_to_result_dir>" # E.g. /home1/06753/soychan/work/POC/TESTS/dst_framework/RESULTS
+env['DAOS_DIR']    = realpath(expandvars("${WORK}/BUILDS/latest/daos")) # Path to daos
+env['DST_DIR']     = realpath(expandvars("../")) # Path to daos_scaled_testing repo
+env['RES_DIR']     = realpath(expandvars("${WORK}/RESULTS")) # Path to test results
 
 env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
 
 # Only if using MPICH or OPENMPI
-env['MPICH_DIR']   = "<path_to_mpich>" #e.g./scratch/POC/mpich
-env['OPENMPI_DIR'] = "<path_to_openmpi>" #e.g./scratch/POC/openmpi
+env['MPICH_DIR']   = realpath(expandvars("${WORK}/TOOLS/mpich")) # Path to locally built mpich
+env['OPENMPI_DIR'] = realpath(expandvars("${WORK}/TOOLS/openmpi")) # Path to locall build openmpi
 
 # Sanity check that directories exist
 for check_dir in (env['DAOS_DIR'], env['DST_DIR']):

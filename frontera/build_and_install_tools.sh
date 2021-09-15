@@ -10,7 +10,7 @@ if [ $# -gt 0 ]; then
 fi
 
 BUILD_DIR=${SCRATCH}/BUILDS
-INSTALL_DIR=${HOME}/TOOLS
+INSTALL_DIR=${WORK}/TOOLS
 
 # Unload modules that are not needed on Frontera
 module unload impi pmix hwloc intel python3

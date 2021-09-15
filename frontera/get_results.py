@@ -3,12 +3,12 @@
 """
     Gathers ior and mdtest results into csv format.
     Examples:
-    - Get all ior and mdtest results
-        ./get_results.py /work2/08126/dbohninx/frontera/RESULTS
+    - Get all test results
+        ./get_results.py $WORK/RESULTS
     - Get just ior results
-        ./get_results.py /work2/08126/dbohninx/frontera/RESULTS --no-mdtest
+        ./get_results.py $WORK/RESULTS --tests ior
     - Get and email all results
-        ./get_results.py /work2/08126/dbohninx/frontera/RESULTS --email dalton
+        ./get_results.py $WORK/RESULTS --email dalton
 """
 
 import re
