@@ -98,10 +98,10 @@ BUILD=`ls -ald $(realpath ${DAOS_DIR}/../.)`
 echo $BUILD
 
 mkdir -p ${RUN_DIR}
-cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
-cat ${RUN_DIR}/repo_info_${SLURM_JOB_ID}.txt
+cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
+cat ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
 
-source ${DST_DIR}/frontera/env_daos ${DAOS_DIR}
+source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
 source ${DST_DIR}/frontera/build_env.sh ${MPI_TARGET}
 
 export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
@@ -395,12 +395,11 @@ function wait_for_servers_to_start(){
 
 #Create server/client hostfile.
 function prepare(){
-    #Create the folder for server/client logs.
-    mkdir -p ${RUN_DIR}/${SLURM_JOB_ID}
+    # Create core dump and log directories
     mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test}
-    cp -v ${DST_DIR}/frontera/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
     ${SRUN_CMD} ${DST_DIR}/frontera/create_log_dir.sh
 
+    # Generate MPI hostlist
     if [ "${MPI_TARGET}" == "mvapich2" ]; then
         ${DST_DIR}/frontera/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     elif [ "${MPI_TARGET}" == "openmpi" ]; then
@@ -409,8 +408,8 @@ function prepare(){
         ${DST_DIR}/frontera/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
     fi
 
+    # Use the first server as the access point
     ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
-
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
     sed -i "s/^\- .*/\- $ACCESS_POINT:$ACCESS_PORT/" ${DAOS_CONTROL_YAML}
@@ -583,7 +582,7 @@ if [ -z ${SW_TIME+x} ]; then
     IOR_SW_CMD=""
 else
     IOR_SW_CMD="-O stoneWallingWearOut=1
-                -O stoneWallingStatusFile=${RUN_DIR}/sw.${SLURM_JOB_ID}
+                -O stoneWallingStatusFile=${RUN_DIR}/${SLURM_JOB_ID}/sw.ior
                 -D ${SW_TIME}"
 fi
 
@@ -731,7 +730,7 @@ function run_mdtest(){
                 --dfs.dir_oclass ${DIR_OCLASS}
                 -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
-                -n ${N_FILE} -x ${RUN_DIR}/sw.${SLURM_JOB_ID} -v"
+                -n ${N_FILE} -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt -v"
 
     local cmd="${MPI_CMD} ${mdtest_cmd}"
 

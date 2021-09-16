@@ -46,4 +46,3 @@ export PYTHONPATH=/$LOCATION/src/tests/ftest/util:/$LOCATION/src/utils/py/:/$LOC
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
 export PATH LD_LIBRARY_PATH CPATH PYTHONPATH
-                                              

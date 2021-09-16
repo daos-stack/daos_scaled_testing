@@ -17,7 +17,7 @@ from argparse import ArgumentParser
 import os
 import stat
 import sys
-from os.path import join, dirname, basename, isfile
+from os.path import join, dirname, basename, isfile, isdir
 from pathlib import Path
 import subprocess
 import csv
@@ -138,9 +138,7 @@ def get_lines_after(header, num_lines, output):
     return "\n".join(match.group(0).split("\n")[:num_lines])
 
 def get_daos_commit(output_file_path, slurm_job_id):
-    """Get the DAOS commit for a given log file.
-
-    First tries repo_info_{slurm_job_id}.txt, then defaults to repo_info.txt.
+    """Get the DAOS commit for a given log file from repo_info.txt.
 
     Args:
         output_file_path (str): Path to the log output.
@@ -152,10 +150,7 @@ def get_daos_commit(output_file_path, slurm_job_id):
     """
     dir_name = dirname(output_file_path)
 
-    if slurm_job_id:
-        repo_info_path = join(dir_name, f"repo_info_{slurm_job_id}.txt")
-    if not slurm_job_id or not isfile(repo_info_path):
-        repo_info_path = join(dir_name, "repo_info.txt")
+    repo_info_path = join(dir_name, "repo_info.txt")
     repo_info = read_file(repo_info_path)
     if not repo_info:
         return None
@@ -183,7 +178,7 @@ def get_num_targets(output_file_path, slurm_job_id):
 
     dir_name = dirname(output_file_path)
 
-    config_path = join(dir_name, slurm_job_id, "daos_server.yml")
+    config_path = join(dir_name, "daos_server.yml")
     config = read_file(config_path)
     if not config:
         return None
@@ -724,7 +719,7 @@ class CsvRebuild(CsvBase):
         if int(num_pools_rebuild_done) != int(num_pools):
             status.warn(f"num_pools_rebuild_done={num_pools_rebuild_done},")
 
-        log_dir = join(dirname(file_path), row["slurm_job_id"], "logs")
+        log_dir = join(dirname(file_path), "logs")
 
         rebuild_kill_time      = get_test_param("Kill Time", ":", output)
         rebuild_queued_time    = None
@@ -800,12 +795,15 @@ def get_stdout_list(result_path, prefix):
     # Recursively drill down to find each stdout file in each log directory
     # in each directory
     path_obj = Path(result_path)
-    glob_path = f"{prefix}_*/log_*/stdout*"
-    output_file_list = sorted(path_obj.rglob(glob_path))
+
+    output_file_list = sorted(path_obj.rglob(f"*{prefix}_*/log_*/*/stdout*"))
     if not output_file_list and prefix in result_path:
-        output_file_list = sorted(path_obj.rglob("log_*/stdout*"))
-    if not output_file_list and prefix in result_path:
+        output_file_list = sorted(path_obj.rglob("log_*/*/stdout*"))
+
+    # In case the log directory itself is passed
+    if not output_file_list and prefix in result_path and "log_" in result_path:
         output_file_list = sorted(path_obj.rglob("stdout*"))
+
     if not output_file_list:
         print(f"No {prefix} log files found", flush=True)
     return output_file_list
