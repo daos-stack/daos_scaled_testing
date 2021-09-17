@@ -44,3 +44,4 @@ SLURM_JOB_ID="${SLURM_JOB##* }"
 mkdir -p "${RUN_DIR}/${SLURM_JOB_ID}"
 cp ${DST_DIR}/frontera/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
 cp ${DST_DIR}/frontera/env_daos ${RUN_DIR}/${SLURM_JOB_ID}/env_daos
+cp ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt

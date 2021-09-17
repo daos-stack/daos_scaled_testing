@@ -10,7 +10,7 @@ OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
 # Set undefined/default test params
 NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
-no_of_ps=$(($DAOS_CLIENTS * $PPC))
+NUM_PROCESSES=$(($DAOS_CLIENTS * $PPC))
 CONT_RF="${CONT_RF:-0}"
 CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
 
@@ -27,18 +27,26 @@ DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
 # Set common MPI command
 if [ "${MPI_TARGET}" == "mvapich2" ] || [ "${MPI_TARGET}" == "mpich" ]; then
     MPI_CMD="mpirun
-             -np ${no_of_ps} -map-by node
+             -np ${NUM_PROCESSES} -map-by node
              -hostfile ${CLIENT_HOSTLIST_FILE}"
 elif [ "${MPI_TARGET}" == "openmpi" ]; then
     MPI_CMD="orterun ${OMPI_PARAM}
              -x CPATH -x PATH -x LD_LIBRARY_PATH
              -x FI_UNIVERSE_SIZE
              -x D_LOG_FILE -x D_LOG_MASK
-             --timeout ${OMPI_TIMEOUT} -np ${no_of_ps} --map-by node
+             --timeout ${OMPI_TIMEOUT} -np ${NUM_PROCESSES} --map-by node
              --hostfile ${CLIENT_HOSTLIST_FILE}"
 else
     echo "Unknown MPI_TARGET. Please specify either mvapich2, openmpi, or mpich"
     exit 1
+fi
+
+if [ -z ${SW_TIME+x} ]; then
+    IOR_SW_CMD=""
+else
+    IOR_SW_CMD="-O stoneWallingWearOut=1
+                -O stoneWallingStatusFile=${RUN_DIR}/${SLURM_JOB_ID}/sw.ior
+                -D ${SW_TIME}"
 fi
 
 # Print all relevant test params / env variables
@@ -52,7 +60,7 @@ echo "DIR_OCLASS      : ${DIR_OCLASS}"
 echo "DAOS_SERVERS    : ${DAOS_SERVERS}"
 echo "DAOS_CLIENTS    : ${DAOS_CLIENTS}"
 echo "PPC             : ${PPC}"
-echo "RANKS           : ${no_of_ps}"
+echo "RANKS           : ${NUM_PROCESSES}"
 echo "SEGMENTS        : ${SEGMENTS}"
 echo "XFER_SIZE       : ${XFER_SIZE}"
 echo "BLOCK_SIZE      : ${BLOCK_SIZE}"
@@ -86,7 +94,6 @@ REBUILD_WAIT_TIME=5s
 REBUILD_MAX_TIME=600 # seconds
 
 WAIT_TIME=30s
-MAX_RETRY_ATTEMPTS=6
 PROCESSES="'(daos|orteun|mpirun)'"
 
 # Time in milliseconds
@@ -97,8 +104,6 @@ echo
 echo "DAOS_DIR:"
 echo "$(ls -ald $(realpath ${DAOS_DIR}/../.))"
 
-mkdir -p ${RUN_DIR}
-cp -v ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
 cat ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
 
 source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
@@ -145,78 +150,76 @@ function collect_test_logs(){
 
     # Server nodes
     clush --hostfile ${SERVER_HOSTLIST_FILE} \
-    --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
-    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
-    export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-    ${DST_DIR}/frontera/copy_log_files.sh server "
+        --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
+        export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
+        export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
+        ${DST_DIR}/frontera/copy_log_files.sh server "
 
     # Client nodes
     clush --hostfile ${CLIENT_HOSTLIST_FILE} \
-    --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
-    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
-    export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-    ${DST_DIR}/frontera/copy_log_files.sh client "
+        --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
+        export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
+        export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
+        ${DST_DIR}/frontera/copy_log_files.sh client "
 }
 
 # Print command and run it, timestamp is prefixed
 function run_cmd(){
-    local CMD="$(echo ${1} | tr -s " ")"
+    local cmd="$(echo ${1} | tr -s " ")"
 
-    echo
-    echo "$(time_stamp) CMD: ${CMD}"
+    pmsg "CMD: ${cmd}"
 
-    OUTPUT_CMD="$(timeout --signal SIGKILL ${CMD_TIMEOUT} ${CMD})"
+    # Return output and return code in global vars
+    OUTPUT_CMD="$(timeout --signal SIGKILL ${CMD_TIMEOUT} ${cmd})"
     RC=$?
 
     echo "${OUTPUT_CMD}"
 
-    check_cmd_timeout "${RC}" "${CMD}"
+    check_cmd_timeout "${RC}" "${cmd}"
 }
 
 # Get a random client node name from the CLIENT_HOSTLIST_FILE and then
 # run a command
 function run_cmd_on_client(){
-    local DAOS_CMD="$(echo ${1} | tr -s " ")"
-    local TEARDOWN_ON_ERROR="${2:-true}"
-    local QUIET="${3:-false}"
-    local HOST=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
+    local daos_cmd="$(echo ${1} | tr -s " ")"
+    local teardown_on_error="${2:-true}"
+    local quiet="${3:-false}"
+    local host=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
     echo
-    echo "$(time_stamp) CMD: ${DAOS_CMD}"
+    echo "$(time_stamp) CMD: ${daos_cmd}"
 
-    CMD="clush -w ${HOST} --command_timeout ${CMD_TIMEOUT} -S \"
+    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S \"
          export PATH=${PATH};
          export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-         ${DAOS_CMD} \" "
+         ${daos_cmd} \" "
 
-    OUTPUT_CMD="$(eval ${CMD})"
+    # Return output and return code in global vars
+    OUTPUT_CMD="$(eval ${cmd})"
     RC=$?
 
-    if ! ${QUIET}; then
+    if ! ${quiet}; then
         echo "${OUTPUT_CMD}"
     fi
 
-    check_cmd_timeout "${RC}" "${DAOS_CMD}" "${TEARDOWN_ON_ERROR}"
+    check_cmd_timeout "${RC}" "${daos_cmd}" "${teardown_on_error}"
 }
 
 # Run dmg pool create
 function dmg_pool_create(){
-    local POOL_LABEL="${1:-test_pool}"
+    local pool_label="${1:-test_pool}"
 
-    pmsg "Creating pool ${POOL_LABEL}"
+    pmsg "Creating pool ${pool_label}"
 
     local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
                --scm-size ${POOL_SIZE}
-               --label ${POOL_LABEL}
+               --label ${pool_label}
                --properties reclaim:disabled"
 
     run_cmd_on_client "${cmd}"
 
+    # Set global POOL_UUID
     POOL_UUID=$(echo "${OUTPUT_CMD}" | grep "UUID" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//')
-    POOL_SVC=$(echo "${OUTPUT_CMD}" | grep "Service Ranks" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//' | sed 's/[][]//g')
-    echo -e "\n====== POOL INFO ======"
-    echo POOL_UUID: ${POOL_UUID}
-    echo POOL_SVC : ${POOL_SVC}
 }
 
 function dmg_pool_create_multi(){
@@ -225,13 +228,14 @@ function dmg_pool_create_multi(){
     local n=1
     until [ ${n} -gt ${NUMBER_OF_POOLS} ]
     do
-        pmsg "Creating pool ${n} of ${NUMBER_OF_POOLS}"
         dmg_pool_create "test_pool_${n}"
         n=$[${n} + 1]
     done
 
     pmsg "Done, ${NUMBER_OF_POOLS} were created"
-    dmg_pool_list
+    if [ ${NUMBER_OF_POOLS} -gt 1 ]; then
+        dmg_pool_list
+    fi
 }
 
 # Run dmg pool list.
@@ -250,24 +254,24 @@ function dmg_pool_list(){
 
 # Run dmg pool query.
 function dmg_pool_query(){
-    local UUID="${1}"
-    local TEARDOWN_ON_ERROR="${2}"
+    local uuid="${1}"
+    local teardown_on_error="${2}"
 
     local cmd="dmg -o ${DAOS_CONTROL_YAML} pool query
-              ${UUID}"
+              ${uuid}"
 
-    run_cmd_on_client "${cmd}" "${TEARDOWN_ON_ERROR}"
+    run_cmd_on_client "${cmd}" "${teardown_on_error}"
 }
 
 function get_daos_status(){
-    local TEARDOWN_ON_ERROR="${1:-true}"
+    local teardown_on_error="${1:-true}"
 
     dmg_pool_list
     dmg_pool_query "${POOL_UUID}"
 
     get_server_status ${DAOS_SERVERS} true
-    RC=$?
-    if [ ${TEARDOWN_ON_ERROR} = true ] && [ $RC -ne 0 ]; then
+    local rc=$?
+    if [ ${teardown_on_error} = true ] && [ $rc -ne 0 ]; then
         teardown_test "Bad server status" 1
     fi
 }
@@ -275,7 +279,7 @@ function get_daos_status(){
 function teardown_test(){
     local exit_message="${1}"
     local exit_rc="${2:-0}"
-    local CSH_PREFIX="clush --hostfile ${ALL_HOSTLIST_FILE} \
+    local csh_prefix="clush --hostfile ${ALL_HOSTLIST_FILE} \
                       -f ${SLURM_JOB_NUM_NODES}"
 
     if [ ${exit_rc} -eq 0 ]; then
@@ -289,12 +293,12 @@ function teardown_test(){
     collect_test_logs
 
     pmsg "List test processes to be killed"
-    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
     pmsg "Killing test processes"
-    eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${csh_prefix} \"pkill -e --signal SIGKILL ${PROCESSES}\""
     sleep 1
     pmsg "List surviving processes"
-    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
     cleanup
 
@@ -317,9 +321,9 @@ function check_clock_sync(){
     clush -S --hostfile ${ALL_HOSTLIST_FILE} \
           -f ${SLURM_JOB_NUM_NODES} --groupbase \
           "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
-    local RC=$?
+    local rc=$?
 
-    if [ ${RC} -ne 0 ]; then
+    if [ ${rc} -ne 0 ]; then
         teardown_test "clock drift is too high" 1
     else
         pmsg "Clock drift test Pass"
@@ -327,36 +331,36 @@ function check_clock_sync(){
 }
 
 function check_cmd_timeout(){
-    local RC=${1}
-    local CMD_NAME="${2}"
-    local TEARDOWN_ON_ERROR="${3:-true}"
+    local rc=${1}
+    local cmd_name="${2}"
+    local teardown_on_error="${3:-true}"
 
-    if [ ${RC} -eq 137 ]; then
-        teardown_test "STATUS: ${CMD_NAME} TIMEOUT" 1
-    elif [ ${RC} -ne 0 ]; then
-        echo "RC: ${RC}"
-        if [ ${TEARDOWN_ON_ERROR} = true ]; then
-            teardown_test "STATUS: ${CMD_NAME} FAIL" 1
+    if [ ${rc} -eq 137 ]; then
+        teardown_test "STATUS: ${cmd_name} TIMEOUT" 1
+    elif [ ${rc} -ne 0 ]; then
+        echo "rc: ${rc}"
+        if [ ${teardown_on_error} = true ]; then
+            teardown_test "STATUS: ${cmd_name} FAIL" 1
         fi
     else
-        pmsg "STATUS: ${CMD_NAME} SUCCESS"
+        pmsg "STATUS: ${cmd_name} SUCCESS"
     fi
 }
 
 # Check whether all servers are "joined".
 # Returns 0 if all joined, 1 otherwise.
 function get_server_status(){
-    local NUM_SERVERS=${1}
-    local TARGET_SERVERS=$((${NUM_SERVERS} - 1))
-    local TEARDOWN_ON_ERROR="${2:-false}"
+    local num_servers=${1}
+    local target_servers=$((${num_servers} - 1))
+    local teardown_on_error="${2:-false}"
 
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${TEARDOWN_ON_ERROR}"
-    if [ "${TARGET_SERVERS}" -eq 0 ]; then
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${teardown_on_error}"
+    if [ "${target_servers}" -eq 0 ]; then
         if echo ${OUTPUT_CMD} | grep -q "0\s*Joined"; then
             return 0
         fi
     else
-        if echo ${OUTPUT_CMD} | grep -q "\[0\-${TARGET_SERVERS}\]\sJoined"; then
+        if echo ${OUTPUT_CMD} | grep -q "\[0\-${target_servers}\]\sJoined"; then
             return 0
         fi
     fi
@@ -366,19 +370,19 @@ function get_server_status(){
 
 #Wait for all the DAOS servers to start
 function wait_for_servers_to_start(){
-    local NUM_SERVERS=${1}
-    local TARGET_SERVERS=$((${NUM_SERVERS} - 1))
+    local num_servers=${1}
+    local target_servers=$((${num_servers} - 1))
 
-    pmsg "Waiting for ${NUM_SERVERS} daos_servers to start \
+    pmsg "Waiting for ${num_servers} daos_servers to start \
           (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
     sleep ${INITIAL_BRINGUP_WAIT_TIME}
 
     n=1
     until [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]
     do
-        get_server_status ${NUM_SERVERS} false
-        RC=$?
-        if [ ${RC} -eq 0 ]; then
+        get_server_status ${num_servers} false
+        local rc=$?
+        if [ ${rc} -eq 0 ]; then
             break
         fi
         pmsg "Attempt ${n}/${BRINGUP_RETRY_ATTEMPTS} failed, retrying in ${BRINGUP_WAIT_TIME} seconds..."
@@ -387,10 +391,10 @@ function wait_for_servers_to_start(){
     done
 
     if [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]; then
-        teardown_test "Failed to start all ${NUM_SERVERS} DAOS servers" 1
+        teardown_test "Failed to start all ${num_servers} DAOS servers" 1
     fi
 
-	pmsg "Done, ${NUM_SERVERS} DAOS servers are up and running"
+	pmsg "Done, ${num_servers} DAOS servers are up and running"
 }
 
 #Create server/client hostfile.
@@ -421,17 +425,17 @@ function prepare(){
 
 #Start DAOS agent
 function start_agent(){
-    echo -e "\nCMD: Starting agent...\n"
-    daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
-    cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
-    -f ${SLURM_JOB_NUM_NODES} \"
-    pushd ${DUMP_DIR}/agent;
-    ulimit -c unlimited;
-    export PATH=${PATH};
-    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-    export CPATH=${CPATH};
-    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-    $daos_cmd\" "
+    pmsg "CMD: Starting agent..."
+    local daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
+    local cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
+        -f ${SLURM_JOB_NUM_NODES} \"
+        pushd ${DUMP_DIR}/agent;
+        ulimit -c unlimited;
+        export PATH=${PATH};
+        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+        export CPATH=${CPATH};
+        export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
+        $daos_cmd\" "
     echo $daos_cmd
     echo
     eval $cmd &
@@ -440,8 +444,8 @@ function start_agent(){
 
 #Dump attach info
 function dump_attach_info(){
-    echo -e "\nCMD: Dump attach info file...\n"
-    cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
+    pmsg "CMD: Dump attach info file..."
+    local cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
     echo $cmd
     echo
     eval $cmd &
@@ -452,23 +456,23 @@ function query_pools_rebuild(){
     pmsg "Querying all pools for \"Rebuild done\""
 
     dmg_pool_list
-    local ALL_POOLS="$(echo "${OUTPUT_CMD}" | grep -Eo -- "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")"
-    local NUMBER_OF_POOLS=$(echo "${ALL_POOLS}" | wc -l)
+    local all_pools="$(echo "${OUTPUT_CMD}" | grep -Eo -- "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")"
+    local num_pools=$(echo "${all_pools}" | wc -l)
     echo
 
-    echo "NUM_POOLS_AFTER_REBUILD : ${NUMBER_OF_POOLS}"
-    if [ -z "${ALL_POOLS}" ] ; then
+    echo "NUM_POOLS_AFTER_REBUILD : ${num_pools}"
+    if [ -z "${all_pools}" ] ; then
         pmsg "Zero Pools found!!"
         return
     fi
 
     local n=1
     local num_rebuild_done=0
-    until [ ${n} -gt ${NUMBER_OF_POOLS} ]
+    until [ ${n} -gt ${num_pools} ]
     do
         print_separator
-        pmsg "Querying pool ${n} of ${NUMBER_OF_POOLS}"
-        local CURRENT_POOL=$(echo "${ALL_POOLS}" | head -${n} | tail -n 1)
+        pmsg "Querying pool ${n} of ${num_pools}"
+        local CURRENT_POOL=$(echo "${all_pools}" | head -${n} | tail -n 1)
         dmg_pool_query "${CURRENT_POOL}"
         if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             num_rebuild_done=$[${num_rebuild_done} + 1]
@@ -478,7 +482,7 @@ function query_pools_rebuild(){
         n=$[${n} + 1]
     done
 
-    pmsg "Done, ${NUMBER_OF_POOLS} were queried"
+    pmsg "Done, ${num_pools} were queried"
     echo "NUM_POOLS_REBUILD_DONE : ${num_rebuild_done}"
 }
 
@@ -489,6 +493,7 @@ function daos_cont_create(){
     local cont_uuid="${3:-$(uuidgen)}"
     local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
 
+    # Set global CONT_UUID
     CONT_UUID="${cont_uuid}"
 
     pmsg "Creating container ${cont_label} ${cont_uuid}"
@@ -509,13 +514,13 @@ function daos_cont_create(){
        CONT_PROP="$CONT_PROP,ec_cell:$EC_CELL_SIZE"
     fi
 
-    daos_cmd="daos container create
+    local daos_cmd="daos container create
               --pool=${pool}
               --cont ${cont_uuid}
               --label ${cont_label}
               --sys-name=daos_server
               --type=POSIX ${CONT_PROP}"
-    cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
+    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
          -f ${SLURM_JOB_NUM_NODES} \"
          export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
          export CPATH=${CPATH};
@@ -543,8 +548,8 @@ function daos_cont_query(){
 
     pmsg "Querying container ${pool}:${cont}"
 
-    daos_cmd="daos container query --pool=${pool} --cont=${cont}"
-    cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
+    local daos_cmd="daos container query --pool=${pool} --cont=${cont}"
+    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
          -f ${SLURM_JOB_NUM_NODES} \"
          export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
          export CPATH=${CPATH};
@@ -566,16 +571,16 @@ function daos_cont_query(){
 
 #Start daos servers
 function start_server(){
-    echo -e "\nCMD: Starting server...\n"
-    daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
-    cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
-    -f $SLURM_JOB_NUM_NODES \"
-    pushd ${DUMP_DIR}/server;
-    ulimit -c unlimited;
-    export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-    export CPATH=${CPATH};
-    export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-    $daos_cmd \" 2>&1 "
+    pmsg "Starting server..."
+    local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
+    local cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
+        -f $SLURM_JOB_NUM_NODES \"
+        pushd ${DUMP_DIR}/server;
+        ulimit -c unlimited;
+        export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+        export CPATH=${CPATH};
+        export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
+        $daos_cmd \" 2>&1 "
 
     pmsg "CMD: ${daos_cmd}"
     eval $cmd &
@@ -586,14 +591,6 @@ function start_server(){
 
     wait_for_servers_to_start "${DAOS_SERVERS}"
 }
-
-if [ -z ${SW_TIME+x} ]; then
-    IOR_SW_CMD=""
-else
-    IOR_SW_CMD="-O stoneWallingWearOut=1
-                -O stoneWallingStatusFile=${RUN_DIR}/${SLURM_JOB_ID}/sw.ior
-                -D ${SW_TIME}"
-fi
 
 # Run IOR write and read
 function run_ior(){
@@ -621,14 +618,14 @@ function run_ior_write(){
     pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
     eval ${wr_cmd}
-    local IOR_RC=$?
+    local ior_rc=$?
     popd
 
     daos_cont_query
     get_daos_status
 
-    if [ ${IOR_RC} -ne 0 ]; then
-        echo -e "IOR_RC: ${IOR_RC}\n"
+    if [ ${ior_rc} -ne 0 ]; then
+        echo -e "ior_rc: ${ior_rc}\n"
         teardown_test "IOR WRITE FAIL" 1
     fi
 
@@ -655,14 +652,14 @@ function run_ior_read(){
     pushd ${DUMP_DIR}/ior
     ulimit -c unlimited
     eval ${rd_cmd}
-    local IOR_RC=$?
+    local ior_rc=$?
     popd
 
     daos_cont_query
     get_daos_status
 
-    if [ ${IOR_RC} -ne 0 ]; then
-        echo -e "IOR_RC: ${IOR_RC}\n"
+    if [ ${ior_rc} -ne 0 ]; then
+        echo -e "ior_rc: ${ior_rc}\n"
         teardown_test "IOR READ FAIL" 1
     fi
 
@@ -671,27 +668,22 @@ function run_ior_read(){
 
 #Run cart self_test
 function run_self_test(){
-    echo -e "\nCMD: Starting CaRT self_test...\n"
+    pmsg "CMD: Starting CaRT self_test..."
 
     let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
 
-    st_cmd="self_test
+    local st_cmd="self_test
         --path ${RUN_DIR}/${SLURM_JOB_ID}
         --group-name daos_server --endpoint 0-${last_srv_index}:0
         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
 
-    mvapich2_cmd="mpirun --prepend-rank
+    local mpich_cmd="mpirun --prepend-rank
         -np 1 -map-by node
         -hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
 
-    mpich_cmd="mpirun --prepend-rank
-        -np 1 -map-by node
-        -hostfile ${CLIENT_HOSTLIST_FILE}
-        $st_cmd"
-
-    openmpi_cmd="orterun $OMPI_PARAM 
+    local openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
         -x FI_UNIVERSE_SIZE
@@ -699,12 +691,13 @@ function run_self_test(){
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
 
+    local cmd
     if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        cmd=$mvapich2_cmd
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        cmd=$openmpi_cmd
-    else
         cmd=$mpich_cmd
+    elif [ "${MPI_TARGET}" == "mpich" ]; then
+        cmd=$mpich_cmd
+    else
+        cmd=$openmpi_cmd
     fi
 
     echo $cmd
@@ -714,20 +707,20 @@ function run_self_test(){
     pushd ${DUMP_DIR}/self_test
     ulimit -c unlimited
     eval $cmd
-    local CART_RC=$?
+    local cart_rc=$?
     popd
 
-    if [ ${CART_RC} -ne 0 ]; then
-        echo -e "CART_RC: ${CART_RC}\n"
+    if [ ${cart_rc} -ne 0 ]; then
+        echo -e "cart_rc: ${cart_rc}\n"
         teardown_test "CART self_test FAIL" 1
     else
-        echo -e "\nSTATUS: CART self_test SUCCESS\n"
+        pmsg "STATUS: CART self_test SUCCESS"
     fi
 }
 
+# Run mdtest create, stat, read, remove
 function run_mdtest(){
-    echo -e "\nCMD: Starting MDTEST...\n"
-    echo
+    pmsg "CMD: Starting MDTEST..."
 
     local mdtest_cmd="${MDTEST_BIN}
                 -a DFS
@@ -750,17 +743,17 @@ function run_mdtest(){
     pushd ${DUMP_DIR}/mdtest
     ulimit -c unlimited
     eval $cmd
-    local MDTEST_RC=$?
+    local mdtest_rc=$?
     popd
 
     daos_cont_query
     get_daos_status
 
-    if [ ${MDTEST_RC} -ne 0 ]; then
-        echo -e "MDTEST_RC: ${MDTEST_RC}\n"
+    if [ ${mdtest_rc} -ne 0 ]; then
+        echo -e "mdtest_rc: ${mdtest_rc}\n"
         teardown_test "MDTEST FAIL" 1
     else
-        echo -e "\nSTATUS: MDTEST SUCCESS\n"
+        pmsg "STATUS: MDTEST SUCCESS"
     fi
 
 }
@@ -768,59 +761,58 @@ function run_mdtest(){
 # Get a random server name from the SERVER_HOSTLIST_FILE
 # the "lucky" server name will never be the access point
 function get_doom_server(){
-    local MAX_RETRY_ATTEMPTS=1000
-    local ACESS_POINT=$(cat ${SERVER_HOSTLIST_FILE} | head -1)
+    local max_retry_attempts=1000
+    local access_point=$(cat ${SERVER_HOSTLIST_FILE} | head -1)
+    local doomed_server
 
     n=1
-    until [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]
+    until [ ${n} -ge ${max_retry_attempts} ]
     do
-        local DOOMED_SERVER=$(shuf -n 1 ${SERVER_HOSTLIST_FILE})
+        doomed_server=$(shuf -n 1 ${SERVER_HOSTLIST_FILE})
 
-        if [ "${ACESS_POINT}" != "${DOOMED_SERVER}" ]; then
+        if [ "${access_point}" != "${doomed_server}" ]; then
             break
         fi
 
         n=$[${n} + 1]
     done
 
-    if [ ${n} -ge ${MAX_RETRY_ATTEMPTS} ]; then
+    if [ ${n} -ge ${max_retry_attempts} ]; then
         teardown_test "failed to get random doomed server" 1
     fi
 
-    echo ${DOOMED_SERVER}
+    echo ${doomed_server}
 }
 
 # Kill one DAOS server randomly selected from the SERVER_HOSTLIST_FILE
 # And wait for rebuild to complete
 function kill_random_server(){
-    local DOOMED_SERVER=$(get_doom_server)
+    local doomed_server=$(get_doom_server)
 
     get_daos_status
 
-    pmsg "Waiting to kill ${DOOMED_SERVER} server in ${WAIT_TIME} seconds..."
+    pmsg "Waiting to kill ${doomed_server} server in ${WAIT_TIME} seconds..."
     sleep ${WAIT_TIME}
-    pmsg "Killing ${DOOMED_SERVER} server"
+    pmsg "Killing ${doomed_server} server"
 
-    local CSH_PREFIX="clush -w ${DOOMED_SERVER} -S -f 1"
+    local csh_prefix="clush -w ${doomed_server} -S -f 1"
 
     pmsg "pgrep -a ${PROCESSES}"
-    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
-    pmsg "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
-    eval "${CSH_PREFIX} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
+    pmsg "${csh_prefix} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${csh_prefix} \"pkill -e --signal SIGKILL ${PROCESSES}\""
     echo "Kill Time: $(date)"
     pmsg "pgrep -a ${PROCESSES}"
-    eval "${CSH_PREFIX} -B \"pgrep -a ${PROCESSES}\""
+    eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
-    pmsg "Killed ${DOOMED_SERVER} server"
+    pmsg "Killed ${doomed_server} server"
 
-    n=1
-    start_s=${SECONDS}
-    rebuild_done=false
+    local n=1
+    local start_s=${SECONDS}
+    local rebuild_done=false
     until [ $[${SECONDS} - ${start_s}] -ge ${REBUILD_MAX_TIME} ]
     do
-        dmg_pool_query "${POOL_UUID}" false true
-
-        echo "${OUTPUT_CMD}"
+        dmg_pool_query "${POOL_UUID}" false
 
         if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             rebuild_done=true
