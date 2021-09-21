@@ -33,6 +33,7 @@ elif [ "${MPI_TARGET}" == "openmpi" ]; then
     MPI_CMD="orterun ${OMPI_PARAM}
              -x CPATH -x PATH -x LD_LIBRARY_PATH
              -x FI_UNIVERSE_SIZE
+             -x FI_OFI_RXM_USE_SRX
              -x D_LOG_FILE -x D_LOG_MASK
              --timeout ${OMPI_TIMEOUT} -np ${NUM_PROCESSES} --map-by node
              --hostfile ${CLIENT_HOSTLIST_FILE}"
@@ -687,6 +688,7 @@ function run_self_test(){
         -x CPATH -x PATH -x LD_LIBRARY_PATH
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
         -x FI_UNIVERSE_SIZE
+        -x FI_OFI_RXM_USE_SRX
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
         --hostfile ${CLIENT_HOSTLIST_FILE}
         $st_cmd"
