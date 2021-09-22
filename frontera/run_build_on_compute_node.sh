@@ -5,8 +5,8 @@
 
 JOBNAME="<sbatch_jobname>"
 EMAIL="<email>" #<first.last@email.com>
-export BUILD_DIR="<path_build_area>" #e.g./scratch/POC/BUILDS/
-export DST_DIR="<path_to_daos_scaled_testing>" #/scratch/TESTS/daos_scaled_testing
+export BUILD_DIR="${WORK}/BUILDS/" # Directory to build in
+export DST_DIR="$(realpath ../)" # Path to daos_scaled_testing repo
 
 if [ ! -d "${BUILD_DIR}" ]; then
     echo "BUILD_DIR not found: ${BUILD_DIR}"

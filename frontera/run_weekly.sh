@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DST_DIR="<path_to_daos_scaled_testing>" #/scratch/TESTS/daos_scaled_testing
+DST_DIR="$(realpath ../)" # Path to daos_scaled_testing repo
 
 if [ ! -d "${DST_DIR}" ]; then
     echo "DST_DIR not found: ${DST_DIR}"

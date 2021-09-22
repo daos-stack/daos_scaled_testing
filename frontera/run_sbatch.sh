@@ -9,7 +9,7 @@ export DAOS_DIR
 export TESTCASE
 export LOGS=${RES_DIR}/${TIMESTAMP}/${TESTCASE}
 export RUN_DIR=${LOGS}/log_${DAOS_SERVERS}
-mkdir -p ${RUN_DIR}
+mkdir -p ${RUN_DIR} || exit
 
 export DAOS_SERVERS
 export DAOS_CLIENTS
