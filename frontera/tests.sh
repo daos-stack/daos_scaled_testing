@@ -45,6 +45,7 @@ fi
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
 echo "JOBNAME         : ${JOBNAME}"
 echo "EMAIL           : ${EMAIL}"
+echo "TEST_GROUP      : ${TEST_GROUP}"
 echo "TESTCASE        : ${TESTCASE}"
 echo "OCLASS          : ${OCLASS}"
 echo "DIR_OCLASS      : ${DIR_OCLASS}"
@@ -844,7 +845,7 @@ function kill_random_server(){
 }
 
 function run_testcase(){
-    local testcase=$1
+    local test_group=$1
 
     echo "###################"
     echo "RUN: ${TESTCASE}"
@@ -856,7 +857,7 @@ function run_testcase(){
     # System sanity check
     check_clock_sync
 
-    case ${testcase} in
+    case ${test_group} in
         SWIM)
             # Swim stabilization test by checking server fault detection
             start_server
@@ -902,4 +903,4 @@ function run_testcase(){
     teardown_test "Success!" 0
 }
 
-run_testcase $1
+run_testcase $TEST_GROUP

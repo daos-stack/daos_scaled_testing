@@ -32,7 +32,7 @@ SLURM_JOB="$(sbatch -J $JOBNAME \
                     -n $NCORE \
                     -p $PARTITION \
                     --begin=now+5 \
-                    ${DST_DIR}/frontera/sbatch_me.txt $TEST_GROUP)"
+                    ${DST_DIR}/frontera/sbatch_me.txt)"
 
 echo "$(printf '%80s\n' | tr ' ' =)
 Running ${TESTCASE} with ${DAOS_SERVERS} servers and ${DAOS_CLIENTS} clients
@@ -42,5 +42,5 @@ ${SLURM_JOB}" |& tee -a ${RES_DIR}/${TIMESTAMP}/job_list.txt
 echo ""
 SLURM_JOB_ID="${SLURM_JOB##* }"
 mkdir -p "${RUN_DIR}/${SLURM_JOB_ID}"
-cp -v ${DST_DIR}/frontera/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
-cp -v ${DST_DIR}/frontera/env_daos ${RUN_DIR}/${SLURM_JOB_ID}/env_daos
+cp ${DST_DIR}/frontera/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
+cp ${DST_DIR}/frontera/env_daos ${RUN_DIR}/${SLURM_JOB_ID}/env_daos
