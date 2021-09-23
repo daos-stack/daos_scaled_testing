@@ -31,26 +31,51 @@ env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
 env['MPICH_DIR']   = realpath(expandvars("${WORK}/TOOLS/mpich")) # Path to locally built mpich
 env['OPENMPI_DIR'] = realpath(expandvars("${WORK}/TOOLS/openmpi")) # Path to locall build openmpi
 
-# Sanity check that directories exist
-for check_dir in (env['DAOS_DIR'], env['DST_DIR']):
-    if not isdir(check_dir):
-        print("ERROR: Not a directory: {}".format(check_dir))
-        exit(1)
+def main(args):
+    '''Run a test list.'''
+    parser = ArgumentParser()
+    parser.add_argument(
+        '--recurse', '-r',
+        default=False,
+        action='store_true',
+        help='recurse on directories')
+    parser.add_argument(
+        '--dryrun',
+        action='store_true',
+        help='print tests to be ran, but do not run.')
+    parser.add_argument(
+        'config',
+        nargs='+',
+        type=str,
+        help='path(s) to python config files')
+    parser.add_argument('--jobname',  type=str, help='environment JOBNAME')
+    parser.add_argument('--email',    type=str, help='environment EMAIL')
+    parser.add_argument('--daos_dir', type=str, help='environment DAOS_DIR')
+    parser.add_argument('--dst_dir',  type=str, help='environment DST_DIR')
+    parser.add_argument('--res_dir',  type=str, help='environment RES_DIR')
+    parser_args = parser.parse_args(args)
 
-# Sanity check that it's actually a DAOS installation
-if not isfile(join(env['DAOS_DIR'], "../repo_info.txt")):
-    print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
-    exit(1)
+    if parser_args.jobname:
+        env['JOBNAME'] = parser_args.jobname
+    if parser_args.email:
+        env['EMAIL'] = parser_args.email
+    if parser_args.daos_dir:
+        env['DAOS_DIR'] = realpath(parser_args.daos_dir)
+    if parser_args.dst_dir:
+        env['DST_DIR'] = realpath(parser_args.dst_dir)
+    if parser_args.res_dir:
+        env['RES_DIR'] = realpath(parser_args.res_dir)
 
-# Sanity check MPI target is valid
-if not env['MPI_TARGET'] in ('mvapich2', 'openmpi', 'mpich'):
-    print("ERROR: invalid MPI_TARGET {}".format(env['MPI_TARGET']))
-    exit(1)
+    if not _verify_env(env):
+        return 1
 
+    tests = _import_paths(parser_args.config, parser_args.recurse)
+    if tests is None:
+        return 1
 
-def is_list_or_tuple(o):
-    """Return True if an object is a list or tuple."""
-    return isinstance(o, list) or isinstance(o, tuple)
+    test_list = TestList(tests, env)
+    test_list.run(parser_args.dryrun)
+    return 0
 
 
 class TestList(object):
@@ -72,7 +97,7 @@ class TestList(object):
                 # Set default value
                 test_params[param] = default
             else:
-                if not is_list_or_tuple(test_params[param]):
+                if not _is_list_or_tuple(test_params[param]):
                     # Convert singular to list
                     test_params[param] = [test_params[param]]
                 if not test_params[param]:
@@ -111,7 +136,7 @@ class TestList(object):
     def _expand_env_oclass(self, env, oclass):
         if isinstance(oclass, str):
             env['OCLASS'] = oclass
-        elif is_list_or_tuple(oclass):
+        elif _is_list_or_tuple(oclass):
             env['OCLASS'] = oclass[0]
             env['DIR_OCLASS'] = oclass[1]
         else:
@@ -166,12 +191,36 @@ class TestList(object):
                 self._expand_env_ec_cell_size(variant_env, ec_cell_size)
                 variant_env_list.append(variant_env)
 
-        for env in variant_env_list:
-            print(f"Running {env['TESTCASE']} {env['OCLASS']}, "
+        for idx, env in enumerate(variant_env_list):
+            print(f"{idx+1:03}. Running {env['TESTCASE']} {env['OCLASS']}, "
                   f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
                   f"{env['EC_CELL_SIZE']} ec_ell_size")
             if not dryrun:
                 subprocess.Popen(self._script, env=env)
+
+def _is_list_or_tuple(o):
+    """Return True if an object is a list or tuple."""
+    return isinstance(o, list) or isinstance(o, tuple)
+
+def _verify_env(env):
+    '''Verify env vars are valid.'''
+    # Sanity check that directories exist
+    for check_dir in (env['DAOS_DIR'], env['DST_DIR']):
+        if not isdir(check_dir):
+            print("ERROR: Not a directory: {}".format(check_dir))
+            return False
+
+    # Sanity check that it's actually a DAOS installation
+    if not isfile(join(env['DAOS_DIR'], 'install/bin/daos')):
+        print("ERROR: {} doesn't seem to be a DAOS installation".format(env['DAOS_DIR']))
+        return False
+
+    # Sanity check MPI target is valid
+    if not env['MPI_TARGET'] in ('mvapich2', 'openmpi', 'mpich'):
+        print("ERROR: invalid MPI_TARGET {}".format(env['MPI_TARGET']))
+        return False
+
+    return True
 
 def _import_paths(paths, recurse=False):
     '''Import tests from a list of paths.
@@ -186,7 +235,7 @@ def _import_paths(paths, recurse=False):
             None on failure.
 
     '''
-    if not is_list_or_tuple(paths):
+    if not _is_list_or_tuple(paths):
         paths = [paths]
 
     all_tests = []
@@ -213,46 +262,26 @@ def _import_paths(paths, recurse=False):
 
         print(f'Importing tests from {path}')
         try:
+            # Remove file extension
             _path = splitext(path)[0]
-            _name = f'.{basename(_path)}'
-            _package = dirname(_path).replace('/', '.')
-            package = import_module(_name, _package)
+
+            # Temporarily point sys.path to ONLY the directory containing this file
+            old_path = sys.path
+            sys.path = [dirname(path)]
+
+            # Import this file and the tests
+            package = import_module(basename(_path))
             all_tests += package.tests
+
+            # Uncache the module and revert sys.path
+            sys.modules.pop(basename(_path))
+            sys.path = old_path
         except Exception as e:
             print(e)
             print(f'Failed to import tests from {path}')
             return None
 
     return all_tests
-
-
-def main(args):
-    '''Run a test list.'''
-    parser = ArgumentParser()
-    parser.add_argument(
-        '--recurse', '-r',
-        default=False,
-        action='store_true',
-        help='recurse on directories')
-    parser.add_argument(
-        '--dryrun',
-        default=False,
-        action='store_true',
-        help='print tests to be ran, but do not run.')
-    parser.add_argument(
-        'config',
-        nargs='+',
-        type=str,
-        help='path(s) to python config files')
-    parser_args = parser.parse_args(args)
-
-    tests = _import_paths(parser_args.config, parser_args.recurse)
-    if tests is None:
-        return 1
-
-    test_list = TestList(tests, env)
-    test_list.run(parser_args.dryrun)
-    return 0
 
 if __name__ == '__main__':
     rc = main(sys.argv[1:])
