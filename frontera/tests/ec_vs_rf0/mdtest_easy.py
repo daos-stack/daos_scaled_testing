@@ -12,7 +12,7 @@ env_vars = {
     'bytes_read': '0',
     'bytes_write': '0',
     'tree_depth': '0',
-    'sw_time': '60', # TODO adjust?
+    'sw_time': '30',
     'ppc': 32
 }
 
