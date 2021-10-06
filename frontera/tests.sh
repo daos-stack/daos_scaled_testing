@@ -181,8 +181,7 @@ function run_cmd_on_client(){
     local quiet="${3:-false}"
     local host=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
 
-    echo
-    echo "$(time_stamp) CMD: ${daos_cmd}"
+    pmsg "CMD: ${daos_cmd}"
 
     local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S \"
          export PATH=${PATH};
@@ -264,11 +263,7 @@ function get_daos_status(){
     dmg_pool_list
     dmg_pool_query "${POOL_UUID}"
 
-    get_server_status ${DAOS_SERVERS} true
-    local rc=$?
-    if [ ${teardown_on_error} = true ] && [ $rc -ne 0 ]; then
-        teardown_test "Bad server status" 1
-    fi
+    get_server_status ${DAOS_SERVERS} true ${teardown_on_error}
 }
 
 function teardown_test(){
@@ -351,10 +346,11 @@ function check_cmd_timeout(){
 # Returns 0 if all joined, 1 otherwise.
 function get_server_status(){
     local num_servers=${1}
+    local teardown_on_cmd_error="${2:-true}"
+    local teardown_on_bad_state="${3:-true}"
     local target_servers=$((${num_servers} - 1))
-    local teardown_on_error="${2:-false}"
 
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${teardown_on_error}"
+    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${teardown_on_cmd_error}"
     if [ "${target_servers}" -eq 0 ]; then
         if echo ${OUTPUT_CMD} | grep -q "0\s*Joined"; then
             return 0
@@ -363,6 +359,11 @@ function get_server_status(){
         if echo ${OUTPUT_CMD} | grep -q "\[0\-${target_servers}\]\sJoined"; then
             return 0
         fi
+    fi
+
+    # State wasn't all Joined, so assume error
+    if [ ${teardown_on_bad_state} = true ]; then
+        teardown_test "Bad dmg system state" 1
     fi
 
     return 1
@@ -380,7 +381,7 @@ function wait_for_servers_to_start(){
     n=1
     until [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]
     do
-        get_server_status ${num_servers} false
+        get_server_status ${num_servers} false true
         local rc=$?
         if [ ${rc} -eq 0 ]; then
             break
@@ -472,12 +473,12 @@ function query_pools_rebuild(){
     do
         print_separator
         pmsg "Querying pool ${n} of ${num_pools}"
-        local CURRENT_POOL=$(echo "${all_pools}" | head -${n} | tail -n 1)
-        dmg_pool_query "${CURRENT_POOL}"
+        local current_pool=$(echo "${all_pools}" | head -${n} | tail -n 1)
+        dmg_pool_query "${current_pool}"
         if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             num_rebuild_done=$[${num_rebuild_done} + 1]
         else
-            pmsg "Failed to rebuild pool ${CURRENT_POOL}"
+            pmsg "Failed to rebuild pool ${current_pool}"
         fi
         n=$[${n} + 1]
     done
