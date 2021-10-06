@@ -5,4 +5,3 @@ port: 10001
 runtime_dir: /tmp/daos_agent
 transport_config:
   allow_insecure: true
-  server_name: daos_server
