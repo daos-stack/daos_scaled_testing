@@ -140,12 +140,6 @@ function print_separator(){
     printf '%80s\n' | tr ' ' =
 }
 
-function cleanup(){
-    pmsg "Removing temporary files"
-    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup.sh
-    echo "End Time: $(date)"
-}
-
 function collect_test_logs(){
     pmsg "Collecting metrics and logs"
 
@@ -301,12 +295,17 @@ function teardown_test(){
     pmsg "List surviving processes"
     eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
-    cleanup
+    pmsg "Removing temporary files"
+    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup.sh
+
+    pmsg "Removing empty core dumps"
+    find ${DUMP_DIR} -type d -empty -print -delete 
 
     pkill -e --signal SIGKILL -P $$
 
     pmsg "End of teardown"
 
+    echo "End Time: $(date)"
     echo "EXIT_MESSAGE : ${exit_message}"
     echo "EXIT_RC      : ${exit_rc}"
     exit ${exit_rc}
