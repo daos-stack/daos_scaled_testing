@@ -405,12 +405,9 @@ function prepare(){
     ${SRUN_CMD} ${DST_DIR}/frontera/create_log_dir.sh
 
     # Generate MPI hostlist
-    if [ "${MPI_TARGET}" == "mvapich2" ]; then
-        ${DST_DIR}/frontera/mvapich2_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    elif [ "${MPI_TARGET}" == "openmpi" ]; then
-        ${DST_DIR}/frontera/openmpi_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    else
-        ${DST_DIR}/frontera/mpich_gen_hostlist.sh ${DAOS_SERVERS} ${DAOS_CLIENTS}
+    ${DST_DIR}/frontera/mpi_gen_hostlist.sh ${MPI_TARGET} ${DAOS_SERVERS} ${DAOS_CLIENTS}
+    if [ $? -ne 0 ]; then
+        teardown_test "Failed to generate mpi hostlist" 1
     fi
 
     # Use the first server as the access point
