@@ -781,8 +781,8 @@ class CsvRebuild(CsvBase):
         row["status"]                 = status.get_status_str()
         row["notes"]                  = status.get_notes_str()
 
-def get_stdout_list(result_path, prefix):
-    """Get a list of stdout files for a given prefix.
+def get_output_list(result_path, prefix):
+    """Get a list of output files for a given prefix.
 
     Args:
         result_path (str): Path to the top-level directory.
@@ -790,19 +790,19 @@ def get_stdout_list(result_path, prefix):
             For example: mdtest, ior, rebuild.
 
     Returns:
-        list: List of sorted paths to stdout files.
+        list: List of sorted paths to output files.
     """
-    # Recursively drill down to find each stdout file in each log directory
+    # Recursively drill down to find each output file in each log directory
     # in each directory
     path_obj = Path(result_path)
 
-    output_file_list = sorted(path_obj.rglob(f"*{prefix}_*/log_*/*/stdout*"))
+    output_file_list = sorted(path_obj.rglob(f"*{prefix}_*/log_*/*/output*"))
     if not output_file_list and prefix in result_path:
-        output_file_list = sorted(path_obj.rglob("log_*/*/stdout*"))
+        output_file_list = sorted(path_obj.rglob("log_*/*/output*"))
 
     # In case the log directory itself is passed
     if not output_file_list and prefix in result_path and "log_" in result_path:
-        output_file_list = sorted(path_obj.rglob("stdout*"))
+        output_file_list = sorted(path_obj.rglob("output*"))
 
     if not output_file_list:
         print(f"No {prefix} log files found", flush=True)
@@ -827,7 +827,7 @@ def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
         print(f"ERR {csv_class} is not a subclass of CsvBase", file=sys.stderr)
         return False
 
-    output_file_list = get_stdout_list(result_dir, prefix)
+    output_file_list = get_output_list(result_dir, prefix)
     if not output_file_list:
         return False
 
