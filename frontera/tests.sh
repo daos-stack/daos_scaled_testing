@@ -533,8 +533,6 @@ function daos_cont_create(){
 
     if [ $? -ne 0 ]; then
         teardown_test "Daos container create FAIL" 1
-    else
-        pmsg "Daos container create SUCCESS"
     fi
 }
 
@@ -543,8 +541,6 @@ function daos_cont_query(){
     local pool="${1:-${POOL_UUID}}"
     local cont="${2:-${CONT_UUID}}"
     local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
-
-    pmsg "Querying container ${pool}:${cont}"
 
     local daos_cmd="daos container query --pool=${pool} --cont=${cont}"
     local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
@@ -561,9 +557,7 @@ function daos_cont_query(){
     eval ${cmd}
 
     if [ $? -ne 0 ]; then
-        teardown_test "Daos container query FAIL" 1
-    else
-        pmsg "Daos container query SUCCESS"
+        teardown_test "daos container query FAIL" 1
     fi
 }
 
