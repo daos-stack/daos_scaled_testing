@@ -85,16 +85,15 @@ module unload impi pmix hwloc intel
 module list
 
 
-# Time to wait for servers to start
-INITIAL_BRINGUP_WAIT_TIME=30s
-BRINGUP_WAIT_TIME=15s
-BRINGUP_RETRY_ATTEMPTS=12
+# Time in seconds to wait for servers to start
+SERVER_START_MAX_TIME=300
+SERVER_START_WAIT_TIME=15
 
-# Time to wait for rebuild
-REBUILD_WAIT_TIME=5s
-REBUILD_MAX_TIME=600 # seconds
+# Time in seconds to wait for rebuild
+REBUILD_WAIT_TIME=5
+REBUILD_MAX_TIME=600
+REBUILD_KILL_WAIT_TIME=30
 
-WAIT_TIME=30s
 PROCESSES="'(daos|orteun|mpirun)'"
 
 # Time in milliseconds
@@ -372,30 +371,33 @@ function get_server_status(){
 #Wait for all the DAOS servers to start
 function wait_for_servers_to_start(){
     local num_servers=${1}
-    local target_servers=$((${num_servers} - 1))
+    local start_s=${SECONDS}
+    local elapsed_s=0
+    local servers_running=false
 
-    pmsg "Waiting for ${num_servers} daos_servers to start \
-          (${INITIAL_BRINGUP_WAIT_TIME} seconds)"
-    sleep ${INITIAL_BRINGUP_WAIT_TIME}
+    pmsg "Waiting for ${num_servers} daos_servers to start within ${SERVER_START_MAX_TIME} seconds"
 
-    n=1
-    until [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]
+    while true
     do
+        sleep ${SERVER_START_WAIT_TIME}
         get_server_status ${num_servers} false true
         local rc=$?
+        elapsed_s=$[${SECONDS} - ${start_s}]
         if [ ${rc} -eq 0 ]; then
+            servers_running=true
             break
         fi
-        pmsg "Attempt ${n}/${BRINGUP_RETRY_ATTEMPTS} failed, retrying in ${BRINGUP_WAIT_TIME} seconds..."
-        n=$[${n} + 1]
-        sleep ${BRINGUP_WAIT_TIME}
+        if [ ${elapsed_s} -ge ${SERVER_START_MAX_TIME} ]; then
+            break
+        fi
+        pmsg "Elapsed ${elapsed_s} seconds. Retrying in ${SERVER_START_WAIT_TIME} seconds..."
     done
 
-    if [ ${n} -ge ${BRINGUP_RETRY_ATTEMPTS} ]; then
-        teardown_test "Failed to start all ${num_servers} DAOS servers" 1
+    if ! $servers_running; then
+        teardown_test "Failed to start ${num_servers} DAOS servers within ${SERVER_START_WAIT_TIME} seconds" 1
     fi
 
-	pmsg "Done, ${num_servers} DAOS servers are up and running"
+    pmsg "Started ${num_servers} DAOS servers in ${elapsed_s} seconds"
 }
 
 #Create server/client hostfile.
@@ -784,8 +786,8 @@ function kill_random_server(){
 
     get_daos_status
 
-    pmsg "Waiting to kill ${doomed_server} server in ${WAIT_TIME} seconds..."
-    sleep ${WAIT_TIME}
+    pmsg "Waiting to kill ${doomed_server} server in ${REBUILD_KILL_WAIT_TIME} seconds..."
+    sleep ${REBUILD_KILL_WAIT_TIME}
     pmsg "Killing ${doomed_server} server"
 
     local csh_prefix="clush -w ${doomed_server} -S -f 1"
