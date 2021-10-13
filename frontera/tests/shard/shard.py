@@ -45,7 +45,7 @@ tests = [
         'test_name': 'ior_easy_S8',
         'scale': [
             # (num_servers, num_clients, timeout_minutes)
-            (40, 20, 10)
+            (10, 20, 10)
         ],
         'oclass': 'S8',
         'env_vars': dict(env_vars, xfer_size='8M'),
