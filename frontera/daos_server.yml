@@ -21,6 +21,9 @@ engines:
   - FI_OFI_RXM_USE_SRX=1
   - DTX_AGG_THD_CNT=16777216 # max count
   - DTX_AGG_THD_AGE=700      # max age
+  - SWIM_PROTOCOL_PERIOD_LEN=2000
+  - SWIM_SUSPECT_TIMEOUT=19000
+  - SWIM_PING_TIMEOUT=1900
   fabric_iface: ib0
   fabric_iface_port: 31416
   first_core: 0

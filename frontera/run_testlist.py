@@ -40,6 +40,12 @@ def main(args):
         action='store_true',
         help='recurse on directories')
     parser.add_argument(
+        '--filter',
+        default="",
+        type=str,
+        help='filter test cases. Space means OR. Comma means AND.\
+              E.g. --filter "oclass=SX,daos_servers=1 daos_servers=2,daos_clients=16"')
+    parser.add_argument(
         '--dryrun',
         action='store_true',
         help='print tests to be ran, but do not run.')
@@ -54,6 +60,27 @@ def main(args):
     parser.add_argument('--dst_dir',  type=str, help='environment DST_DIR')
     parser.add_argument('--res_dir',  type=str, help='environment RES_DIR')
     parser_args = parser.parse_args(args)
+
+    param_filter_s = parser_args.filter
+    param_filters = []
+    for _filter in param_filter_s.split(' '):
+        _filter = _filter.strip()
+        if len(_filter) == 0:
+            continue
+        this_filter = {}
+        for _condition in _filter.split(','):
+            if not _condition:
+                continue
+            name_val = _condition.split('=')
+            if len(name_val) != 2:
+                print(f'Invalid filter format. Expected <name>=<val>: {_condition}')
+                return 1
+            name, val = name_val
+            if not name or not val:
+                print(f'Invalid filter format. Expected <name>=<val>: {_condition}')
+                return 1
+            this_filter[name] = val
+        param_filters.append(this_filter)
 
     if parser_args.jobname:
         env['JOBNAME'] = parser_args.jobname
@@ -74,7 +101,7 @@ def main(args):
         return 1
 
     test_list = TestList(tests, env)
-    test_list.run(parser_args.dryrun)
+    test_list.run(param_filters, parser_args.dryrun)
     return 0
 
 
@@ -82,10 +109,8 @@ class TestList(object):
     def __init__(self, testlist, env, script='frontera/run_sbatch.sh'):
         self._testlist = testlist
         self._env = env.copy()
-        self._setup_offset = 5
+        self._setup_offset = 4
         self._teardown_offset = 5
-        self._pool_create_timeout = 3
-        self._cmd_timeout = 2
         dst_dir = os.getenv('DST_DIR')
         self._script = join(dst_dir, script)
 
@@ -130,8 +155,6 @@ class TestList(object):
         s = 0
         env['TIMEOUT'] = str(h) + ':' + str(m) + ':' + str(s)
         env['OMPI_TIMEOUT'] = str(test_timeout * 60)
-        env['POOL_CREATE_TIMEOUT'] = str(self._pool_create_timeout * 60)
-        env['CMD_TIMEOUT'] = str(self._cmd_timeout * 60)
 
     def _expand_env_oclass(self, env, oclass):
         if isinstance(oclass, str):
@@ -159,10 +182,32 @@ class TestList(object):
     def _expand_env_ec_cell_size(self, env, ec_cell_size):
         env['EC_CELL_SIZE'] = str(ec_cell_size)
 
-    def run(self, dryrun=False):
+    def _env_contains(self, env, param_filter):
+        '''Determine whether an environment contains some dictionary values.
+
+        Args:
+            env (dict): environment dictionary.
+            param_filter (dict): dictionary of test parameters to filter by.
+
+        Returns:
+            bool: True if the env contains all dictionary values.
+                False otherwise.
+
+        '''
+        for key, val in param_filter.items():
+            key = key.upper()
+            if key not in env:
+                return False
+            if env[key] != val:
+                return False
+        return True
+
+    def run(self, param_filters=[], dryrun=False):
         '''Run the test list.
 
         Args:
+            param_filters (list/dict, optional): list of dictionaries of test parameters to filter by.
+                Default is [], which runs all tests.
             dryrun (bool, optional): if True, print tests to be ran, but do not run.
                 Default is False.
 
@@ -191,10 +236,20 @@ class TestList(object):
                 self._expand_env_ec_cell_size(variant_env, ec_cell_size)
                 variant_env_list.append(variant_env)
 
-        for idx, env in enumerate(variant_env_list):
-            print(f"{idx+1:03}. Running {env['TESTCASE']} {env['OCLASS']}, "
+        idx = 1
+        for env in variant_env_list:
+            do_skip = False
+            for param_filter in param_filters:
+                do_skip = True
+                if self._env_contains(env, param_filter):
+                    do_skip = False
+                    break
+            if do_skip:
+                continue
+            print(f"{idx:03}. Running {env['TESTCASE']} {env['OCLASS']}, "
                   f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
                   f"{env['EC_CELL_SIZE']} ec_ell_size")
+            idx += 1
             if not dryrun:
                 subprocess.Popen(self._script, env=env)
 

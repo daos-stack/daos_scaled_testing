@@ -861,7 +861,7 @@ def get_output_list(result_path, prefix):
     return output_file_list
 
 def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
-    """Generate a CSV from a directry containing results.
+    """Generate a CSV from a directory containing results.
 
     Args:
         result_dir (str): Path the results directory.
