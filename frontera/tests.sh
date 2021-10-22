@@ -172,6 +172,16 @@ function run_cmd(){
     check_cmd_timeout "${RC}" "${cmd}"
 }
 
+function run_cmd_background(){
+    local cmd="$(echo ${1} | tr -s " ")"
+
+    pmsg "CMD: ${cmd}"
+
+    # Put return code in global vars
+    eval "${cmd}" &
+    RC=$?
+}
+
 # Get a random client node name from the CLIENT_HOSTLIST_FILE and then
 # run a command
 function run_cmd_on_client(){
@@ -403,7 +413,7 @@ function wait_for_servers_to_start(){
 #Create server/client hostfile.
 function prepare(){
     # Create core dump and log directories
-    mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test}
+    mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test,cart}
     ${SRUN_CMD} ${DST_DIR}/frontera/create_log_dir.sh
 
     # Generate MPI hostlist
@@ -713,6 +723,54 @@ function run_self_test(){
     fi
 }
 
+# Run cart test_group_np_srv
+function run_cart_test_group_np_srv(){
+    pmsg "Running CART test_group_np_srv"
+
+    let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
+    local num_ctx=17
+    let last_ctx_index=$(( ${num_ctx}-1  ))
+    local test_dir=${DUMP_DIR}/cart
+
+    pushd ${test_dir} > /dev/null
+    ulimit -c unlimited
+
+    # TODO mpich or openmpi
+    # Start a crt_launch process for each "server"
+    local server_cart_cmd="
+        crt_launch
+        -e ${DAOS_DIR}/install/lib/daos/TESTING/tests/test_group_np_srv
+        --name selftest_srv_grp
+        --cfg_path=${test_dir}
+        -c ${num_ctx}"
+
+    local server_mpich_cmd="
+        mpirun
+        -np ${DAOS_SERVERS}
+        -map-by node
+        -hostfile ${SERVER_HOSTLIST_FILE}
+        ${server_cart_cmd}"
+
+    run_cmd_background "${server_mpich_cmd}"
+
+    # TODO more robust/deterministic
+    sleep 30
+
+    # Start a self_test process
+    local client_cart_cmd="
+        self_test
+        --path ${test_dir}
+        --group-name selftest_srv_grp
+        --endpoint 0-${last_srv_index}:0-${last_ctx_index}
+        -q
+        --message-sizes \"b200000\" 
+        --max-inflight-rpcs ${INFLIGHT}
+        --repetitions 10000"
+
+    # TODO execute on client or dont require client node for this test
+    run_cmd "${client_cart_cmd}"
+}
+
 # Run mdtest create, stat, read, remove
 function run_mdtest(){
     pmsg "CMD: Starting MDTEST..."
@@ -873,6 +931,9 @@ function run_testcase(){
             start_server
             dump_attach_info
             run_self_test
+            ;;
+        CART)
+            run_cart_test_group_np_srv
             ;;
         MDTEST)
             start_server

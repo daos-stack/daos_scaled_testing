@@ -781,6 +781,58 @@ class CsvRebuild(CsvBase):
         row["status"]                 = status.get_status_str()
         row["notes"]                  = status.get_notes_str()
 
+class CsvCart(CsvBase):
+    """Class for generating a CSV with cart results."""
+
+    def __init__(self, csv_file_path, output_style="full"):
+        """Initialize a CSV cart object.
+
+        Args:
+            csv_file_path (str): Path the the CSV file.
+            output_style (str, optional): full or simple output.
+
+        """
+        row_template = {
+            "slurm_job_id":           "Slurm Job ID",
+            "test_case":              "Test Case",
+            "start_time":             "Date",
+            "end_time":               "End",
+            "daos_commit":            "Commit",
+            "num_servers":            "Num Servers",
+            "num_clients":            "Num Clients",
+            "num_targets":            "Num Targets",
+            "ppc":                    "Processes Per Client",
+            "num_pools":              "Num Pools",
+            "pool_size":              "Pool Size",
+            "status":                 "Status",
+            "notes":                  "Notes"
+        }
+        row_order = ["test_case", "start_time", "daos_commit",
+                     "num_servers", "num_pools", "num_targets", "pool_size",
+                     "end_time", "notes", "status"]
+        row_sort = [["test_case", str],
+                    ["num_servers", int]]
+
+        super().__init__(csv_file_path, output_style, row_template, row_order, row_sort)
+
+    def process_result_file(self, file_path):
+        """Extract results from a cart result file.
+
+        Args:
+            file_path (str): Path to the result file.
+        """
+        output = read_file(file_path)
+        if not output:
+            return
+
+        row = self.new_row(output)
+        status = TestStatus()
+
+        row["daos_commit"]            = get_daos_commit(file_path, row["slurm_job_id"])
+        row["num_targets"]            = get_num_targets(file_path, row["slurm_job_id"])
+        row["status"]                 = status.get_status_str()
+        row["notes"]                  = status.get_notes_str()
+
 def get_output_list(result_path, prefix):
     """Get a list of output files for a given prefix.
 
@@ -961,7 +1013,7 @@ def csv_list_to_xlsx(csv_list, xlsx_file_path, group_by=None):
 def main(result_path, tests=["all"], output_format="csv", output_style="full",
          email_list=[]):
     """See __main__ below for arguments."""
-    all_tests = ["ior", "mdtest", "rebuild"]
+    all_tests = ["ior", "mdtest", "rebuild", "cart"]
     if "all" in tests:
         tests = all_tests
     else:
@@ -1001,7 +1053,8 @@ def main(result_path, tests=["all"], output_format="csv", output_style="full",
     # Generate results for each test in tests
     for (test, test_class) in (("ior", CsvIor),
                                ("mdtest", CsvMdtest),
-                               ("rebuild", CsvRebuild)):
+                               ("rebuild", CsvRebuild),
+                               ("cart", CsvCart)):
         if test in tests:
             print("")
             csv_name = f"{test}_result_{result_name}.csv"
@@ -1041,8 +1094,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tests",
         type=str,
-        default="all",
-        help="comma-separated list of tests (all,ior,mdtest,rebuild)")
+        default="ior,mdtest",
+        help="comma-separated list of tests (all,ior,mdtest,rebuild,cart)")
     parser.add_argument(
         "--format",
         type=str,
