@@ -39,7 +39,7 @@ SERVER_START_WAIT_TIME="${SERVER_START_WAIT_TIME:-15}"
 # Time in seconds to wait for rebuild
 REBUILD_KILL_WAIT_TIME="${REBUILD_KILL_WAIT_TIME:-5}"
 REBUILD_MAX_TIME="${REBUILD_MAX_TIME:-600}"
-REBUILD_KILL_WAIT_TIME="${REBUILD_KILL_WAIT_TIME:-30}"
+REBUILD_WAIT_TIME="${REBUILD_WAIT_TIME:-30}"
 
 # Set common MPI command
 if [ "${MPI_TARGET}" == "mvapich2" ] || [ "${MPI_TARGET}" == "mpich" ]; then
@@ -254,6 +254,20 @@ function dmg_pool_create_multi(){
     fi
 }
 
+# Run dmg pool destroy
+function dmg_pool_destroy(){
+    local pool_label="${1:-test_pool}"
+    local force="${2:-true}"
+
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool destroy ${pool_label}"
+
+    if $force; then
+        cmd+=" --force"
+    fi
+
+    run_cmd_on_client "${cmd}"
+}
+
 # Run dmg pool list.
 # Use --verbose (new option) if available, added in v1.3.104-tb
 function dmg_pool_list(){
@@ -312,8 +326,8 @@ function teardown_test(){
     pmsg "List surviving processes"
     eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
-    pmsg "${DST_DIR}/frontera/cleanup.sh"
-    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup.sh
+    pmsg "${DST_DIR}/frontera/cleanup_node.sh"
+    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup_node.sh
 
     pmsg "Removing empty core dumps"
     find ${DUMP_DIR} -type d -empty -print -delete 
@@ -373,26 +387,33 @@ function get_server_status(){
     local target_servers=$((${num_servers} - 1))
 
     run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${teardown_on_cmd_error}"
-    if [ "${target_servers}" -eq 0 ]; then
-        if echo ${OUTPUT_CMD} | grep -q "0\s*Joined"; then
-            return 0
-        fi
-    else
-        if echo ${OUTPUT_CMD} | grep -q "\[0\-${target_servers}\]\sJoined"; then
-            return 0
-        fi
-    fi
-
     # Command failed, but we didn't teardown, so just return an error
     if [ ${RC} -ne 0 ]; then
         return 1
     fi
 
-    # State wasn't all Joined, so assume error
-    if [ ${teardown_on_bad_state} = true ]; then
-        teardown_test "Bad dmg system state" 1
+    if [ "${target_servers}" -eq 0 ]; then
+        # Check if single server is joined
+        if echo ${OUTPUT_CMD} | grep -q "0\s*Joined"; then
+            return 0
+        fi
+    else
+        # Check if exactly all servers are joined
+        local num_joined=$(echo "${OUTPUT_CMD}" | sed -n 's/.*\[0-\([0-9]*\)\] Joined.*/\1/p')
+        if [ "${num_joined}" = "${target_servers}" ]; then
+            return 0
+        fi
+        echo "${num_joined} != ${target_servers}"
     fi
 
+    # State wasn't all Joined, so check for bad states
+    if [ ${teardown_on_bad_state} = true ]; then
+        if echo ${OUTPUT_CMD} | grep -q "Excluded\|Errored"; then
+            teardown_test "Bad dmg system state" 1
+        fi
+    fi
+
+    # Something is wrong, but we didn't teardown, so just return an error
     return 1
 }
 
@@ -407,6 +428,7 @@ function wait_for_servers_to_start(){
 
     while true
     do
+        sleep ${SERVER_START_WAIT_TIME}
         get_server_status ${num_servers} false true
         local rc=$?
         elapsed_s=$[${SECONDS} - ${start_s}]
@@ -418,7 +440,6 @@ function wait_for_servers_to_start(){
             break
         fi
         pmsg "Elapsed ${elapsed_s} seconds. Retrying in ${SERVER_START_WAIT_TIME} seconds..."
-        sleep ${SERVER_START_WAIT_TIME}
     done
 
     if ! $servers_running; then
@@ -432,7 +453,7 @@ function wait_for_servers_to_start(){
 function prepare(){
     # Create core dump and log directories
     mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test,cart}
-    ${SRUN_CMD} ${DST_DIR}/frontera/create_log_dir.sh
+    ${SRUN_CMD} ${DST_DIR}/frontera/setup_node_dirs.sh ${RUN_DIR}/${SLURM_JOB_ID}/logs
 
     # Generate MPI hostlist
     ${DST_DIR}/frontera/mpi_gen_hostlist.sh ${MPI_TARGET} ${DAOS_SERVERS} ${DAOS_CLIENTS}
@@ -445,10 +466,6 @@ function prepare(){
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
     sed -i "s/^\- .*/\- $ACCESS_POINT:$ACCESS_PORT/" ${DAOS_CONTROL_YAML}
-
-    #Create the daos_agent folder
-    srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_agent
-    srun -n $SLURM_JOB_NUM_NODES mkdir  /tmp/daos_server
 }
 
 #Start DAOS agent
