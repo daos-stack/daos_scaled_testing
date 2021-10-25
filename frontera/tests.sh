@@ -13,6 +13,8 @@ NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
 NUM_PROCESSES=$(($DAOS_CLIENTS * $PPC))
 CONT_RF="${CONT_RF:-0}"
 CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
+IOR_WAIT_TIME="${IOR_WAIT_TIME:-0}"
+ITERATIONS="${ITERATIONS:-1}"
 
 # Set common params/paths
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -23,6 +25,21 @@ SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
 ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
 CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
 DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
+
+# Time in seconds for openmpi timeout
+OMPI_TIMEOUT="${OMPI_TIMEOUT:-300}"
+
+# Time in seconds for clush timeout
+CMD_TIMEOUT="${CMD_TIMEOUT:-120}"
+
+# Time in seconds to wait for servers to start
+SERVER_START_MAX_TIME="${SERVER_START_MAX_TIME:-300}"
+SERVER_START_WAIT_TIME="${SERVER_START_WAIT_TIME:-15}"
+
+# Time in seconds to wait for rebuild
+REBUILD_KILL_WAIT_TIME="${REBUILD_KILL_WAIT_TIME:-5}"
+REBUILD_MAX_TIME="${REBUILD_MAX_TIME:-600}"
+REBUILD_KILL_WAIT_TIME="${REBUILD_KILL_WAIT_TIME:-30}"
 
 # Set common MPI command
 if [ "${MPI_TARGET}" == "mvapich2" ] || [ "${MPI_TARGET}" == "mpich" ]; then
@@ -78,44 +95,40 @@ echo "NUM_POOLS       : ${NUMBER_OF_POOLS}"
 echo "POOL_SIZE       : ${POOL_SIZE}"
 echo "FPP             : ${FPP}"
 echo "MPI_TARGET      : ${MPI_TARGET}"
+echo "IOR_WAIT_TIME   : ${IOR_WAIT_TIME}"
+echo
+echo "Test runner hostname: ${HOSTNAME}"
+echo
 
-
-# Unload modules that are not needed on Frontera
-module unload impi pmix hwloc intel
-module list
-
-
-# Time in seconds to wait for servers to start
-SERVER_START_MAX_TIME=300
-SERVER_START_WAIT_TIME=15
-
-# Time in seconds to wait for rebuild
-REBUILD_WAIT_TIME=5
-REBUILD_MAX_TIME=600
-REBUILD_KILL_WAIT_TIME=30
-
+# Processes to be killed on teardown
 PROCESSES="'(daos|orteun|mpirun)'"
 
 # Time in milliseconds
-CLOCK_DRIFT_THRESHOLD=500
+CLOCK_DRIFT_THRESHOLD="${CLOCK_DRIFT_THRESHOLD:-500}"
 
-echo "Test runner hostname: ${HOSTNAME}"
-echo
-echo "DAOS_DIR:"
-echo "$(ls -ald $(realpath ${DAOS_DIR}/../.))"
+# Set daos paths and libraries
+function setup_daos_paths(){
+    # Unused modules
+    module unload impi pmix hwloc intel
 
-cat ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
+    echo "DAOS_DIR:"
+    echo "$(ls -ald $(realpath ${DAOS_DIR}/../.))"
 
-source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
-source ${DST_DIR}/frontera/build_env.sh ${MPI_TARGET}
+    cat ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
 
-export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
-export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
+    source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
+    source ${DST_DIR}/frontera/build_env.sh ${MPI_TARGET}
 
-echo PATH=$PATH
-echo
-echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-echo
+    export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
+    export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
+
+    echo PATH=$PATH
+    echo
+    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+    echo
+
+    module list
+}
 
 # Generate timestamp
 function time_stamp(){
@@ -299,7 +312,7 @@ function teardown_test(){
     pmsg "List surviving processes"
     eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
-    pmsg "Removing temporary files"
+    pmsg "${DST_DIR}/frontera/cleanup.sh"
     ${SRUN_CMD} ${DST_DIR}/frontera/cleanup.sh
 
     pmsg "Removing empty core dumps"
@@ -370,6 +383,11 @@ function get_server_status(){
         fi
     fi
 
+    # Command failed, but we didn't teardown, so just return an error
+    if [ ${RC} -ne 0 ]; then
+        return 1
+    fi
+
     # State wasn't all Joined, so assume error
     if [ ${teardown_on_bad_state} = true ]; then
         teardown_test "Bad dmg system state" 1
@@ -389,7 +407,6 @@ function wait_for_servers_to_start(){
 
     while true
     do
-        sleep ${SERVER_START_WAIT_TIME}
         get_server_status ${num_servers} false true
         local rc=$?
         elapsed_s=$[${SECONDS} - ${start_s}]
@@ -401,10 +418,11 @@ function wait_for_servers_to_start(){
             break
         fi
         pmsg "Elapsed ${elapsed_s} seconds. Retrying in ${SERVER_START_WAIT_TIME} seconds..."
+        sleep ${SERVER_START_WAIT_TIME}
     done
 
     if ! $servers_running; then
-        teardown_test "Failed to start ${num_servers} DAOS servers within ${SERVER_START_WAIT_TIME} seconds" 1
+        teardown_test "Failed to start ${num_servers} DAOS servers within ${SERVER_START_MAX_TIME} seconds" 1
     fi
 
     pmsg "Started ${num_servers} DAOS servers in ${elapsed_s} seconds"
@@ -439,7 +457,7 @@ function start_agent(){
     local daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     local cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
         -f ${SLURM_JOB_NUM_NODES} \"
-        pushd ${DUMP_DIR}/agent;
+        pushd ${DUMP_DIR}/agent > /dev/null;
         ulimit -c unlimited;
         export PATH=${PATH};
         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
@@ -579,7 +597,7 @@ function start_server(){
     local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     local cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
         -f $SLURM_JOB_NUM_NODES \"
-        pushd ${DUMP_DIR}/server;
+        pushd ${DUMP_DIR}/server > /dev/null;
         ulimit -c unlimited;
         export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
         export CPATH=${CPATH};
@@ -599,6 +617,11 @@ function start_server(){
 # Run IOR write and read
 function run_ior(){
     run_ior_write
+    if [ ${IOR_WAIT_TIME} -ne 0 ]; then
+        local cmd="sleep ${IOR_WAIT_TIME}"
+        pmsg "${cmd}"
+        eval "${cmd}"
+    fi
     run_ior_read
 }
 
@@ -619,11 +642,11 @@ function run_ior_write(){
     echo
 
     # Enable core dump creation
-    pushd ${DUMP_DIR}/ior
+    pushd ${DUMP_DIR}/ior > /dev/null
     ulimit -c unlimited
     eval ${wr_cmd}
     local ior_rc=$?
-    popd
+    popd > /dev/null
 
     daos_cont_query
     get_daos_status
@@ -653,11 +676,11 @@ function run_ior_read(){
     echo
 
     # Enable core dump creation
-    pushd ${DUMP_DIR}/ior
+    pushd ${DUMP_DIR}/ior > /dev/null
     ulimit -c unlimited
     eval ${rd_cmd}
     local ior_rc=$?
-    popd
+    popd > /dev/null
 
     daos_cont_query
     get_daos_status
@@ -709,11 +732,11 @@ function run_self_test(){
     echo
 
     # Enable core dump creation
-    pushd ${DUMP_DIR}/self_test
+    pushd ${DUMP_DIR}/self_test > /dev/null
     ulimit -c unlimited
     eval $cmd
     local cart_rc=$?
-    popd
+    popd > /dev/null
 
     if [ ${cart_rc} -ne 0 ]; then
         echo -e "cart_rc: ${cart_rc}\n"
@@ -783,9 +806,14 @@ function run_mdtest(){
                 --dfs.chunk_size ${CHUNK_SIZE}
                 --dfs.oclass ${OCLASS}
                 --dfs.dir_oclass ${DIR_OCLASS}
+                -i ${ITERATIONS}
                 -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt -v"
+
+    if [ ${IOR_WAIT_TIME} -ne 0 ]; then
+        mdtest_cmd+=" --run-cmd-before-phase=\"sleep ${IOR_WAIT_TIME}\""
+    fi
 
     local cmd="${MPI_CMD} ${mdtest_cmd}"
 
@@ -793,11 +821,11 @@ function run_mdtest(){
     echo
 
     # Enable core dump creation
-    pushd ${DUMP_DIR}/mdtest
+    pushd ${DUMP_DIR}/mdtest > /dev/null
     ulimit -c unlimited
     eval $cmd
     local mdtest_rc=$?
-    popd
+    popd > /dev/null
 
     daos_cont_query
     get_daos_status
@@ -898,7 +926,9 @@ function run_testcase(){
     echo "###################"
 
     # Prepare Enviornment
+    setup_daos_paths
     prepare
+
     # System sanity check
     check_clock_sync
 
