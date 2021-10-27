@@ -7,7 +7,7 @@
 import os
 import sys
 from argparse import ArgumentParser
-from os.path import isdir, isfile, join, expandvars, realpath
+from os.path import isdir, isfile, join, expandvars, abspath
 from os.path import splitext, dirname, basename
 from importlib import import_module
 import subprocess
@@ -21,15 +21,15 @@ env['LD_LIBRARY_PATH'] = "/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugge
 
 env['JOBNAME']     = "<sbatch_jobname>"
 env['EMAIL']       = "<email>" # <first.last@email.com>
-env['DAOS_DIR']    = realpath(expandvars("${WORK}/BUILDS/latest/daos")) # Path to daos
-env['DST_DIR']     = realpath(expandvars("../")) # Path to daos_scaled_testing repo
-env['RES_DIR']     = realpath(expandvars("${WORK}/RESULTS")) # Path to test results
+env['DAOS_DIR']    = abspath(expandvars("${WORK}/BUILDS/latest/daos")) # Path to daos
+env['DST_DIR']     = abspath(expandvars("../")) # Path to daos_scaled_testing repo
+env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS")) # Path to test results
 
 env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
 
 # Only if using MPICH or OPENMPI
-env['MPICH_DIR']   = realpath(expandvars("${WORK}/TOOLS/mpich")) # Path to locally built mpich
-env['OPENMPI_DIR'] = realpath(expandvars("${WORK}/TOOLS/openmpi")) # Path to locall build openmpi
+env['MPICH_DIR']   = abspath(expandvars("${WORK}/TOOLS/mpich")) # Path to locally built mpich
+env['OPENMPI_DIR'] = abspath(expandvars("${WORK}/TOOLS/openmpi")) # Path to locall build openmpi
 
 def main(args):
     '''Run a test list.'''
@@ -87,11 +87,11 @@ def main(args):
     if parser_args.email:
         env['EMAIL'] = parser_args.email
     if parser_args.daos_dir:
-        env['DAOS_DIR'] = realpath(parser_args.daos_dir)
+        env['DAOS_DIR'] = abspath(parser_args.daos_dir)
     if parser_args.dst_dir:
-        env['DST_DIR'] = realpath(parser_args.dst_dir)
+        env['DST_DIR'] = abspath(parser_args.dst_dir)
     if parser_args.res_dir:
-        env['RES_DIR'] = realpath(parser_args.res_dir)
+        env['RES_DIR'] = abspath(parser_args.res_dir)
 
     if not _verify_env(env):
         return 1

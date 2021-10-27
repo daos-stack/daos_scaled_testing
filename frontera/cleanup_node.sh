@@ -5,5 +5,6 @@
 
 rm -rf /dev/shm/*
 rm -rf /tmp/daos*log
+rm -f /tmp/daos_logs
 rm -rf /tmp/daos_agent
 rm -rf /tmp/daos_server
