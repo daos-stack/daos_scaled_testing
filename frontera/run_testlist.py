@@ -19,11 +19,11 @@ env['PATH'] = "/opt/apps/xalt/xalt/bin:/opt/apps/intel19/python3/3.7.0/bin:/opt/
 
 env['LD_LIBRARY_PATH'] = "/opt/apps/intel19/python3/3.7.0/lib:/opt/intel/debugger_2019/libipt/intel64/lib:/opt/intel/compilers_and_libraries_2019.5.281/linux/daal/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/tbb/lib/intel64_lin/gcc4.7:/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin:/opt/intel/compilers_and_libraries_2019.5.281/linux/ipp/lib/intel64:/opt/intel/compilers_and_libraries_2019.5.281/linux/compiler/lib/intel64_lin:/opt/apps/gcc/8.3.0/lib64:/opt/apps/gcc/8.3.0/lib:/usr/lib64/:/usr/lib64/"
 
-env['JOBNAME']     = "<sbatch_jobname>"
-env['EMAIL']       = "<email>" # <first.last@email.com>
+env['JOBNAME']     = "dev_generic"
+env['EMAIL']       = "dalton.bohning@intel.com" # <first.last@email.com>
 env['DAOS_DIR']    = abspath(expandvars("${WORK}/BUILDS/latest/daos")) # Path to daos
 env['DST_DIR']     = abspath(expandvars("../")) # Path to daos_scaled_testing repo
-env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS")) # Path to test results
+env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS/dev_generic")) # Path to test results
 
 env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
 
@@ -44,7 +44,7 @@ def main(args):
         default="",
         type=str,
         help='filter test cases. Space means OR. Comma means AND.\
-              E.g. --filter "oclass=SX,daos_servers=1 daos_servers=2,daos_clients=16"')
+              E.g. --filter "oclass=SX,num_servers=1 num_servers=2,num_clients=16"')
     parser.add_argument(
         '--dryrun',
         action='store_true',
@@ -171,8 +171,8 @@ class TestList(object):
         nodes = srv + cli + 1
         cores = nodes * int(env['PPC'])
 
-        env['DAOS_SERVERS'] = str(srv)
-        env['DAOS_CLIENTS'] = str(cli)
+        env['NUM_SERVERS'] = str(srv)
+        env['NUM_CLIENTS'] = str(cli)
         env['NNODE'] = str(nodes)
         env['NCORE'] = str(cores)
 
@@ -247,7 +247,7 @@ class TestList(object):
             if do_skip:
                 continue
             print(f"{idx:03}. Running {env['TESTCASE']} {env['OCLASS']}, "
-                  f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
+                  f"{env['NUM_SERVERS']} servers, {env['NUM_CLIENTS']} clients, "
                   f"{env['EC_CELL_SIZE']} ec_ell_size")
             idx += 1
             if not dryrun:

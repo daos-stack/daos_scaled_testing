@@ -4,7 +4,9 @@
 #
 
 NODE_TYPE="${1}"
-LOG_DIR=${RUN_DIR}/${SLURM_JOB_ID}/logs/$(hostname)
+JOB_DIR="${2}"
+
+LOG_DIR=${JOB_DIR}/logs/$(hostname)
 
 echo "Copying logs from node $(hostname)"
 

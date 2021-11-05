@@ -50,12 +50,12 @@ def get_test_param(param, delim, output, default=None):
     """Get a test param of the form PARAM={}.
 
     For example:
-        DAOS_SERVERS=2
+        NUM_SERVERS=2
         nodes  :  4
 
     Args:
         param (str): The param to get.
-            E.g. DAOS_SERVERS, DAOS_CLIENTS, PPC, nodes.
+            E.g. NUM_SERVERS, NUM_CLIENTS, PPC, nodes.
         delim (str): The delimiter between the label and value.
             Can be multiple characters, in which each is tried.
         output (str): The output from the mdtest run.
@@ -407,8 +407,8 @@ class CsvBase():
                            ["test_case", "TESTCASE"],
                            ["oclass", "OCLASS"],
                            ["dir_oclass", "DIR_OCLASS"],
-                           ["num_servers", "DAOS_SERVERS"],
-                           ["num_clients", "DAOS_CLIENTS"],
+                           ["num_servers", "NUM_SERVERS"],
+                           ["num_clients", "NUM_CLIENTS"],
                            ["num_ranks", "RANKS"],
                            ["ppc", "PPC"],
                            ["segments", "SEGMENTS"],
@@ -671,6 +671,7 @@ class CsvRebuild(CsvBase):
             "start_time":             "Date",
             "end_time":               "End",
             "daos_commit":            "Commit",
+            "oclass":                 "Oclass",
             "num_servers":            "Num Servers",
             "num_clients":            "Num Clients",
             "num_targets":            "Num Targets",
@@ -684,7 +685,7 @@ class CsvRebuild(CsvBase):
             "status":                 "Status",
             "notes":                  "Notes"
         }
-        row_order = ["test_case", "start_time", "daos_commit",
+        row_order = ["test_case", "start_time", "daos_commit", "oclass",
                      "num_servers", "num_pools", "num_targets", "pool_size",
                      "rebuild_kill_time", "rebuild_down_time",
                      "rebuild_queued_time", "rebuild_completed_time",

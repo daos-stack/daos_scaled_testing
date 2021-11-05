@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Setup the MPI environment for building DAOS and running tests
+# Setup the MPI environment for building DAOS and running tests.
 #
 
 MPI_TARGET=${1}

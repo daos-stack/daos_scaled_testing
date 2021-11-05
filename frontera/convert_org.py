@@ -17,6 +17,11 @@ def rename_v(old, new):
     print(f'{old} -> {new}', flush=True)
     rename(old, new)
 
+def replace_v(data, old, new):
+    '''Replace text.'''
+    print(f'{old} -> {new}', flush=True)
+    return data.replace(old, new)
+
 def convert_org(pathname):
     '''Convert old organization to new organization.'''
     chdir(pathname)
@@ -55,9 +60,25 @@ def convert_org(pathname):
             slurm_job_id = match.group(1)
             rename_v(filename, join(dir_name, slurm_job_id, 'sw'))
 
+def convert_params(pathname):
+    '''Convert old paramater names to new.'''
+    chdir(pathname)
+    files = sorted(Path('.').rglob('log_*/*/output.txt'))
+    for filename in files:
+        filename = str(filename)
+
+        # replace parameter names
+        with open(filename, 'rt') as f:
+            data = f.read()
+            data = replace_v(data, 'DAOS_SERVERS', 'NUM_SERVERS')
+            data = replace_v(data, 'DAOS_CLIENTS', 'NUM_CLIENTS')
+        with open(filename, 'wt') as f:
+            f.write(data)
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print(f'Usage: {sys.argv[0]} <result_path>')
         sys.exit(1)
 
     convert_org(sys.argv[1])
+    convert_params(sys.argv[1])

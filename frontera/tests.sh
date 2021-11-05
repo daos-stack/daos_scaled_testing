@@ -4,29 +4,21 @@
 # ----------------------------------------------------
 
 # Configurable parameters to be updated for each sbatch
-DAOS_AGENT_DRPC_DIR="/tmp/daos_agent"
 ACCESS_PORT=10001
 OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
 # Set undefined/default test params
+NUM_SERVERS="${NUM_SERVERS:-0}"
+NUM_CLIENTS="${NUM_CLIENTS:-0}"
+NUM_NODES=$[ $NUM_SERVERS + $NUM_CLIENTS + 1]
 NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
 [ ! -z ${DAOS_POOL_PROPS+x} ] || DAOS_POOL_PROPS=reclaim:disabled
-NUM_PROCESSES=$(($DAOS_CLIENTS * $PPC))
+NUM_PROCESSES=$(($NUM_CLIENTS * $PPC))
 CONT_RF="${CONT_RF:-0}"
-CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
+[ ! -z ${DAOS_CONT_PROPS+x} ] || DAOS_CONT_PROPS=dedup:memcmp
 ITERATIONS="${ITERATIONS:-1}"
 IOR_ITER_DELAY="${IOR_ITER_DELAY:-5}"
 IOR_PHASE_DELAY="${IOR_PHASE_DELAY:-0}"
-
-# Set common params/paths
-SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
-DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
-DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
-DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
-SERVER_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_server_hostlist"
-ALL_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_all_hostlist"
-CLIENT_HOSTLIST_FILE="${RUN_DIR}/${SLURM_JOB_ID}/daos_client_hostlist"
-DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
 
 # Time in seconds for openmpi timeout
 OMPI_TIMEOUT="${OMPI_TIMEOUT:-300}"
@@ -65,20 +57,22 @@ if [ -z ${SW_TIME+x} ]; then
     IOR_SW_CMD=""
 else
     IOR_SW_CMD="-O stoneWallingWearOut=1
-                -O stoneWallingStatusFile=${RUN_DIR}/${SLURM_JOB_ID}/sw.ior
+                -O stoneWallingStatusFile=${JOB_DIR}/sw.ior
                 -D ${SW_TIME}"
 fi
 
 # Print all relevant test params / env variables
 echo "SLURM_JOB_ID    : ${SLURM_JOB_ID}"
 echo "JOBNAME         : ${JOBNAME}"
+echo "JOB_DIR         : ${JOB_DIR}"
+echo "DAOS_DIR        : $(realpath ${DAOS_DIR})"
 echo "EMAIL           : ${EMAIL}"
 echo "TEST_GROUP      : ${TEST_GROUP}"
 echo "TESTCASE        : ${TESTCASE}"
 echo "OCLASS          : ${OCLASS}"
 echo "DIR_OCLASS      : ${DIR_OCLASS}"
-echo "DAOS_SERVERS    : ${DAOS_SERVERS}"
-echo "DAOS_CLIENTS    : ${DAOS_CLIENTS}"
+echo "NUM_SERVERS     : ${NUM_SERVERS}"
+echo "NUM_CLIENTS     : ${NUM_CLIENTS}"
 echo "PPC             : ${PPC}"
 echo "RANKS           : ${NUM_PROCESSES}"
 echo "SEGMENTS        : ${SEGMENTS}"
@@ -110,16 +104,10 @@ CLOCK_DRIFT_THRESHOLD="${CLOCK_DRIFT_THRESHOLD:-500}"
 
 # Set daos paths and libraries
 function setup_daos_paths(){
-    # Unused modules
-    module unload impi pmix hwloc intel
+    cat ${JOB_DIR}/repo_info.txt
 
-    echo "DAOS_DIR:"
-    echo "$(ls -ald $(realpath ${DAOS_DIR}/../.))"
-
-    cat ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
-
-    source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
-    source ${DST_DIR}/frontera/build_env.sh ${MPI_TARGET}
+    source ${JOB_DIR}/test_env.sh ${DAOS_DIR} || return
+    source ${DST_DIR}/frontera/load_mpi.sh ${MPI_TARGET} || return
 
     export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
     export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
@@ -161,15 +149,13 @@ function collect_test_logs(){
     clush --hostfile ${SERVER_HOSTLIST_FILE} \
         --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
         export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
-        export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-        ${DST_DIR}/frontera/copy_log_files.sh server "
+        ${DST_DIR}/frontera/copy_log_files.sh server ${JOB_DIR}"
 
     # Client nodes
     clush --hostfile ${CLIENT_HOSTLIST_FILE} \
         --command_timeout ${CMD_TIMEOUT} --groupbase -S " \
         export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}; \
-        export RUN_DIR=${RUN_DIR}; export SLURM_JOB_ID=${SLURM_JOB_ID}; \
-        ${DST_DIR}/frontera/copy_log_files.sh client "
+        ${DST_DIR}/frontera/copy_log_files.sh client ${JOB_DIR}"
 }
 
 # Print command and run it, timestamp is prefixed
@@ -304,14 +290,15 @@ function get_daos_status(){
     dmg_pool_list
     dmg_pool_query "${POOL_UUID}"
 
-    get_server_status ${DAOS_SERVERS} true ${teardown_on_error}
+    get_server_status ${NUM_SERVERS} true ${teardown_on_error}
 }
 
 function teardown_test(){
     local exit_message="${1}"
     local exit_rc="${2:-0}"
-    local csh_prefix="clush --hostfile ${ALL_HOSTLIST_FILE} \
-                      -f ${SLURM_JOB_NUM_NODES}"
+    local clush_remote="clush --hostfile ${ALL_HOSTLIST_FILE} \
+                        -f ${NUM_NODES}"
+    local clush_all="${clush_remote} -w $HOSTNAME"
 
     if [ ${exit_rc} -eq 0 ]; then
         pmsg "${exit_message}"
@@ -324,18 +311,18 @@ function teardown_test(){
     collect_test_logs
 
     pmsg "List test processes to be killed"
-    eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
+    eval "${clush_remote} -B \"pgrep -a ${PROCESSES}\""
     pmsg "Killing test processes"
-    eval "${csh_prefix} \"pkill -e --signal SIGKILL ${PROCESSES}\""
+    eval "${clush_remote} \"pkill -e --signal SIGKILL ${PROCESSES}\""
     sleep 1
     pmsg "List surviving processes"
-    eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
+    eval "${clush_remote} -B \"pgrep -a ${PROCESSES}\""
 
     pmsg "${DST_DIR}/frontera/cleanup_node.sh"
-    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup_node.sh
+    eval "${clush_all} ${DST_DIR}/frontera/cleanup_node.sh"
 
     pmsg "Removing empty core dumps"
-    find ${DUMP_DIR} -type d -empty -print -delete 
+    find ${DUMP_DIR} -type d -empty -print -delete > /dev/null
 
     pkill -e --signal SIGKILL -P $$
 
@@ -350,12 +337,12 @@ function teardown_test(){
 function check_clock_sync(){
     pmsg "Retrieving local time of each node"
     run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
-                   -f ${SLURM_JOB_NUM_NODES} \
+                   -f ${NUM_NODES} \
                    ${DST_DIR}/frontera/print_node_local_time.sh"
 
     pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
     clush -S --hostfile ${ALL_HOSTLIST_FILE} \
-          -f ${SLURM_JOB_NUM_NODES} --groupbase \
+          -f ${NUM_NODES} --groupbase \
           "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
     local rc=$?
 
@@ -454,31 +441,30 @@ function wait_for_servers_to_start(){
     pmsg "Started ${num_servers} DAOS servers in ${elapsed_s} seconds"
 }
 
-#Create server/client hostfile.
+# Prepare nodes and configs
 function prepare(){
-    # Create core dump and log directories
-    mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test,cart}
-    ${SRUN_CMD} ${DST_DIR}/frontera/setup_node_dirs.sh ${RUN_DIR}/${SLURM_JOB_ID}/logs
+    # Create log directories
+    local clush_cmd="clush --hostfile ${ALL_HOSTLIST_FILE} -w $HOSTNAME \
+                     -f ${NUM_NODES}"
 
-    # Generate MPI hostlist
-    ${DST_DIR}/frontera/mpi_gen_hostlist.sh ${MPI_TARGET} ${DAOS_SERVERS} ${DAOS_CLIENTS}
-    if [ $? -ne 0 ]; then
-        teardown_test "Failed to generate mpi hostlist" 1
-    fi
+    eval "${clush_cmd} ${DST_DIR}/frontera/setup_node_dirs.sh ${JOB_DIR}/logs"
 
     # Use the first server as the access point
+    # TODO conditionally replace only if not already in config
     ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_AGENT_YAML
-    sed -i "s/^\- .*/\- $ACCESS_POINT:$ACCESS_PORT/" ${DAOS_CONTROL_YAML}
+    sed -i "s/^\- replace.*:/\- ${ACCESS_POINT}:/" ${DAOS_CONTROL_YAML}
 }
 
 #Start DAOS agent
 function start_agent(){
     pmsg "CMD: Starting agent..."
+
+    mkdir -p ${DUMP_DIR}/agent
     local daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     local cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
-        -f ${SLURM_JOB_NUM_NODES} \"
+        -f ${NUM_CLIENTS} \"
         pushd ${DUMP_DIR}/agent > /dev/null;
         ulimit -c unlimited;
         export PATH=${PATH};
@@ -495,7 +481,7 @@ function start_agent(){
 #Dump attach info
 function dump_attach_info(){
     pmsg "CMD: Dump attach info file..."
-    local cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
+    local cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${JOB_DIR}/daos_server.attach_info_tmp"
     echo $cmd
     echo
     eval $cmd &
@@ -536,89 +522,92 @@ function query_pools_rebuild(){
     echo "NUM_POOLS_REBUILD_DONE : ${num_rebuild_done}"
 }
 
+# Run a "daos" command on a client node
+# TODO test this and callers
+function run_daos_cmd(){
+    local cmd="${1}"
+
+    pmsg "CMD: $(echo ${cmd} | tr -s ' ')"
+
+    local exports="
+        export PATH=$PATH;
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+        export CPATH=${CPATH};
+        export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
+        export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
+        export D_LOG_FILE=${D_LOG_FILE};
+        export D_LOG_MASK=${D_LOG_MASK};
+        export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};"
+
+    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
+    local clush_cmd="clush -w ${host} -S --command_timeout ${CMD_TIMEOUT}"
+
+    eval "${clush_cmd} \"${exports} ${cmd}\""
+    return $?
+}
+
 # Run daos cont create
 function daos_cont_create(){
     local pool="${1:-${POOL_UUID}}"
     local cont_label="${2:-test_cont}"
     local cont_uuid="${3:-$(uuidgen)}"
-    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
+    local props="${DAOS_CONT_PROPS}"
 
     # Set global CONT_UUID
     CONT_UUID="${cont_uuid}"
 
     pmsg "Creating container ${cont_label} ${cont_uuid}"
 
-    # If CONT_RF is not the default, add to create properties
-    if [ -z "$CONT_RF" ] || [ "$CONT_RF" == "0" ]; then
-       pmsg "Using default rf:0"
-    else
-       pmsg "Using rf:$CONT_RF"
-       CONT_PROP="$CONT_PROP,rf:$CONT_RF"
+    # TODO consider just passing CONT_PROPS from test cases
+
+    # Append CONT_RF to properties
+    if [ ! -z ${CONT_RF} ]; then
+        if [ -z ${props} ]; then
+            props="rf:${CONT_RF}"
+        else
+            props+=",rf:${CONT_RF}"
+        fi
     fi
 
-    # If EC_CELL_SIZE is not the default, add to create properties
-    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == '1048576' ] || [ "$EC_CELL_SIZE" == '1M' ]; then
-       pmsg "Using default ec_cell:1048576"
-    else
-       pmsg "Using ec_cell:$EC_CELL_SIZE"
-       CONT_PROP="$CONT_PROP,ec_cell:$EC_CELL_SIZE"
+    # Append EC_CELL_SIZE to properties
+    if [ ! -z ${EC_CELL_SIZE} ]; then
+        if [ -z ${props} ]; then
+            props="ec_cell:${EC_CELL_SIZE}"
+        else
+            props+=",ec_cell:${EC_CELL_SIZE}"
+        fi
     fi
 
     local daos_cmd="daos container create
-              --pool=${pool}
-              --cont ${cont_uuid}
-              --label ${cont_label}
-              --sys-name=daos_server
-              --type=POSIX ${CONT_PROP}"
-    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
-         -f ${SLURM_JOB_NUM_NODES} \"
-         export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-         export CPATH=${CPATH};
-         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-         export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
-         export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-         export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-         $daos_cmd\""
+                    --pool=${pool}
+                    --cont ${cont_uuid}
+                    --label ${cont_label}
+                    --sys-name=daos_server
+                    --type=POSIX"
+   if [ ! -z ${props} ]; then
+       cmd+=" --properties ${props}"
+   fi
 
-    pmsg "CMD: $(echo ${daos_cmd} | tr -s ' ')"
-    eval ${cmd}
-
-    if [ $? -ne 0 ]; then
-        teardown_test "Daos container create FAIL" 1
-    fi
+    run_daos_cmd "${daos_cmd}" || teardown_test "Failed to create container" 1
 }
 
 # Run daos cont query
 function daos_cont_query(){
     local pool="${1:-${POOL_UUID}}"
     local cont="${2:-${CONT_UUID}}"
-    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
 
     local daos_cmd="daos container query --pool=${pool} --cont=${cont}"
-    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
-         -f ${SLURM_JOB_NUM_NODES} \"
-         export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-         export CPATH=${CPATH};
-         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-         export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
-         export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-         export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-         $daos_cmd\""
-
-    pmsg "CMD: ${daos_cmd}"
-    eval ${cmd}
-
-    if [ $? -ne 0 ]; then
-        teardown_test "daos container query FAIL" 1
-    fi
+    run_daos_cmd "${daos_cmd}" || teardown_test "Failed to query container" 1
 }
 
 #Start daos servers
 function start_server(){
     pmsg "Starting server..."
+
+    mkdir -p ${DUMP_DIR}/server
     local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
     local cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
-        -f $SLURM_JOB_NUM_NODES \"
+        -f $NUM_SERVERS \"
         pushd ${DUMP_DIR}/server > /dev/null;
         ulimit -c unlimited;
         export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
@@ -633,7 +622,7 @@ function start_server(){
         teardown_test "daos_server start FAILED" 1
     fi
 
-    wait_for_servers_to_start "${DAOS_SERVERS}"
+    wait_for_servers_to_start "${NUM_SERVERS}"
 }
 
 # Run IOR write and read
@@ -670,6 +659,7 @@ function run_ior_write(){
     echo
 
     # Enable core dump creation
+    mkdir -p ${DUMP_DIR}/ior
     pushd ${DUMP_DIR}/ior > /dev/null
     ulimit -c unlimited
     eval ${wr_cmd}
@@ -689,6 +679,8 @@ function run_ior_write(){
 
 # Run IOR read
 function run_ior_read(){
+    local teardown_on_daos_status="${1:-true}"
+
     pmsg "Running IOR READ"
 
     local ior_rd_cmd="${IOR_BIN}
@@ -704,6 +696,7 @@ function run_ior_read(){
     echo
 
     # Enable core dump creation
+    mkdir -p ${DUMP_DIR}/ior
     pushd ${DUMP_DIR}/ior > /dev/null
     ulimit -c unlimited
     eval ${rd_cmd}
@@ -711,7 +704,7 @@ function run_ior_read(){
     popd > /dev/null
 
     daos_cont_query
-    get_daos_status
+    get_daos_status "${teardown_on_daos_status}"
 
     if [ ${ior_rc} -ne 0 ]; then
         echo -e "ior_rc: ${ior_rc}\n"
@@ -725,10 +718,10 @@ function run_ior_read(){
 function run_self_test(){
     pmsg "CMD: Starting CaRT self_test..."
 
-    let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
+    let last_srv_index=$(( ${NUM_SERVERS}-1 ))
 
     local st_cmd="self_test
-        --path ${RUN_DIR}/${SLURM_JOB_ID}
+        --path ${JOB_DIR}
         --group-name daos_server --endpoint 0-${last_srv_index}:0
         --message-sizes 'b1048576',' b1048576 0','0 b1048576',' b1048576 i2048',' i2048 b1048576',' i2048',' i2048 0','0 i2048','0' 
         --max-inflight-rpcs $INFLIGHT --repetitions 100 -t -n"
@@ -760,6 +753,7 @@ function run_self_test(){
     echo
 
     # Enable core dump creation
+    mkdir -p ${DUMP_DIR}/self_test
     pushd ${DUMP_DIR}/self_test > /dev/null
     ulimit -c unlimited
     eval $cmd
@@ -778,11 +772,12 @@ function run_self_test(){
 function run_cart_test_group_np_srv(){
     pmsg "Running CART test_group_np_srv"
 
-    let last_srv_index=$(( ${DAOS_SERVERS}-1 ))
+    let last_srv_index=$(( ${NUM_SERVERS}-1 ))
     local num_ctx=17
     let last_ctx_index=$(( ${num_ctx}-1  ))
     local test_dir=${DUMP_DIR}/cart
 
+    mkdir -p ${test_dir}
     pushd ${test_dir} > /dev/null
     ulimit -c unlimited
 
@@ -797,7 +792,7 @@ function run_cart_test_group_np_srv(){
 
     local server_mpich_cmd="
         mpirun
-        -np ${DAOS_SERVERS}
+        -np ${NUM_SERVERS}
         -map-by node
         -hostfile ${SERVER_HOSTLIST_FILE}
         ${server_cart_cmd}"
@@ -837,7 +832,7 @@ function run_mdtest(){
                 -i ${ITERATIONS}
                 -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
-                -n ${N_FILE} -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt -v"
+                -n ${N_FILE} -x ${JOB_DIR}/sw.mdt -v"
 
     if [ ${IOR_PHASE_DELAY} -ne 0 ]; then
         mdtest_cmd+=" --run-cmd-before-phase=\"sleep ${IOR_PHASE_DELAY}\""
@@ -849,6 +844,7 @@ function run_mdtest(){
     echo
 
     # Enable core dump creation
+    mkdir -p ${DUMP_DIR}/mdtest
     pushd ${DUMP_DIR}/mdtest > /dev/null
     ulimit -c unlimited
     eval $cmd
@@ -928,6 +924,10 @@ function kill_random_server(){
             break
         fi
 
+        if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sfailed"; then
+            teardown_test "Rebuild failed" 1
+        fi
+
         pmsg "Attempt ${n} failed. Retrying in ${REBUILD_WAIT_TIME} seconds..."
         n=$[${n} + 1]
         sleep ${REBUILD_WAIT_TIME}
@@ -938,11 +938,78 @@ function kill_random_server(){
     fi
 
     pmsg "Pool rebuild completed"
-    pmsg "Waiting for other pools to rebuild within 30s"
-    sleep 30
-    pmsg "end of waiting"
+    if [ ${NUMBER_OF_POOLS} -gt 1 ]; then
+        pmsg "Waiting for other pools to rebuild within 30s"
+        sleep 30
+        pmsg "end of waiting"
+    fi
 
     query_pools_rebuild
+}
+
+# Verify whether a variable is defined and non-empty
+function _verify_required(){
+    local var_name=$1
+
+    if [ -z ${!var_name} ]; then
+        echo "${var_name} is required"
+        return 1
+    fi
+
+    return 0
+}
+
+# Verify whether a variable is defined and is a file
+function _verify_required_file(){
+    local var_name=$1
+
+    _verify_required $var_name || return 1
+
+    if [ ! -f ${!var_name} ]; then
+        echo "${var_name}: Not a file"
+        return 1
+    fi
+
+    return 0
+}
+
+# Verify whether a variable is defined and is a directory
+function _verify_required_dir(){
+    local var_name=$1
+
+    _verify_required $var_name || return 1
+
+    if [ ! -d ${!var_name} ]; then
+        echo "${var_name}: Not a directory"
+        return 1
+    fi
+
+    return 0
+}
+
+# Verify the test environment
+# TODO add all required, etc.
+function verify_env(){
+    local rc=0
+
+    _verify_required JOB_DIR || rc=1
+    _verify_required TEST_GROUP || rc=1
+    _verify_required TESTCASE || rc=1
+    _verify_required DUMP_DIR || rc=1
+    _verify_required NUM_SERVERS || rc=1
+    _verify_required NUM_CLIENTS || rc=1
+    _verify_required DAOS_AGENT_DRPC_DIR || rc=1
+
+    _verify_required_dir DAOS_DIR || rc=1
+
+    _verify_required_file DAOS_AGENT_YAML || rc=1
+    _verify_required_file DAOS_CONTROL_YAML || rc=1
+    _verify_required_file DAOS_SERVER_YAML || rc=1
+    _verify_required_file ALL_HOSTLIST_FILE || rc=1
+    _verify_required_file CLIENT_HOSTLIST_FILE || rc=1
+    _verify_required_file SERVER_HOSTLIST_FILE || rc=1
+
+    return $rc
 }
 
 function run_testcase(){
@@ -953,8 +1020,11 @@ function run_testcase(){
     echo "Start Time: $(date)"
     echo "###################"
 
+    # Make sure the environment has the necessary variables
+    verify_env || exit
+
     # Prepare Enviornment
-    setup_daos_paths
+    setup_daos_paths || exit
     prepare
 
     # System sanity check
@@ -976,6 +1046,7 @@ function run_testcase(){
             daos_cont_query
             run_ior_write
             kill_random_server
+            run_ior_read false
             ;;
         IOR)
             start_server

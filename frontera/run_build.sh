@@ -45,7 +45,7 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 export PATH=~/.local/bin:$PATH
 export PYTHONPATH=$PYTHONPATH:~/.local/lib
 
-source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET} || exit
+source ${CURRENT_DIR}/load_mpi.sh ${MPI_TARGET} || exit
 
 declare -a PRECIOUS_FILES=("bin/daos"
                            "bin/daos_server"
