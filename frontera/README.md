@@ -13,6 +13,7 @@ against an older version of DAOS.
 | DAOS Commit   | Newest Compatible Script Commit |
 | ------------- | ------------------------------- |
 | master        | master |
+| v1.3.106-tb   | master |
 | v1.3.105-tb   | master |
 | v1.3.104-tb   | master |
 | v1.3.103-tb   | master |

@@ -10,11 +10,13 @@ OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 
 # Set undefined/default test params
 NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
+[ ! -z ${DAOS_POOL_PROPS+x} ] || DAOS_POOL_PROPS=reclaim:disabled
 NUM_PROCESSES=$(($DAOS_CLIENTS * $PPC))
 CONT_RF="${CONT_RF:-0}"
 CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
-IOR_WAIT_TIME="${IOR_WAIT_TIME:-0}"
 ITERATIONS="${ITERATIONS:-1}"
+IOR_ITER_DELAY="${IOR_ITER_DELAY:-5}"
+IOR_PHASE_DELAY="${IOR_PHASE_DELAY:-0}"
 
 # Set common params/paths
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -95,7 +97,7 @@ echo "NUM_POOLS       : ${NUMBER_OF_POOLS}"
 echo "POOL_SIZE       : ${POOL_SIZE}"
 echo "FPP             : ${FPP}"
 echo "MPI_TARGET      : ${MPI_TARGET}"
-echo "IOR_WAIT_TIME   : ${IOR_WAIT_TIME}"
+echo "IOR_PHASE_DELAY : ${IOR_PHASE_DELAY}"
 echo
 echo "Test runner hostname: ${HOSTNAME}"
 echo
@@ -229,8 +231,11 @@ function dmg_pool_create(){
 
     local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
                --scm-size ${POOL_SIZE}
-               --label ${pool_label}
-               --properties reclaim:disabled"
+               --label ${pool_label}"
+
+    if [ ! -z "${DAOS_POOL_PROPS}" ]; then
+        cmd+=" --properties ${DAOS_POOL_PROPS}"
+    fi
 
     run_cmd_on_client "${cmd}"
 
@@ -633,9 +638,9 @@ function start_server(){
 
 # Run IOR write and read
 function run_ior(){
-    run_ior_write
-    if [ ${IOR_WAIT_TIME} -ne 0 ]; then
-        local cmd="sleep ${IOR_WAIT_TIME}"
+    run_ior_write false
+    if [ ${IOR_PHASE_DELAY} -ne 0 ]; then
+        local cmd="sleep ${IOR_PHASE_DELAY}"
         pmsg "${cmd}"
         eval "${cmd}"
     fi
@@ -644,12 +649,18 @@ function run_ior(){
 
 # Run IOR write
 function run_ior_write(){
+    local check_write="${1:-true}"
+
     pmsg "Running IOR WRITE"
 
+    local write_params="-w"
+    if $check_write; then
+        write_params+=" -W"
+    fi
     local ior_wr_cmd="${IOR_BIN}
-                -a DFS -b ${BLOCK_SIZE} -C -e -w -W -g -G 27 -k ${FPP}
+                -a DFS -b ${BLOCK_SIZE} -C -e ${write_params} -g -G 27 -k ${FPP}
                 -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${IOR_SW_CMD}
-                -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
+                -d ${IOR_ITER_DELAY} -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                 --dfs.group daos_server --dfs.pool ${POOL_UUID}
                 --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
@@ -683,7 +694,7 @@ function run_ior_read(){
     local ior_rd_cmd="${IOR_BIN}
                -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k ${FPP}
                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${IOR_SW_CMD}
-               -d 5 -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
+               -d ${IOR_ITER_DELAY} -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
                --dfs.group daos_server --dfs.pool ${POOL_UUID}
                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
 
@@ -828,8 +839,8 @@ function run_mdtest(){
                 -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
                 -n ${N_FILE} -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt -v"
 
-    if [ ${IOR_WAIT_TIME} -ne 0 ]; then
-        mdtest_cmd+=" --run-cmd-before-phase=\"sleep ${IOR_WAIT_TIME}\""
+    if [ ${IOR_PHASE_DELAY} -ne 0 ]; then
+        mdtest_cmd+=" --run-cmd-before-phase=\"sleep ${IOR_PHASE_DELAY}\""
     fi
 
     local cmd="${MPI_CMD} ${mdtest_cmd}"
