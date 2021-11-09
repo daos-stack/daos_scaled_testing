@@ -46,7 +46,7 @@ FORMAT_TIMESTAMP_DAOS_CONTROL = "%Y/%m/%d %H:%M:%S"
 # Timestamp for output CSV
 FORMAT_TIMESTAMP_OUT = "%Y-%m-%d %H:%M:%S"
 
-def get_test_param(param, delim, output, default=None):
+def get_test_param(param, delim, output):
     """Get a test param of the form PARAM={}.
 
     For example:
@@ -59,17 +59,15 @@ def get_test_param(param, delim, output, default=None):
         delim (str): The delimiter between the label and value.
             Can be multiple characters, in which each is tried.
         output (str): The output from the mdtest run.
-        default (any): What to return if not found.
-            Defaults to None.
 
     Returns:
-        str: The param value.
-             default if not found.
+        list: str for each occurrence
+              None if not found.
     """
-    match = re.search(f"^{param} *[{delim}] *(.*)", output, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
-    return default
+    match = re.findall(f"(^|\W){param} *[{delim}] *(.*)", output, re.MULTILINE)
+    if not match:
+        return None
+    return [v[1].strip() for v in match]
 
 from dateutil import parser as date_parser
 def convert_timestamp(timestamp, src_format, dst_format):
@@ -129,13 +127,11 @@ def get_lines_after(header, num_lines, output):
         output (str): The output to search in.
 
     Returns:
-        str: num_lines including and after the header.
-             None if not found.
+        list: str for each occurrence, including num_lines after the header
+              None if not found.
     """
-    match = re.search(f"{header}.*", output, re.MULTILINE | re.DOTALL)
-    if not match:
-        return None
-    return "\n".join(match.group(0).split("\n")[:num_lines])
+    lines_regex = "[^\n]*\n" * (num_lines + 1)
+    return re.findall(f"{header}{lines_regex}", output)
 
 def get_daos_commit(output_file_path, slurm_job_id):
     """Get the DAOS commit for a given log file from repo_info.txt.
@@ -209,6 +205,7 @@ def get_mdtest_metric_max(metric, output):
     # Index 0 is <max>
     return all_metrics.split(" ")[0]
 
+# TODO support multiple variants
 def get_mdtest_sw_hit_max(output):
     """Get the stonewall hit max from mdtest.
 
@@ -219,8 +216,7 @@ def get_mdtest_sw_hit_max(output):
         str: The stonewall hit max value.
              None if not found.
     """
-    pattern = re.compile("^Continue stonewall hit.* max: ([0-9]*) ", re.MULTILINE)
-    match = pattern.search(output)
+    match = re.search(" *Continue stonewall hit.* max: ([0-9]*) ", output, re.MULTILINE)
     if not match:
         return None
     return match.group(1)
@@ -237,16 +233,13 @@ def get_ior_metric(metric_name, output):
         output (str): The output from ior.
 
     Returns:
-        float: The metric value in GiB, to 2 decimal places.
-               0 if not found.
+        list: float for each occurrence in GiB, to 2 decimal places.
+              None if not found
     """
-    pattern = re.compile(f"^{metric_name}: *([0-9|\.]*)", re.MULTILINE)
-    match = pattern.search(output)
+    match = re.findall(f"{metric_name}: *([0-9|\.]*)", output, re.MULTILINE)
     if not match:
-        return 0
-    val_kib = float(match.group(1).strip())
-    val_gib = val_kib / 1024
-    return val_gib
+        return None
+    return [float(val) / 1024 for val in match]
 
 def format_float(val):
     """Format a floating point value to 2 decimal places.
@@ -377,6 +370,69 @@ class CsvBase():
         self.row_template = row_template
         self.row_order = row_order
         self.row_sort = row_sort
+
+    def new_rows(self, output=None):
+        """Add some new rows based on self.row_template and set some common params.
+
+        Uses TEST_NAME as a reference for how many variants are in a single job file.
+
+        Args:
+            output (str, optional): Output to set common test params.
+
+        Returns:
+            list: List of dictionary rows.
+
+        """
+        rows = []
+        test_cases = get_test_param("TEST_NAME", ":", output)
+        for test_case in test_cases:
+            row = dict.fromkeys(self.row_template.keys())
+            rows.append(row)
+            row["TESTCASE"] = test_case
+        for key, label in [["slurm_job_id", "SLURM_JOB_ID"],
+                           ["test_case", "TESTCASE"],
+                           ["oclass", "OCLASS"],
+                           ["dir_oclass", "DIR_OCLASS"],
+                           ["num_servers", "NUM_SERVERS"],
+                           ["num_clients", "NUM_CLIENTS"],
+                           ["num_ranks", "RANKS"],
+                           ["ppc", "PPC"],
+                           ["segments", "SEGMENTS"],
+                           ["xfer_size", "XFER_SIZE"],
+                           ["block_size", "BLOCK_SIZE"],
+                           ["ec_cell_size", "EC_CELL_SIZE"],
+                           ["iterations", "ITERATIONS"],
+                           ["sw_time", "SW_TIME"],
+                           ["n_file", "N_FILE"],
+                           ["chunk_size", "CHUNK_SIZE"],
+                           ["bytes_read", "BYTES_READ"],
+                           ["bytes_write", "BYTES_WRITE"],
+                           ["tree_depth", "TREE_DEPTH"],
+                           ["num_pools", "NUM_POOLS"],
+                           ["pool_size", "POOL_SIZE"]]:
+            if key in rows[0]:
+                vals = get_test_param(label, ":", output)
+                if vals:
+                    for index, val in enumerate(vals):
+                        rows[index][key] = val
+
+        if "fpp" in rows[0]:
+            vals = get_test_param("FPP", ":", output)
+            if vals:
+                    for index, val in enumerate(vals):
+                        if val:
+                            rows[index]["fpp"] = True
+
+        for key, label in [["start_time", "Start Time"],
+                           ["end_time", "End Time"]]:
+            if key in rows[0]:
+                vals = get_test_param(label, ":", output)
+                if vals:
+                        for index, val in enumerate(vals):
+                            rows[index][key] = format_timestamp(val)
+
+        self.rows += rows
+        return rows
 
     def new_row(self, output=None):
         """Add a new row based on self.row_template.
@@ -537,27 +593,34 @@ class CsvIor(CsvBase):
         if not output:
             return
 
-        row = self.new_row(output)
-        status = TestStatus()
+        rows = self.new_rows(output)
+        if not rows:
+            return
+        
+        status_list = [TestStatus() for _ in range(len(rows))]
+        for index, wr_gib in enumerate(get_ior_metric("Max Write", output)):
+            rows[index]["write_gib"] = wr_gib
+        for index, rd_gib in enumerate(get_ior_metric("Max Read", output)):
+            rows[index]["read_gib"] = rd_gib
 
-        wr_gib = get_ior_metric("Max Write", output)
-        rd_gib = get_ior_metric("Max Read", output)
+        for index, row in enumerate(rows):
+            if not row["end_time"]:
+                status_list[index].fail("did not finish")
+            if row["write_gib"] <= 0:
+                status_list[index].warn("write failed")
+            if row["read_gib"] <= 0:
+                status_list[index].warn("read failed")
+            if (row["write_gib"] <= 0) and (row["read_gib"] <= 0):
+                status_list[index].fail()
+            row["write_gib"] = format_float(row["write_gib"])
+            row["read_gib"] = format_float(row["read_gib"])
 
-        if not row["end_time"]:
-            status.fail("did not finish")
-        if wr_gib <= 0:
-            status.warn("write failed")
-        if rd_gib <= 0:
-            status.warn("read failed")
-        if (wr_gib <= 0) and (rd_gib <= 0):
-            status.fail()
-
-        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
-        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
-        row["write_gib"]   = format_float(wr_gib)
-        row["read_gib"]    = format_float(rd_gib)
-        row["status"]      = status.get_status_str()
-        row["notes"]       = status.get_notes_str()
+#        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
+#        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
+#        row["write_gib"]   = format_float(wr_gib)
+#        row["read_gib"]    = format_float(rd_gib)
+#        row["status"]      = status.get_status_str()
+#        row["notes"]       = status.get_notes_str()
 
 class CsvMdtest(CsvBase):
     """Class for generating a CSV with MDTEST results."""
@@ -614,17 +677,16 @@ class CsvMdtest(CsvBase):
         if not output:
             return
 
-        row = self.new_row(output)
-        status = TestStatus()
+        rows = self.new_rows(output)
+        if not rows:
+            return
 
-        sw_time = row["sw_time"]
-        n_file = row["n_file"]
+        status_list = [TestStatus() for _ in range(len(rows))]
 
-        mdtest_rates = get_lines_after("SUMMARY rate:", 10, output)
-        if not mdtest_rates or not row["end_time"]:
-            status.fail("did not finish")
+        # TODO test this
+        for index, mdtest_rates in enumerate(get_lines_after("SUMMARY rate:", 10, output)):
+            row = rows[index]
 
-        if mdtest_rates:
             create_raw = get_mdtest_metric_max("File creation", mdtest_rates)
             stat_raw   = get_mdtest_metric_max("File stat", mdtest_rates)
             read_raw   = get_mdtest_metric_max("File read", mdtest_rates)
@@ -634,25 +696,36 @@ class CsvMdtest(CsvBase):
             row["read_kops"]   = format_ops_to_kops(read_raw)
             row["remove_kops"] = format_ops_to_kops(remove_raw)
 
-        if n_file:
-            sw_hit_max = get_mdtest_sw_hit_max(output)
-            if sw_hit_max and (int(sw_hit_max) >= int(n_file)):
-                status.warn(f"{n_file} sw hit")
+        for index, row in enumerate(rows):
+            status = status_list[index]
 
-        if mdtest_rates and sw_time:
-            mdtest_times = get_lines_after("SUMMARY time:", 10, output)
-            if mdtest_times:
-                create_time_raw = get_mdtest_metric_max("File creation", mdtest_times)
-                if float(create_time_raw) < float(sw_time):
-                    status.warn("create < SW_TIME")
+            if not row["end_time"]:
+                status_list[index].fail("did not finish")
+            sw_time = row["sw_time"]
+            n_file = row["n_file"]
 
-        if sw_time and (int(sw_time) != 60):
-            status.note(f"sw={sw_time}s")
+            # TODO support multiple variants
+            if n_file:
+                sw_hit_max = get_mdtest_sw_hit_max(output)
+                if sw_hit_max and (int(sw_hit_max) >= int(n_file)):
+                    status.warn(f"{n_file} sw hit")
 
-        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
-        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
-        row["status"]      = status.get_status_str()
-        row["notes"]       = status.get_notes_str()
+            # TODO support multiple variants
+            if False and sw_time:
+                mdtest_times = get_lines_after("SUMMARY time:", 10, output)
+                if mdtest_times:
+                    create_time_raw = get_mdtest_metric_max("File creation", mdtest_times)
+                    if float(create_time_raw) < float(sw_time):
+                        status.warn("create < SW_TIME")
+
+            # TODO support some baseline sw_time
+            if False and sw_time and (int(sw_time) != 60):
+                status.note(f"sw={sw_time}s")
+
+#        row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
+#        row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
+#        row["status"]      = status.get_status_str()
+#        row["notes"]       = status.get_notes_str()
 
 class CsvRebuild(CsvBase):
     """Class for generating a CSV with rebuild results."""
@@ -833,13 +906,14 @@ class CsvCart(CsvBase):
         row["status"]                 = status.get_status_str()
         row["notes"]                  = status.get_notes_str()
 
-def get_output_list(result_path, prefix):
+def get_output_list(result_path, prefix, log_style):
     """Get a list of output files for a given prefix.
 
     Args:
         result_path (str): Path to the top-level directory.
         prefix (str): Directory prefix.
             For example: mdtest, ior, rebuild.
+        log_style (str): frontera or avocado
 
     Returns:
         list: List of sorted paths to output files.
@@ -848,19 +922,24 @@ def get_output_list(result_path, prefix):
     # in each directory
     path_obj = Path(result_path)
 
-    output_file_list = sorted(path_obj.rglob(f"*{prefix}_*/log_*/*/output*"))
-    if not output_file_list and prefix in result_path:
-        output_file_list = sorted(path_obj.rglob("log_*/*/output*"))
+    if log_style == "frontera":
+        output_file_list = sorted(path_obj.rglob(f"*{prefix}_*/log_*/*/output*"))
+        if not output_file_list and prefix in result_path:
+            output_file_list = sorted(path_obj.rglob("log_*/*/output*"))
 
-    # In case the log directory itself is passed
-    if not output_file_list and prefix in result_path and "log_" in result_path:
-        output_file_list = sorted(path_obj.rglob("output*"))
+        # In case the log directory itself is passed
+        if not output_file_list and prefix in result_path and "log_" in result_path:
+            output_file_list = sorted(path_obj.rglob("output*"))
+    elif log_style == "avocado":
+        output_file_list = sorted(path_obj.rglob(f"*frontera-{prefix}_*/job.log"))
+    else:
+        print("ERR Invalid log_style")
 
     if not output_file_list:
         print(f"No {prefix} log files found", flush=True)
     return output_file_list
 
-def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
+def generate_results(result_dir, prefix, csv_class, csv_path, log_style, output_style):
     """Generate a CSV from a directory containing results.
 
     Args:
@@ -870,6 +949,7 @@ def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
         csv_class (CsvBase): The csv class to format/generate the results.
             E.g. CsvMdtest, CsvIor, CsvRebuild.
         csv_path (str): Path to the generated csv.
+        log_style (str): frontera or avocado
         output_style (str): full or simple output.
 
     Returns:
@@ -879,7 +959,7 @@ def generate_results(result_dir, prefix, csv_class, csv_path, output_style):
         print(f"ERR {csv_class} is not a subclass of CsvBase", file=sys.stderr)
         return False
 
-    output_file_list = get_output_list(result_dir, prefix)
+    output_file_list = get_output_list(result_dir, prefix, log_style)
     if not output_file_list:
         return False
 
@@ -1010,7 +1090,7 @@ def csv_list_to_xlsx(csv_list, xlsx_file_path, group_by=None):
 
     return True
 
-def main(result_path, tests=["all"], output_format="csv", output_style="full",
+def main(result_path, tests=["all"], log_style="frontera", output_format="csv", output_style="full",
          email_list=[]):
     """See __main__ below for arguments."""
     all_tests = ["ior", "mdtest", "rebuild", "cart"]
@@ -1059,7 +1139,7 @@ def main(result_path, tests=["all"], output_format="csv", output_style="full",
             print("")
             csv_name = f"{test}_result_{result_name}.csv"
             csv_path = join(result_path, csv_name)
-            if generate_results(result_path, test, test_class, csv_path, output_style):
+            if generate_results(result_path, test, test_class, csv_path, log_style, output_style):
                 output_list.append(csv_path)
 
     if not output_list:
@@ -1097,13 +1177,19 @@ if __name__ == "__main__":
         default="ior,mdtest",
         help="comma-separated list of tests (all,ior,mdtest,rebuild,cart)")
     parser.add_argument(
-        "--format",
+        "--log-style",
+        type=str,
+        choices=("frontera","avocado"),
+        default="frontera",
+        help="log style. default frontera")
+    parser.add_argument(
+        "--output-format",
         type=str,
         choices=("csv", "xlsx"),
         default="csv",
         help="output format. default csv")
     parser.add_argument(
-        "--style",
+        "--output-style",
         type=str,
         choices=("full", "simple"),
         default="full",
@@ -1120,7 +1206,8 @@ if __name__ == "__main__":
     rc = main(
         result_path=args.result_path,
         tests=args.tests.split(","),
-        output_format=args.format,
-        output_style=args.style,
+        log_style=args.log_style,
+        output_format=args.output_format,
+        output_style=args.output_style,
         email_list=email_list)
     exit(rc)
