@@ -8,10 +8,10 @@ env_vars = {
     'pool_size': '85G',
     'chunk_size': None, # placeholder
     'ec_cell_size': '1048576',
-    'n_file': '1000000',
+    'n_file': '10000000',
+    'extra_mdtest_params': '-u -L',
     'bytes_read': '0',
     'bytes_write': '0',
-    'tree_depth': '0',
     'sw_time': '30',
     'ppc': 32
 }
