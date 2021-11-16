@@ -1,5 +1,6 @@
 export FI_UNIVERSE_SIZE=16383
 export FI_OFI_RXM_USE_SRX=1
+export FI_MR_CACHE_MONITOR=disabled
 export D_LOG_FILE=/tmp/daos_logs/daos_client.log
 export D_LOG_MASK=ERR
 export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
