@@ -689,6 +689,7 @@ function run_ior_write(){
 
 # Run IOR read
 function run_ior_read(){
+    local teardown_on_daos_status="${1:-true}"
     pmsg "Running IOR READ"
 
     local ior_rd_cmd="${IOR_BIN}
@@ -711,7 +712,7 @@ function run_ior_read(){
     popd > /dev/null
 
     daos_cont_query
-    get_daos_status
+    get_daos_status "${teardown_on_daos_status}"
 
     if [ ${ior_rc} -ne 0 ]; then
         echo -e "ior_rc: ${ior_rc}\n"
@@ -928,6 +929,10 @@ function kill_random_server(){
             break
         fi
 
+        if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sfailed"; then
+            teardown_test "Rebuild failed" 1
+        fi
+
         pmsg "Attempt ${n} failed. Retrying in ${REBUILD_WAIT_TIME} seconds..."
         n=$[${n} + 1]
         sleep ${REBUILD_WAIT_TIME}
@@ -938,9 +943,11 @@ function kill_random_server(){
     fi
 
     pmsg "Pool rebuild completed"
-    pmsg "Waiting for other pools to rebuild within 30s"
-    sleep 30
-    pmsg "end of waiting"
+    if [ ${NUMBER_OF_POOLS} -gt 1 ]; then
+        pmsg "Waiting for other pools to rebuild within 30s"
+        sleep 30
+        pmsg "end of waiting"
+    fi
 
     query_pools_rebuild
 }
@@ -976,6 +983,7 @@ function run_testcase(){
             daos_cont_query
             run_ior_write
             kill_random_server
+            run_ior_read false
             ;;
         IOR)
             start_server
