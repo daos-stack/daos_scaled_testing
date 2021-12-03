@@ -421,7 +421,6 @@ class CsvBase():
                            ["chunk_size", "CHUNK_SIZE"],
                            ["bytes_read", "BYTES_READ"],
                            ["bytes_write", "BYTES_WRITE"],
-                           ["tree_depth", "TREE_DEPTH"],
                            ["num_pools", "NUM_POOLS"],
                            ["pool_size", "POOL_SIZE"]]:
             if key in row:
@@ -590,7 +589,6 @@ class CsvMdtest(CsvBase):
             "chunk_size":   "Chunk Size",
             "bytes_read":   "Bytes Read",
             "bytes_write":  "Bytes Write",
-            "tree_depth":   "Tree Depth",
             "create_kops":  "create(Kops/sec)",
             "stat_kops":    "stat(Kops/sec)",
             "read_kops":    "read(Kops/sec)",

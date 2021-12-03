@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 from os.path import isdir, isfile, join, expandvars, abspath
 from os.path import splitext, dirname, basename
 from importlib import import_module
+from multiprocessing.pool import ThreadPool
 import subprocess
 import itertools
 
@@ -236,6 +237,11 @@ class TestList(object):
                 self._expand_env_ec_cell_size(variant_env, ec_cell_size)
                 variant_env_list.append(variant_env)
 
+        # Use a pool to avoid accidentally fork bombing
+        thread_pool = ThreadPool(20)
+        def _run_test(script, env):
+            subprocess.Popen(script, env=env).wait()
+
         idx = 1
         for env in variant_env_list:
             do_skip = False
@@ -251,7 +257,9 @@ class TestList(object):
                   f"{env['EC_CELL_SIZE']} ec_ell_size")
             idx += 1
             if not dryrun:
-                subprocess.Popen(self._script, env=env)
+                thread_pool.apply_async(_run_test, (self._script, env))
+        thread_pool.close()
+        thread_pool.join()
 
 def _is_list_or_tuple(o):
     """Return True if an object is a list or tuple."""

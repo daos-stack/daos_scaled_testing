@@ -17,6 +17,7 @@ CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
 ITERATIONS="${ITERATIONS:-1}"
 IOR_ITER_DELAY="${IOR_ITER_DELAY:-5}"
 IOR_PHASE_DELAY="${IOR_PHASE_DELAY:-0}"
+IOR_TREE_DEPTH="${IOR_TREE_DEPTH:-0}"
 
 # Set common params/paths
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -32,7 +33,7 @@ DUMP_DIR="${RUN_DIR}/${SLURM_JOB_ID}/core_dumps"
 OMPI_TIMEOUT="${OMPI_TIMEOUT:-300}"
 
 # Time in seconds for clush timeout
-CMD_TIMEOUT="${CMD_TIMEOUT:-120}"
+CMD_TIMEOUT="${CMD_TIMEOUT:-300}"
 
 # Time in seconds to wait for servers to start
 SERVER_START_MAX_TIME="${SERVER_START_MAX_TIME:-300}"
@@ -92,12 +93,13 @@ echo "N_FILE          : ${N_FILE}"
 echo "CHUNK_SIZE      : ${CHUNK_SIZE}"
 echo "BYTES_READ      : ${BYTES_READ}"
 echo "BYTES_WRITE     : ${BYTES_WRITE}"
-echo "TREE_DEPTH      : ${TREE_DEPTH}"
+echo "IOR_TREE_DEPTH  : ${IOR_TREE_DEPTH}"
 echo "NUM_POOLS       : ${NUMBER_OF_POOLS}"
 echo "POOL_SIZE       : ${POOL_SIZE}"
 echo "FPP             : ${FPP}"
 echo "MPI_TARGET      : ${MPI_TARGET}"
 echo "IOR_PHASE_DELAY : ${IOR_PHASE_DELAY}"
+echo "EXTRA_MDTEST_PARAMS : ${EXTRA_MDTEST_PARAMS}"
 echo
 echo "Test runner hostname: ${HOSTNAME}"
 echo
@@ -197,30 +199,62 @@ function run_cmd_background(){
     RC=$?
 }
 
-# Get a random client node name from the CLIENT_HOSTLIST_FILE and then
-# run a command
-function run_cmd_on_client(){
+# Run a "daos" command on a client node
+function run_daos_cmd(){
     local daos_cmd="$(echo ${1} | tr -s " ")"
-    local teardown_on_error="${2:-true}"
-    local quiet="${3:-false}"
-    local host=$(shuf -n 1 ${CLIENT_HOSTLIST_FILE})
+
+    local client_node=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
+
+    local clush_cmd="clush
+        -w ${client_node}
+        --command_timeout ${CMD_TIMEOUT}
+        -S
+        -f ${SLURM_JOB_NUM_NODES} \"
+        export PATH=$PATH;
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
+        export CPATH=${CPATH};
+        export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
+        export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
+        export D_LOG_FILE=${D_LOG_FILE};
+        export D_LOG_MASK=${D_LOG_MASK};
+        export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
+        $daos_cmd\""
 
     pmsg "CMD: ${daos_cmd}"
+    eval ${clush_cmd}
 
-    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S \"
-         export PATH=${PATH};
-         export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
-         ${daos_cmd} \" "
+    return $?
+}
+
+# Run a "dmg" command on a client node
+function run_dmg_cmd(){
+    local dmg_cmd="$(echo ${1} | tr -s " ")"
+    local teardown_on_error="${2:-true}"
+    local quiet="${3:-false}"
+
+    local client_node=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
+
+    local clush_cmd="clush
+        -w ${client_node}
+        --command_timeout ${CMD_TIMEOUT}
+        -S \"
+        export PATH=${PATH};
+        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+        ${dmg_cmd}\""
+
+    pmsg "CMD: ${dmg_cmd}"
 
     # Return output and return code in global vars
-    OUTPUT_CMD="$(eval ${cmd})"
+    OUTPUT_CMD="$(eval ${clush_cmd})"
     RC=$?
 
     if ! ${quiet}; then
         echo "${OUTPUT_CMD}"
     fi
 
-    check_cmd_timeout "${RC}" "${daos_cmd}" "${teardown_on_error}"
+    check_cmd_timeout "${RC}" "${dmg_cmd}" "${teardown_on_error}"
+
+    return $RC
 }
 
 # Run dmg pool create
@@ -237,7 +271,7 @@ function dmg_pool_create(){
         cmd+=" --properties ${DAOS_POOL_PROPS}"
     fi
 
-    run_cmd_on_client "${cmd}"
+    run_dmg_cmd "${cmd}"
 
     # Set global POOL_UUID
     POOL_UUID=$(echo "${OUTPUT_CMD}" | grep "UUID" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//')
@@ -270,24 +304,24 @@ function dmg_pool_destroy(){
         cmd+=" --force"
     fi
 
-    run_cmd_on_client "${cmd}"
+    run_dmg_cmd "${cmd}"
 }
 
-# Run dmg pool list.
+# Run dmg pool list
 # Use --verbose (new option) if available, added in v1.3.104-tb
 function dmg_pool_list(){
     if [ -z "${DMG_POOL_LIST}" ]; then
         DMG_POOL_LIST="dmg -o ${DAOS_CONTROL_YAML} pool list"
-        run_cmd_on_client "${DMG_POOL_LIST} --help" true true
+        run_dmg_cmd "${DMG_POOL_LIST} --help" true true
         if echo ${OUTPUT_CMD} | grep -qe "--verbose"; then
             DMG_POOL_LIST+=" --verbose --no-query"
         fi
     fi
 
-    run_cmd_on_client "${DMG_POOL_LIST}"
+    run_dmg_cmd "${DMG_POOL_LIST}"
 }
 
-# Run dmg pool query.
+# Run dmg pool query
 function dmg_pool_query(){
     local uuid="${1}"
     local teardown_on_error="${2}"
@@ -295,7 +329,16 @@ function dmg_pool_query(){
     local cmd="dmg -o ${DAOS_CONTROL_YAML} pool query
               ${uuid}"
 
-    run_cmd_on_client "${cmd}" "${teardown_on_error}"
+    run_dmg_cmd "${cmd}" "${teardown_on_error}"
+}
+
+# Run dmg system query
+function dmg_system_query(){
+    local teardown_on_error="${1}"
+
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} system query"
+
+    run_dmg_cmd "${cmd}" "${teardown_on_cmd_error}"
 }
 
 function get_daos_status(){
@@ -391,7 +434,7 @@ function get_server_status(){
     local teardown_on_bad_state="${3:-true}"
     local target_servers=$((${num_servers} - 1))
 
-    run_cmd_on_client "dmg -o ${DAOS_CONTROL_YAML} system query" "${teardown_on_cmd_error}"
+    dmg_system_query "${teardown_on_cmd_error}"
     # Command failed, but we didn't teardown, so just return an error
     if [ ${RC} -ne 0 ]; then
         return 1
@@ -541,7 +584,6 @@ function daos_cont_create(){
     local pool="${1:-${POOL_UUID}}"
     local cont_label="${2:-test_cont}"
     local cont_uuid="${3:-$(uuidgen)}"
-    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
 
     # Set global CONT_UUID
     CONT_UUID="${cont_uuid}"
@@ -570,18 +612,8 @@ function daos_cont_create(){
               --label ${cont_label}
               --sys-name=daos_server
               --type=POSIX ${CONT_PROP}"
-    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
-         -f ${SLURM_JOB_NUM_NODES} \"
-         export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-         export CPATH=${CPATH};
-         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-         export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
-         export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-         export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-         $daos_cmd\""
 
-    pmsg "CMD: $(echo ${daos_cmd} | tr -s ' ')"
-    eval ${cmd}
+    run_daos_cmd "${daos_cmd}"
 
     if [ $? -ne 0 ]; then
         teardown_test "Daos container create FAIL" 1
@@ -592,21 +624,10 @@ function daos_cont_create(){
 function daos_cont_query(){
     local pool="${1:-${POOL_UUID}}"
     local cont="${2:-${CONT_UUID}}"
-    local host=$(head -n 1 ${CLIENT_HOSTLIST_FILE})
 
     local daos_cmd="daos container query --pool=${pool} --cont=${cont}"
-    local cmd="clush -w ${host} --command_timeout ${CMD_TIMEOUT} -S
-         -f ${SLURM_JOB_NUM_NODES} \"
-         export PATH=$PATH; export LD_LIBRARY_PATH=$LD_LIBRARY_PATH;
-         export CPATH=${CPATH};
-         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
-         export DAOS_AGENT_DRPC_DIR=${DAOS_AGENT_DRPC_DIR};
-         export D_LOG_FILE=${D_LOG_FILE}; export D_LOG_MASK=${D_LOG_MASK};
-         export FI_UNIVERSE_SIZE=${FI_UNIVERSE_SIZE};
-         $daos_cmd\""
 
-    pmsg "CMD: ${daos_cmd}"
-    eval ${cmd}
+    run_daos_cmd "${daos_cmd}"
 
     if [ $? -ne 0 ]; then
         teardown_test "daos container query FAIL" 1
@@ -658,11 +679,20 @@ function run_ior_write(){
         write_params+=" -W"
     fi
     local ior_wr_cmd="${IOR_BIN}
-                -a DFS -b ${BLOCK_SIZE} -C -e ${write_params} -g -G 27 -k ${FPP}
-                -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${IOR_SW_CMD}
-                -d ${IOR_ITER_DELAY} -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-                --dfs.group daos_server --dfs.pool ${POOL_UUID}
-                --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
+        -C -e -g -G 27 -k -Q 1 -v ${write_params} ${FPP}
+        -a DFS
+        -b ${BLOCK_SIZE}
+        -i ${ITERATIONS}
+        -s ${SEGMENTS}
+        -o /testFile
+        ${IOR_SW_CMD}
+        -d ${IOR_ITER_DELAY}
+        -t ${XFER_SIZE}
+        --dfs.pool ${POOL_UUID}
+        --dfs.cont ${CONT_UUID}
+        --dfs.group daos_server
+        --dfs.oclass ${OCLASS}
+        --dfs.chunk_size ${CHUNK_SIZE}"
 
     local wr_cmd="${MPI_CMD} ${ior_wr_cmd}"
 
@@ -693,11 +723,20 @@ function run_ior_read(){
     pmsg "Running IOR READ"
 
     local ior_rd_cmd="${IOR_BIN}
-               -a DFS -b ${BLOCK_SIZE} -C -Q 1 -e -r -R -g -G 27 -k ${FPP}
-               -i ${ITERATIONS} -s ${SEGMENTS} -o /testFile ${IOR_SW_CMD}
-               -d ${IOR_ITER_DELAY} -t ${XFER_SIZE} --dfs.cont ${CONT_UUID}
-               --dfs.group daos_server --dfs.pool ${POOL_UUID}
-               --dfs.oclass ${OCLASS} --dfs.chunk_size ${CHUNK_SIZE} -v"
+        -C -e -g -G 27 -k -Q 1 -v -r -R ${FPP}
+        -a DFS
+        -b ${BLOCK_SIZE}
+        -i ${ITERATIONS}
+        -s ${SEGMENTS}
+        -o /testFile
+        ${IOR_SW_CMD}
+        -d ${IOR_ITER_DELAY}
+        -t ${XFER_SIZE}
+        --dfs.pool ${POOL_UUID}
+        --dfs.cont ${CONT_UUID}
+        --dfs.group daos_server
+        --dfs.oclass ${OCLASS}
+        --dfs.chunk_size ${CHUNK_SIZE}"
 
     local rd_cmd="${MPI_CMD} ${ior_rd_cmd}"
 
@@ -827,18 +866,24 @@ function run_cart_test_group_np_srv(){
 function run_mdtest(){
     pmsg "CMD: Starting MDTEST..."
 
+    local params="-F -P -G 27 -N 1 -d / -p 10 -Y -v ${EXTRA_MDTEST_PARAMS}"
+
     local mdtest_cmd="${MDTEST_BIN}
-                -a DFS
-                --dfs.pool ${POOL_UUID}
-                --dfs.group daos_server
-                --dfs.cont ${CONT_UUID}
-                --dfs.chunk_size ${CHUNK_SIZE}
-                --dfs.oclass ${OCLASS}
-                --dfs.dir_oclass ${DIR_OCLASS}
-                -i ${ITERATIONS}
-                -L -p 10 -F -N 1 -P -d / -W ${SW_TIME}
-                -e ${BYTES_READ} -w ${BYTES_WRITE} -z ${TREE_DEPTH}
-                -n ${N_FILE} -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt -v"
+        ${params}
+        -a DFS
+        --dfs.pool ${POOL_UUID}
+        --dfs.group daos_server
+        --dfs.cont ${CONT_UUID}
+        --dfs.chunk_size ${CHUNK_SIZE}
+        --dfs.oclass ${OCLASS}
+        --dfs.dir_oclass ${DIR_OCLASS}
+        -i ${ITERATIONS}
+        -W ${SW_TIME}
+        -e ${BYTES_READ}
+        -w ${BYTES_WRITE}
+        -z ${IOR_TREE_DEPTH}
+        -n ${N_FILE}
+        -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt"
 
     if [ ${IOR_PHASE_DELAY} -ne 0 ]; then
         mdtest_cmd+=" --run-cmd-before-phase=\"sleep ${IOR_PHASE_DELAY}\""

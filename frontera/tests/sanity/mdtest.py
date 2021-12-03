@@ -7,10 +7,10 @@
 env_vars = {
     'pool_size': '85G',
     'chunk_size': '1M',
-    'n_file': '1000000',
+    'n_file': '10000000',
+    'extra_mdtest_params': '-u -L',
     'bytes_read': '0',
     'bytes_write': '0',
-    'tree_depth': '0',
     'sw_time': '5',
     'iterations': '1',
     'ppc': 32

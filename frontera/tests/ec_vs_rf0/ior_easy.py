@@ -11,7 +11,7 @@ env_vars = {
     'segments': '1',
     'xfer_size': None, # placeholder
     'block_size': '150G',
-    'sw_time': '60', # TODO adjust?
+    'sw_time': '60',
     'iterations': '1',
     'ppc': 32
 }
