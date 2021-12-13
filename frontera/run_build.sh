@@ -68,7 +68,9 @@ function git_has_commit() {
 # Merge a "hack" branch and user-specified branches
 function merge_extra_daos_branches() {
   local hack_branch=""
-  if $(git_has_commit "b7a8e51") = true; then
+  if $(git_has_commit "f15d6c9") = true; then
+    hack_branch="origin/dbohning-io500-base-f15d6c9"
+  elif $(git_has_commit "b7a8e51") = true; then
     hack_branch="origin/dbohning-io500-base-b7a8e51-2.0"
   elif $(git_has_commit "3e37280") = true; then
     hack_branch="origin/dbohning-io500-base-3e37280"
