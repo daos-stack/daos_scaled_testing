@@ -202,6 +202,11 @@ if [ ! -z "${IOR_COMMIT}" ]; then
     git checkout -b "${IOR_COMMIT}" "${IOR_COMMIT}"
 fi
 
+# Apply patch to make all processes write the same data.
+# This is needed to reduce pool space usage so a larger number of clients can be used.
+cp ${CURRENT_DIR}/patches/ior_dedup_workaround.patch .
+git apply ior_dedup_workaround.patch
+
 print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
 ./bootstrap
 ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
