@@ -9,7 +9,7 @@ env_vars = {
     'chunk_size': None, # placeholder
     'ec_cell_size': '1048576',
     'n_file': '10000000',
-    'extra_mdtest_params': '-t -X',
+    'mdtest_flags': '-C -T -r -E -t -X',
     'bytes_read': '3901',
     'bytes_write': '3901',
     'sw_time': '30',
