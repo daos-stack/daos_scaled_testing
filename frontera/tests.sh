@@ -99,7 +99,7 @@ echo "POOL_SIZE       : ${POOL_SIZE}"
 echo "FPP             : ${FPP}"
 echo "MPI_TARGET      : ${MPI_TARGET}"
 echo "IOR_PHASE_DELAY : ${IOR_PHASE_DELAY}"
-echo "EXTRA_MDTEST_PARAMS : ${EXTRA_MDTEST_PARAMS}"
+echo "MDTEST_FLAGS    : ${MDTEST_FLAGS}"
 echo
 echo "Test runner hostname: ${HOSTNAME}"
 echo
@@ -866,7 +866,7 @@ function run_cart_test_group_np_srv(){
 function run_mdtest(){
     pmsg "CMD: Starting MDTEST..."
 
-    local params="-F -P -G 27 -N 1 -d / -p 10 -Y -v ${EXTRA_MDTEST_PARAMS}"
+    local params="-F -P -G 27 -N 1 -d / -p 10 -Y -v ${MDTEST_FLAGS}"
 
     local mdtest_cmd="${MDTEST_BIN}
         ${params}
