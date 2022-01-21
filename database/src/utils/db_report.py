@@ -22,6 +22,8 @@ def main(args):
     description = [
         'Generate canned database reports.',
         '',
+        '\simple      - IOR/MDTest easy/hard 1to4/c16 SX/S1 with no comparison',
+        '',
         '\tbasic      - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared for two commits',
         '\tbasic_repl - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RP_*GX/RP_*G1',
         '\tbasic_rf   - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RF1+ oclasses',
@@ -64,7 +66,7 @@ def main(args):
         return 1
 
     reports = args.report.split(',')
-    all_reports = ('basic', 'basic_repl', 'basic_rf', 's_ec', 'rebuild')
+    all_reports = ('simple', 'basic', 'basic_repl', 'basic_rf', 's_ec', 'rebuild')
     for r in reports:
         if r not in all_reports:
             print_err(f'Invalid report: {r}')
@@ -73,6 +75,28 @@ def main(args):
     # Generate a list of procedure calls.
     # If specified, multiple reports are rolled into one.
     calls = []
+
+    if 'simple' in reports:
+        if not check_required(args, 'commit'):
+            return 1
+
+        calls += [
+            ['ior_easy_1to4_SX.csv',        'simple_ior_1to4',    [
+                'ior_easy%', 'SX', args.commit]],
+            ['ior_easy_c16_SX.csv',         'simple_ior_c16',     [
+                'ior_easy%', 'SX', args.commit]],
+            ['ior_hard_1to4_SX.csv',        'simple_ior_1to4',    [
+                'ior_hard%', 'SX', args.commit]],
+            ['ior_hard_c16_SX.csv',         'simple_ior_c16',     [
+                'ior_hard%', 'SX', args.commit]],
+            ['mdtest_easy_1to4_S1.csv',     'simple_mdtest_1to4', [
+                'mdtest_easy%', 'S1', args.commit]],
+            ['mdtest_easy_c16_S1.csv',      'simple_mdtest_c16',  [
+                'mdtest_easy%', 'S1', args.commit]],
+            ['mdtest_hard_1to4_S1.csv',     'simple_mdtest_1to4', [
+                'mdtest_hard%', 'S1', args.commit]],
+            ['mdtest_hard_c16_S1.csv',      'simple_mdtest_c16',  [
+                'mdtest_hard%', 'S1', args.commit]]]
 
     if 'basic' in reports:
         if not check_required(args, 'base_commit', 'commit'):
@@ -137,7 +161,7 @@ def main(args):
             args.base_commit = args.commit
 
         if args.rf == '%':
-            rfs = ['2', '3']
+            rfs = ['1', '2']
         else:
             rfs = [args.rf]
         for rf in rfs:
@@ -220,9 +244,9 @@ def main(args):
             rfs = [args.rf]
         for rf in rfs:
             calls += [
-                [f'ior_easy_s_vs_EC_%P{rf}GX',    'compare_ior_s_ec',    [
+                [f'ior_easy_s_vs_EC_%P{rf}GX',    'compare_ior_s_ec_simple',    [
                     'ior_easy%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
-                [f'ior_hard_s_vs_EC_%P{rf}GX',    'compare_ior_s_ec',    [
+                [f'ior_hard_s_vs_EC_%P{rf}GX',    'compare_ior_s_ec_simple',    [
                     'ior_hard%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
                 [f'mdtest_easy_s_vs_EC_%P{rf}G1',    'compare_mdtest_s_ec',    [
                     'mdtest_easy%', f'EC_%P{rf}G1', args.base_commit, args.commit]],
