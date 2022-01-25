@@ -7,7 +7,6 @@
 env_vars = {
     'pool_size': '85G',
     'chunk_size': None, # placeholder
-    'ec_cell_size': '1048576',
     'segments': '1',
     'xfer_size': None, # placeholder
     'block_size': '150G',
@@ -63,6 +62,7 @@ tests = [
         'test_group': 'IOR',
         'test_name': 'ior_easy',
         'oclass': _oclass,
+        'ec_cell_size': '1048576',
         'scale': _scale,
         'env_vars': dict(env_vars, chunk_size=_chunk, xfer_size=_xfer),
         'enabled': True
