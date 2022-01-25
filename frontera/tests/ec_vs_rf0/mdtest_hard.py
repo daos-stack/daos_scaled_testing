@@ -7,7 +7,6 @@
 env_vars = {
     'pool_size': '85G',
     'chunk_size': None, # placeholder
-    'ec_cell_size': '1048576',
     'n_file': '10000000',
     'mdtest_flags': '-C -T -r -E -t -X',
     'bytes_read': '3901',
@@ -69,6 +68,7 @@ tests = [
         'test_group': 'MDTEST',
         'test_name': 'mdtest_hard',
         'oclass': _oclass,
+        'ec_cell_size': '1048576',
         'scale': _scale,
         'env_vars': dict(env_vars, chunk_size=_chunk),
         'enabled': True
