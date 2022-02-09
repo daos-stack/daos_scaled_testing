@@ -27,7 +27,7 @@ pushd ${RUN_DIR}
 # Schedule the job 5 seconds from now, so we have time to copy configs
 SLURM_JOB="$(sbatch -J $JOBNAME \
                     -t $TIMEOUT \
-                    --mail-user=$EMAIL \
+                    --mail-user="$EMAIL" \
                     -N $NNODE \
                     -n $NCORE \
                     -p $PARTITION \
