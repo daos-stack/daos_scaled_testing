@@ -12,8 +12,7 @@ OMPI_PARAM="--mca oob ^ud --mca btl self,tcp --mca pml ob1"
 NUMBER_OF_POOLS="${NUMBER_OF_POOLS:-1}"
 [ ! -z ${DAOS_POOL_PROPS+x} ] || DAOS_POOL_PROPS=reclaim:disabled
 NUM_PROCESSES=$(($DAOS_CLIENTS * $PPC))
-CONT_RF="${CONT_RF:-0}"
-CONT_PROP="${CONT_PROP:---properties=dedup:memcmp}"
+CONT_PROP="${CONT_PROP:-dedup:memcmp}"
 ITERATIONS="${ITERATIONS:-1}"
 IOR_ITER_DELAY="${IOR_ITER_DELAY:-5}"
 IOR_PHASE_DELAY="${IOR_PHASE_DELAY:-0}"
@@ -397,7 +396,7 @@ function check_clock_sync(){
                    ${DST_DIR}/frontera/print_node_local_time.sh"
 
     pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
-    clush -S --hostfile ${ALL_HOSTLIST_FILE} \
+    clush -S -b --hostfile ${ALL_HOSTLIST_FILE} \
           -f ${SLURM_JOB_NUM_NODES} --groupbase \
           "/bin/ntpstat -m ${CLOCK_DRIFT_THRESHOLD}"
     local rc=$?
@@ -585,25 +584,20 @@ function daos_cont_create(){
     local cont_label="${2:-test_cont}"
     local cont_uuid="${3:-$(uuidgen)}"
 
-    # Set global CONT_UUID
-    CONT_UUID="${cont_uuid}"
+    local props="$CONT_PROP"
 
-    pmsg "Creating container ${cont_label} ${cont_uuid}"
-
-    # If CONT_RF is not the default, add to create properties
-    if [ -z "$CONT_RF" ] || [ "$CONT_RF" == "0" ]; then
-       pmsg "Using default rf:0"
-    else
-       pmsg "Using rf:$CONT_RF"
-       CONT_PROP="$CONT_PROP,rf:$CONT_RF"
+    if [ ! -z $CONT_RF ]; then
+        if [ ! -z $props ]; then
+            props+=","
+        fi
+        props+="rf:$CONT_RF"
     fi
 
-    # If EC_CELL_SIZE is not the default, add to create properties
-    if [ -z "$EC_CELL_SIZE" ] || [ "$EC_CELL_SIZE" == '1048576' ] || [ "$EC_CELL_SIZE" == '1M' ]; then
-       pmsg "Using default ec_cell:1048576"
-    else
-       pmsg "Using ec_cell:$EC_CELL_SIZE"
-       CONT_PROP="$CONT_PROP,ec_cell:$EC_CELL_SIZE"
+    if [ ! -z $EC_CELL_SIZE ]; then
+        if [ ! -z $props ]; then
+            props+=","
+        fi
+        props+="ec_cell:$EC_CELL_SIZE"
     fi
 
     local daos_cmd="daos container create
@@ -611,11 +605,20 @@ function daos_cont_create(){
               --cont ${cont_uuid}
               --label ${cont_label}
               --sys-name=daos_server
-              --type=POSIX ${CONT_PROP}"
+              --type=POSIX"
 
+    if [ ! -z $props ]; then
+        daos_cmd+=" --properties=${props}"
+    fi
+
+    pmsg "Creating container ${cont_label} ${cont_uuid}"
     run_daos_cmd "${daos_cmd}"
+    local rc=$?
 
-    if [ $? -ne 0 ]; then
+    # Set global CONT_UUID
+    CONT_UUID="${cont_uuid}"
+
+    if [ $rc -ne 0 ]; then
         teardown_test "Daos container create FAIL" 1
     fi
 }

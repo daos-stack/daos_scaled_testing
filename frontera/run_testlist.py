@@ -122,7 +122,7 @@ class TestList(object):
     def _expand_default_test_params(self, test_params):
         for param, default in [
                 ('oclass', ['']),
-                ('ec_cell_size', ['1048576'])]:
+                ('ec_cell_size', [''])]:
             if param not in test_params:
                 # Set default value
                 test_params[param] = default
