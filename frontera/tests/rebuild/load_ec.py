@@ -24,12 +24,12 @@ tests = [
         'ec_cell_size': 65536, # 1M chunk / 16
         'scale': [
             # (num_servers, num_clients, timeout_minutes)
-            (256, 30, 10),
+            (128, 30, 10),
         ],
         'env_vars': dict(
             env_vars,
             cont_rf=2,
-            ppc=32,
+            ppc=16,
             block_size='8G'),
         'enabled': True
     },
