@@ -264,7 +264,7 @@ function dmg_pool_create(){
     pmsg "Creating pool ${pool_label}"
 
     local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
-               --scm-size ${POOL_SIZE}
+               --size ${POOL_SIZE}
                --label ${pool_label}"
 
     if [ ! -z "${DAOS_POOL_PROPS}" ]; then
