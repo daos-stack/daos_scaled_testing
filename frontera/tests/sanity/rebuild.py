@@ -32,4 +32,21 @@ tests = [
             block_size='100M'),
         'enabled': True
     },
+    {
+        'test_group': 'SWIM',
+        'test_name': 'rebuild_pool_multi_sanity',
+        'oclass': 'EC_2P1GX',
+        'ec_cell_size': 65536, # 1M chunk / 16
+        'scale': [
+            # (num_servers, num_clients, timeout_minutes)
+            (4, 1, 5),
+        ],
+        'env_vars': dict(
+            env_vars,
+            cont_rf=1,
+            block_size='100M',
+            pool_size='256MiB',
+            number_of_pools='5'),
+        'enabled': False
+    },
 ]
