@@ -258,13 +258,13 @@ function run_dmg_cmd(){
 
 # Run dmg pool create
 function dmg_pool_create(){
-    local pool_label="${1:-test_pool}"
+    local label="${1:-test_pool}"
 
-    pmsg "Creating pool ${pool_label}"
+    pmsg "Creating pool ${label}"
 
     local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
                --scm-size ${POOL_SIZE}
-               --label ${pool_label}"
+               --label ${label}"
 
     if [ ! -z "${DAOS_POOL_PROPS}" ]; then
         cmd+=" --properties ${DAOS_POOL_PROPS}"
@@ -272,8 +272,8 @@ function dmg_pool_create(){
 
     run_dmg_cmd "${cmd}"
 
-    # Set global POOL_UUID
-    POOL_UUID=$(echo "${OUTPUT_CMD}" | grep "UUID" | cut -d ':' -f 3 | sed 's/^[ \t]*//;s/[ \t]*$//')
+    # Set global POOL_LABEL
+    POOL_LABEL="$label"
 }
 
 function dmg_pool_create_multi(){
@@ -322,11 +322,10 @@ function dmg_pool_list(){
 
 # Run dmg pool query
 function dmg_pool_query(){
-    local uuid="${1}"
+    local pool="${1}"
     local teardown_on_error="${2}"
 
-    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool query
-              ${uuid}"
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool query ${pool}"
 
     run_dmg_cmd "${cmd}" "${teardown_on_error}"
 }
@@ -344,7 +343,7 @@ function get_daos_status(){
     local teardown_on_error="${1:-true}"
 
     dmg_pool_list
-    dmg_pool_query "${POOL_UUID}"
+    dmg_pool_query "${POOL_LABEL}"
 
     get_server_status ${DAOS_SERVERS} true ${teardown_on_error}
 }
@@ -580,9 +579,8 @@ function query_pools_rebuild(){
 
 # Run daos cont create
 function daos_cont_create(){
-    local pool="${1:-${POOL_UUID}}"
-    local cont_label="${2:-test_cont}"
-    local cont_uuid="${3:-$(uuidgen)}"
+    local pool="${1:-${POOL_LABEL}}"
+    local label="${2:-test_cont}"
 
     local props="$CONT_PROP"
 
@@ -602,8 +600,7 @@ function daos_cont_create(){
 
     local daos_cmd="daos container create
               --pool=${pool}
-              --cont ${cont_uuid}
-              --label ${cont_label}
+              --label=${label}
               --sys-name=daos_server
               --type=POSIX"
 
@@ -611,12 +608,12 @@ function daos_cont_create(){
         daos_cmd+=" --properties=${props}"
     fi
 
-    pmsg "Creating container ${cont_label} ${cont_uuid}"
+    pmsg "Creating container ${label}"
     run_daos_cmd "${daos_cmd}"
     local rc=$?
 
-    # Set global CONT_UUID
-    CONT_UUID="${cont_uuid}"
+    # Set global CONT_LABEL
+    CONT_LABEL="${label}"
 
     if [ $rc -ne 0 ]; then
         teardown_test "Daos container create FAIL" 1
@@ -625,8 +622,8 @@ function daos_cont_create(){
 
 # Run daos cont query
 function daos_cont_query(){
-    local pool="${1:-${POOL_UUID}}"
-    local cont="${2:-${CONT_UUID}}"
+    local pool="${1:-${POOL_LABEL}}"
+    local cont="${2:-${CONT_LABEL}}"
 
     local daos_cmd="daos container query --pool=${pool} --cont=${cont}"
 
@@ -691,8 +688,8 @@ function run_ior_write(){
         ${IOR_SW_CMD}
         -d ${IOR_ITER_DELAY}
         -t ${XFER_SIZE}
-        --dfs.pool ${POOL_UUID}
-        --dfs.cont ${CONT_UUID}
+        --dfs.pool ${POOL_LABEL}
+        --dfs.cont ${CONT_LABEL}
         --dfs.group daos_server
         --dfs.oclass ${OCLASS}
         --dfs.chunk_size ${CHUNK_SIZE}"
@@ -735,8 +732,8 @@ function run_ior_read(){
         ${IOR_SW_CMD}
         -d ${IOR_ITER_DELAY}
         -t ${XFER_SIZE}
-        --dfs.pool ${POOL_UUID}
-        --dfs.cont ${CONT_UUID}
+        --dfs.pool ${POOL_LABEL}
+        --dfs.cont ${CONT_LABEL}
         --dfs.group daos_server
         --dfs.oclass ${OCLASS}
         --dfs.chunk_size ${CHUNK_SIZE}"
@@ -874,9 +871,9 @@ function run_mdtest(){
     local mdtest_cmd="${MDTEST_BIN}
         ${params}
         -a DFS
-        --dfs.pool ${POOL_UUID}
+        --dfs.pool ${POOL_LABEL}
+        --dfs.cont ${CONT_LABEL}
         --dfs.group daos_server
-        --dfs.cont ${CONT_UUID}
         --dfs.chunk_size ${CHUNK_SIZE}
         --dfs.oclass ${OCLASS}
         --dfs.dir_oclass ${DIR_OCLASS}
@@ -970,7 +967,7 @@ function kill_random_server(){
     local rebuild_done=false
     until [ $[${SECONDS} - ${start_s}] -ge ${REBUILD_MAX_TIME} ]
     do
-        dmg_pool_query "${POOL_UUID}" false
+        dmg_pool_query "${POOL_LABEL}" false
 
         if echo "${OUTPUT_CMD}" | grep -qE "Rebuild\sdone"; then
             rebuild_done=true
@@ -987,7 +984,7 @@ function kill_random_server(){
     done
 
     if [ ${rebuild_done} = false ]; then
-        teardown_test "Failed to rebuild pool ${POOL_UUID} within ${REBUILD_MAX_TIME} seconds" 1
+        teardown_test "Failed to rebuild pool ${POOL_LABEL} within ${REBUILD_MAX_TIME} seconds" 1
     fi
 
     pmsg "Pool rebuild completed"
