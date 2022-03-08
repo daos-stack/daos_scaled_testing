@@ -28,6 +28,7 @@ def main(args):
         '\tbasic_repl - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RP_*GX/RP_*G1',
         '\tbasic_rf   - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RF1+ oclasses',
         '',
+        '\tec         - IOR/MDTest easy/hard EC_* compared for two commits',
         '\ts_ec       - IOR/MDTest easy/hard equivalent S* compared to EC_* oclasses',
         '\trebuild    - Rebuild for a specific commit'
     ]
@@ -66,7 +67,7 @@ def main(args):
         return 1
 
     reports = args.report.split(',')
-    all_reports = ('simple', 'basic', 'basic_repl', 'basic_rf', 's_ec', 'rebuild')
+    all_reports = ('simple', 'basic', 'basic_repl', 'basic_rf', 'ec', 's_ec', 'rebuild')
     for r in reports:
         if r not in all_reports:
             print_err(f'Invalid report: {r}')
@@ -231,6 +232,25 @@ def main(args):
         calls += [
             [f'ior_easy_1to4_rf{rf}_s128_vs_sx',      'compare_ior_c16',    ['ior_easy%', 'S128', f'SX', args.base_commit, args.commit]]]
 
+    if 'ec' in reports:
+        if not check_required(args, 'base_commit', 'commit', 'rf'):
+            return 1
+
+        if args.rf == '%':
+            rfs = ['1', '2']
+        else:
+            rfs = [args.rf]
+        for rf in rfs:
+            calls += [
+                [f'ior_easy_EC_%P{rf}GX.csv',    'compare_ior',    [
+                    'ior_easy%', f'EC_%P{rf}GX', f'EC_%P{rf}GX', args.base_commit, args.commit, 'NULL']],
+                [f'ior_hard_EC_%P{rf}GX.csv',    'compare_ior',    [
+                    'ior_hard%', f'EC_%P{rf}GX', f'EC_%P{rf}GX', args.base_commit, args.commit, 'NULL']],
+                [f'mdtest_easy_EC_%P{rf}G1.csv',    'compare_mdtest',    [
+                    'mdtest_easy%', f'EC_%P{rf}G1', f'EC_%P{rf}G1', args.base_commit, args.commit, 'NULL']],
+                [f'mdtest_hard_EC_%P{rf}G1.csv',    'compare_mdtest',    [
+                    'mdtest_hard%', f'EC_%P{rf}G1', f'EC_%P{rf}G1', args.base_commit, args.commit, 'NULL']],]
+
     if 's_ec' in reports:
         if not check_required(args, 'commit', 'rf'):
             return 1
@@ -250,7 +270,8 @@ def main(args):
                     'ior_hard%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
                 [f'mdtest_easy_s_vs_EC_%P{rf}G1',    'compare_mdtest_s_ec',    [
                     'mdtest_easy%', f'EC_%P{rf}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_s_vs_EC_%P{rf}G1',    'compare_mdtest_s_ec',    ['mdtest_hard%', f'EC_%P{rf}G1', args.base_commit, args.commit]]]
+                [f'mdtest_hard_s_vs_EC_%P{rf}G1',    'compare_mdtest_s_ec',    [
+                    'mdtest_hard%', f'EC_%P{rf}G1', args.base_commit, args.commit]]]
 
     if 'rebuild' in reports:
         if not check_required(args, 'commit'):
