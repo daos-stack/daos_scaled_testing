@@ -23,7 +23,7 @@ CREATE OR REPLACE PROCEDURE simple_ior (
         AND ior1.oclass LIKE oclass1_in
         AND ior1.test_case LIKE test_case_in
         AND compare_git_hash(ior1.daos_commit, daos_commit1_in)
-      ORDER BY ior1.daos_commit, ior1.oclass, ior1.num_servers, ior1.num_clients;
+      ORDER BY ior1.daos_commit, oclass_sort(ior1.oclass), ior1.num_servers, ior1.num_clients;
   END //
 DELIMITER ;
 
@@ -90,7 +90,7 @@ CREATE OR REPLACE PROCEDURE compare_ior (
         AND ior2.test_case LIKE test_case_in
         AND compare_git_hash(ior1.daos_commit, daos_commit1_in)
         AND compare_git_hash(ior2.daos_commit, daos_commit2_in)
-      ORDER BY ior1.daos_commit, ior2.daos_commit, ior1.oclass, ior2.oclass, ior1.num_servers, ior1.num_clients;
+      ORDER BY ior1.daos_commit, ior2.daos_commit, oclass_sort(ior1.oclass), oclass_sort(ior2.oclass), ior1.num_servers, ior1.num_clients;
   END //
 DELIMITER ;
 
@@ -168,7 +168,7 @@ CREATE OR REPLACE PROCEDURE compare_ior_s_ec (
         AND ec_ior.test_case LIKE test_case_in
         AND compare_git_hash(s_ior.daos_commit, s_commit_in)
         AND compare_git_hash(ec_ior.daos_commit, ec_commit_in)
-      ORDER BY ec_ior.daos_commit, ec_ior.oclass, ec_ior.num_servers, ec_ior.num_clients;
+      ORDER BY ec_ior.daos_commit, oclass_sort(ec_ior.oclass), ec_ior.num_servers, ec_ior.num_clients;
   END //
 DELIMITER ;
 
@@ -213,7 +213,7 @@ CREATE OR REPLACE PROCEDURE compare_ior_s_ec_simple (
         AND ec_ior.test_case LIKE test_case_in
         AND compare_git_hash(s_ior.daos_commit, s_commit_in)
         AND compare_git_hash(ec_ior.daos_commit, ec_commit_in)
-      ORDER BY ec_ior.daos_commit, ec_ior.oclass, ec_ior.num_servers, ec_ior.num_clients;
+      ORDER BY ec_ior.daos_commit, oclass_sort(ec_ior.oclass), ec_ior.num_servers, ec_ior.num_clients;
   END //
 DELIMITER ;
 
@@ -265,7 +265,7 @@ CREATE OR REPLACE PROCEDURE compare_mdtest_s_ec (
         AND ec_mdt.test_case LIKE test_case_in
         AND compare_git_hash(s_mdt.daos_commit, s_commit_in)
         AND compare_git_hash(ec_mdt.daos_commit, ec_commit_in)
-      ORDER BY ec_mdt.daos_commit, ec_mdt.oclass, ec_mdt.num_servers, ec_mdt.num_clients;
+      ORDER BY ec_mdt.daos_commit, oclass_sort(ec_mdt.oclass), ec_mdt.num_servers, ec_mdt.num_clients;
   END //
 DELIMITER ;
 
@@ -297,7 +297,7 @@ CREATE OR REPLACE PROCEDURE simple_mdtest (
         AND mdtest1.oclass LIKE oclass1_in
         AND mdtest1.test_case LIKE test_case_in
         AND compare_git_hash(mdtest1.daos_commit, daos_commit1_in)
-      ORDER BY mdtest1.daos_commit, mdtest1.oclass, mdtest1.num_servers, mdtest1.num_clients;
+      ORDER BY mdtest1.daos_commit, oclass_sort(mdtest1.oclass), mdtest1.num_servers, mdtest1.num_clients;
   END //
 DELIMITER ;
 
@@ -372,7 +372,7 @@ CREATE OR REPLACE PROCEDURE compare_mdtest (
         AND mdtest2.test_case LIKE test_case_in
         AND compare_git_hash(mdtest1.daos_commit, daos_commit1_in)
         AND compare_git_hash(mdtest2.daos_commit, daos_commit2_in)
-      ORDER BY mdtest1.daos_commit, mdtest2.daos_commit, mdtest1.oclass, mdtest2.oclass, mdtest1.num_servers, mdtest1.num_clients;
+      ORDER BY mdtest1.daos_commit, mdtest2.daos_commit, oclass_sort(mdtest1.oclass), mdtest2.oclass, mdtest1.num_servers, mdtest1.num_clients;
   END //
 DELIMITER ;
 

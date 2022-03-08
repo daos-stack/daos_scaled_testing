@@ -6,5 +6,5 @@
 DROP DATABASE IF EXISTS frontera_performance;
 */
 
-CREATE DATABASE frontera_performance COMMENT 'frontera performance metrics';
+CREATE DATABASE frontera_performance;
 USE frontera_performance;

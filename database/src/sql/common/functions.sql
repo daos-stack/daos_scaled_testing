@@ -199,3 +199,57 @@ CREATE OR REPLACE FUNCTION equivalent_oclass_S(
     RETURN CONCAT('S', shards);
   END //
 DELIMITER ;
+
+/**
+ * Get sort order for an object class.
+ */
+DELIMITER //
+CREATE OR REPLACE FUNCTION oclass_sort(
+  oclass TEXT
+) RETURNS TEXT
+  BEGIN
+    DECLARE m TEXT;
+    DECLARE s TEXT;
+    DECLARE sort TEXT;
+
+    SET oclass := UPPER(oclass);
+
+    SET m := REGEXP_SUBSTR(oclass, '^S[0-9X]*$');
+    IF m != '' THEN
+      SET sort := '1';
+      SET s := SUBSTR(m, 2, LENGTH(m) - 1);
+      IF s = 'X' THEN
+        SET s := '0';
+      END IF;
+      RETURN CONCAT(sort, LPAD(s, 4, '0'));
+    END IF;
+
+    SET m := REGEXP_SUBSTR(oclass, '^RP_[0-9]*G');
+    IF m != '' THEN
+      SET sort := '2';
+      SET sort := CONCAT(sort, LPAD(SUBSTR(m, 4, LENGTH(m) - 4), 4, '0'));
+      SET m := REGEXP_SUBSTR(oclass, 'G[0-9X]*$');
+      SET s := SUBSTR(m, 2, LENGTH(m) - 1);
+      IF s = 'X' THEN
+        SET s := '0';
+      END IF;
+      RETURN CONCAT(sort, LPAD(s, 4, '0'));
+    END IF;
+
+    SET m := REGEXP_SUBSTR(oclass, '^EC_[0-9]*P');
+    IF m != '' THEN
+      SET sort := '3';
+      SET sort := CONCAT(sort, LPAD(SUBSTR(m, 4, LENGTH(m) - 4), 4, '0'));
+      SET m := REGEXP_SUBSTR(oclass, 'P[0-9]*G');
+      SET sort := CONCAT(sort, LPAD(SUBSTR(m, 2, LENGTH(m) - 2), 4, '0'));
+      SET m := REGEXP_SUBSTR(oclass, 'G[0-9X]*$');
+      SET s := SUBSTR(m, 2, LENGTH(m) - 1);
+      IF s = 'X' THEN
+        SET s := '0';
+      END IF;
+      RETURN CONCAT(sort, LPAD(s, 4, '0'));
+    END IF;
+
+    RETURN NULL;
+  END //
+DELIMITER ;
