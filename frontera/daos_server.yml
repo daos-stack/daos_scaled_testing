@@ -30,9 +30,11 @@ engines:
   first_core: 0
   log_file: /tmp/daos_logs/daos_server.log
   log_mask: ERR
-  scm_class: ram
-  scm_mount: /dev/shm
-  scm_size: 90 
+  storage:
+  -
+    class: ram
+    scm_mount: /dev/shm
+    scm_size: 90
   targets: 16
   nr_xs_helpers: 4
 socket_dir: /tmp/daos_server
