@@ -25,14 +25,22 @@ pushd ${RUN_DIR}
 /usr/local/etc/taccinfo > ${RUN_DIR}/tacc_usage_status.txt 2>&1
 
 # Schedule the job 5 seconds from now, so we have time to copy configs
-SLURM_JOB="$(sbatch -J $JOBNAME \
-                    -t $TIMEOUT \
-                    --mail-user="$EMAIL" \
-                    -N $NNODE \
-                    -n $NCORE \
-                    -p $PARTITION \
-                    --begin=now+5 \
-                    ${DST_DIR}/frontera/sbatch_me.txt)"
+SLURM_CMD="sbatch -J $JOBNAME \
+                  -t $TIMEOUT \
+                  --mail-user="$EMAIL" \
+                  -N $NNODE \
+                  -n $NCORE \
+                  -p $PARTITION \
+                  --begin=now+5"
+if [ ! -z $SLURM_DEP_AFTEROK ]; then
+    SLURM_CMD+=" --depend=afterok:$SLURM_DEP_AFTEROK"
+fi;
+if [ ! -z $SLURM_DEP_AFTERANY ]; then
+    SLURM_CMD+=" --depend=afterany:$SLURM_DEP_AFTERANY"
+fi;
+SLURM_CMD+=" ${DST_DIR}/frontera/sbatch_me.txt"
+
+SLURM_JOB="$(${SLURM_CMD})"
 
 echo "$(printf '%80s\n' | tr ' ' =)
 Running ${TESTCASE} with ${DAOS_SERVERS} servers and ${DAOS_CLIENTS} clients

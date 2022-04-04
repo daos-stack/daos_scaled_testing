@@ -64,6 +64,8 @@ def main(args):
     parser.add_argument('--daos_dir', type=str, help='environment DAOS_DIR')
     parser.add_argument('--dst_dir',  type=str, help='environment DST_DIR')
     parser.add_argument('--res_dir',  type=str, help='environment RES_DIR')
+    parser.add_argument('--slurm_dep_afterok',  type=str, help='environment SLURM_DEP_AFTEROK')
+    parser.add_argument('--slurm_dep_afterany',  type=str, help='environment SLURM_DEP_AFTERANY')
     parser_args = parser.parse_args(args)
 
     param_filter_s = parser_args.filter
@@ -97,6 +99,10 @@ def main(args):
         env['DST_DIR'] = abspath(parser_args.dst_dir)
     if parser_args.res_dir:
         env['RES_DIR'] = abspath(parser_args.res_dir)
+    if parser_args.slurm_dep_afterok:
+        env['SLURM_DEP_AFTEROK'] = parser_args.slurm_dep_afterok
+    if parser_args.slurm_dep_afterany:
+        env['SLURM_DEP_AFTERANY'] = parser_args.slurm_dep_afterany
 
     if not _verify_env(env):
         return 1
