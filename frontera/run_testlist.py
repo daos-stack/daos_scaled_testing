@@ -13,6 +13,7 @@ from importlib import import_module
 from multiprocessing.pool import ThreadPool
 import subprocess
 import itertools
+import re
 
 env = os.environ
 
@@ -55,10 +56,9 @@ def main(args):
         action='store_true',
         help='print tests to be ran, but do not run.')
     parser.add_argument(
-        'config',
-        nargs='+',
-        type=str,
-        help='path(s) to python config files')
+        '--serial',
+        action='store_true',
+        help='run jobs serially by using SLURM_DEP_AFTERANY')
     parser.add_argument('--jobname',  type=str, help='environment JOBNAME')
     parser.add_argument('--email',    type=str, help='environment EMAIL')
     parser.add_argument('--daos_dir', type=str, help='environment DAOS_DIR')
@@ -66,6 +66,11 @@ def main(args):
     parser.add_argument('--res_dir',  type=str, help='environment RES_DIR')
     parser.add_argument('--slurm_dep_afterok',  type=str, help='environment SLURM_DEP_AFTEROK')
     parser.add_argument('--slurm_dep_afterany',  type=str, help='environment SLURM_DEP_AFTERANY')
+    parser.add_argument(
+        'config',
+        nargs='+',
+        type=str,
+        help='path(s) to python config files')
     parser_args = parser.parse_args(args)
 
     param_filter_s = parser_args.filter
@@ -112,7 +117,7 @@ def main(args):
         return 1
 
     test_list = TestList(tests, env)
-    test_list.run(param_filters, parser_args.dryrun)
+    test_list.run(param_filters, parser_args.dryrun, parser_args.serial)
     return 0
 
 
@@ -213,13 +218,15 @@ class TestList(object):
                 return False
         return True
 
-    def run(self, param_filters=[], dryrun=False):
+    def run(self, param_filters=[], dryrun=False, serial=False):
         '''Run the test list.
 
         Args:
             param_filters (list/dict, optional): list of dictionaries of test parameters to filter by.
                 Default is [], which runs all tests.
             dryrun (bool, optional): if True, print tests to be ran, but do not run.
+                Default is False.
+            serial (bool, optional): if True, run tests serially.
                 Default is False.
 
         '''
@@ -249,8 +256,19 @@ class TestList(object):
 
         # Use a pool to avoid accidentally fork bombing
         thread_pool = ThreadPool(20)
-        def _run_test(script, env):
-            subprocess.Popen(script, env=env).wait()
+        def _run_test_async(script, env):
+            subprocess.run(script, env=env).wait()
+
+        # Capture previous slurm ID for serializing
+        def _run_test_serial(script, env):
+            _env = env.copy()
+            if _run_test_serial.prev_slurm_id is not None:
+                _env['SLURM_DEP_AFTERANY'] = str(_run_test_serial.prev_slurm_id)
+            out = subprocess.run(script, env=_env, stdout=subprocess.PIPE)
+            output = out.stdout.decode('utf-8')
+            print(output)
+            _run_test_serial.prev_slurm_id = re.search('SLURM_JOB_ID: (.*)$', output).group(1)
+        _run_test_serial.prev_slurm_id = None
 
         idx = 1
         for env in variant_env_list:
@@ -267,7 +285,10 @@ class TestList(object):
                   f"{env['EC_CELL_SIZE']} ec_ell_size")
             idx += 1
             if not dryrun:
-                thread_pool.apply_async(_run_test, (self._script, env))
+                if serial:
+                    _run_test_serial(self._script, env)
+                else:
+                    thread_pool.apply_async(_run_test_async, (self._script, env))
         thread_pool.close()
         thread_pool.join()
 

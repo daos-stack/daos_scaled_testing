@@ -33,9 +33,11 @@ SLURM_CMD="sbatch -J $JOBNAME \
                   -p $PARTITION \
                   --begin=now+5"
 if [ ! -z $SLURM_DEP_AFTEROK ]; then
+    echo "Scheduling with dependency --depend=afterok:$SLURM_DEP_AFTEROK"
     SLURM_CMD+=" --depend=afterok:$SLURM_DEP_AFTEROK"
 fi;
 if [ ! -z $SLURM_DEP_AFTERANY ]; then
+    echo "Scheduling with dependency --depend=afterany:$SLURM_DEP_AFTERANY"
     SLURM_CMD+=" --depend=afterany:$SLURM_DEP_AFTERANY"
 fi;
 SLURM_CMD+=" ${DST_DIR}/frontera/sbatch_me.txt"
@@ -53,3 +55,6 @@ mkdir -p "${RUN_DIR}/${SLURM_JOB_ID}"
 cp ${DST_DIR}/frontera/daos_*.yml ${RUN_DIR}/${SLURM_JOB_ID}
 cp ${DST_DIR}/frontera/env_daos ${RUN_DIR}/${SLURM_JOB_ID}/env_daos
 cp ${DAOS_DIR}/../repo_info.txt ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
+
+# Print simplified ID for parsing
+echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
