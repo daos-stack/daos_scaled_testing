@@ -3,11 +3,21 @@ export FI_OFI_RXM_USE_SRX=1
 export FI_MR_CACHE_MONITOR=disabled
 export D_LOG_FILE=/tmp/daos_logs/daos_client.log
 export D_LOG_MASK=ERR
-export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
-export OFI_INTERFACE=ib0
-export OFI_DOMAIN=mlx5_0
 export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
 export DAOS_DISABLE_REQ_FWD=1
+export OFI_INTERFACE=ib0
+
+# For verbs
+export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
+export OFI_DOMAIN=mlx5_0
+
+# For tcp
+#export CRT_PHY_ADDR_STR="ofi+tcp;ofi_rxm"
+#export OFI_DOMAIN=ib0
+
+# For sockets
+#export CRT_PHY_ADDR_STR="ofi+sockets"
+#export OFI_DOMAIN=ib0
 
 LOCATION=$1
 

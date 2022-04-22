@@ -187,6 +187,32 @@ def get_num_targets(output_file_path, slurm_job_id):
         return None
     return match.group(1)
 
+def get_provider(output_file_path, slurm_job_id):
+    """Get the provider from the server config.
+
+    Args:
+        output_file_path (str): path to the log output.
+        slurm_job_id (str): the slurm job id.
+
+    Returns:
+        str: the number of targets
+             None on failure.
+
+    """
+    if not slurm_job_id:
+        return None
+
+    dir_name = dirname(output_file_path)
+
+    config_path = join(dir_name, "daos_server.yml")
+    config = read_file(config_path)
+    if not config:
+        return None
+    match = re.search("^provider: (.*)$", config, re.MULTILINE)
+    if not match:
+        return None
+    return match.group(1)
+
 def get_mdtest_metric_max(metric, output):
     """Get the "max" for an mdtest metric.
 
@@ -500,6 +526,7 @@ class CsvIor(CsvBase):
             "start_time":   "Date",
             "end_time":     "End",
             "daos_commit":  "Commit",
+            "provider":     "Provider",
             "oclass":       "Oclass",
             "num_servers":  "Num_Servers",
             "num_targets":  "Num Targets",
@@ -518,7 +545,7 @@ class CsvIor(CsvBase):
             "write_gib":    "Write (GiB/sec)",
             "read_gib":     "Read (GiB/sec)"
         }
-        row_order = ["test_case", "start_time", "daos_commit", "oclass",
+        row_order = ["test_case", "start_time", "daos_commit", "provider", "oclass",
                      "num_servers", "num_clients", "ppc",
                      "write_gib", "read_gib",
                      "notes", "status"]
@@ -553,6 +580,7 @@ class CsvIor(CsvBase):
 
         row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
         row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
+        row["provider"]    = get_provider(file_path, row["slurm_job_id"])
         row["write_gib"]   = format_float(wr_gib)
         row["read_gib"]    = format_float(rd_gib)
         row["status"]      = status.get_status_str()
@@ -576,6 +604,7 @@ class CsvMdtest(CsvBase):
             "start_time":   "Date",
             "end_time":     "End",
             "daos_commit":  "Commit",
+            "provider":     "Provider",
             "oclass":       "Oclass",
             "dir_oclass":   "Dir Oclass",
             "num_servers":  "Num Servers",
@@ -594,7 +623,7 @@ class CsvMdtest(CsvBase):
             "read_kops":    "read(Kops/sec)",
             "remove_kops":  "remove(Kops/sec)"
         }
-        row_order = ["test_case", "start_time", "daos_commit", "oclass",
+        row_order = ["test_case", "start_time", "daos_commit", "provider", "oclass",
                      "num_servers", "num_clients", "ppc", "create_kops",
                      "stat_kops", "read_kops", "remove_kops",
                      "notes", "status"]
@@ -649,6 +678,7 @@ class CsvMdtest(CsvBase):
 
         row["daos_commit"] = get_daos_commit(file_path, row["slurm_job_id"])
         row["num_targets"] = get_num_targets(file_path, row["slurm_job_id"])
+        row["provider"]    = get_provider(file_path, row["slurm_job_id"])
         row["status"]      = status.get_status_str()
         row["notes"]       = status.get_notes_str()
 
