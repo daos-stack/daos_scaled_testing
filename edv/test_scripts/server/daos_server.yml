@@ -1,0 +1,62 @@
+access_points: ['edaos09:10001']
+name: daos_server
+port: 10001
+provider: ofi+verbs;ofi_rxm
+control_log_mask: INFO
+control_log_file: /tmp/daos_control.log
+socket_dir: /tmp/daos_server
+transport_config:
+  allow_insecure: true
+nr_hugepages: 16384
+
+engines:
+-
+  targets: 16
+  nr_xs_helpers: 0
+  pinned_numa_node: 0
+  fabric_iface: eib0
+  fabric_iface_port: 31416
+  log_mask: ERR
+  log_file: /tmp/daos_io0.log
+  env_vars:
+  - CRT_CREDIT_EP_CTX=0
+  - CRT_TIMEOUT=120
+  - FI_OFI_RXM_USE_SRX=1
+  - FI_MR_CACHE_MONITOR=disabled
+  - SWIM_PROTOCOL_PERIOD_LEN=2000
+  - SWIM_SUSPECT_TIMEOUT=19000
+  - SWIM_PING_TIMEOUT=1900
+  - LD_LIBRARY_PATH=/usr/local/ofed/mlnx-5.1-2.5.8.0-1160.6.1-2.12.5/lib64:/usr/local/ofed/mlnx-5.1-2.5.8.0-1160.6.1-2.12.5/lib64/libibverbs
+  storage:
+  -
+    scm_mount: /mnt/daos0
+    class: dcpm
+    scm_list: [/dev/pmem0]
+  -
+    class: nvme
+    bdev_list: ["0000:5e:00.0","0000:5f:00.0","0000:88:00.0","0000:89:00.0"]
+-
+  targets: 16
+  nr_xs_helpers: 0
+  pinned_numa_node: 1
+  fabric_iface: eib1
+  fabric_iface_port: 32416
+  log_mask: ERR
+  log_file: /tmp/daos_io1.log
+  env_vars:
+  - CRT_CREDIT_EP_CTX=0
+  - CRT_TIMEOUT=120
+  - FI_OFI_RXM_USE_SRX=1
+  - FI_MR_CACHE_MONITOR=disabled
+  - SWIM_PROTOCOL_PERIOD_LEN=2000
+  - SWIM_SUSPECT_TIMEOUT=19000
+  - SWIM_PING_TIMEOUT=1900
+  - LD_LIBRARY_PATH=/usr/local/ofed/mlnx-5.1-2.5.8.0-1160.6.1-2.12.5/lib64:/usr/local/ofed/mlnx-5.1-2.5.8.0-1160.6.1-2.12.5/lib64/libibverbs
+  storage:
+  -
+    scm_mount: /mnt/daos1
+    class: dcpm
+    scm_list: [/dev/pmem1]
+  -
+    class: nvme
+    bdev_list: ["0000:d8:00.0","0000:d9:00.0","0000:8e:00.0","0000:8f:00.0"]
