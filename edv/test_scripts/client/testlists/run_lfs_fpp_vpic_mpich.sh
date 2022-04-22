@@ -1,0 +1,93 @@
+#/bin/sh
+
+export TB="daos22"
+export NODEFILE="/lfs/lfs12/rpadma2/script/nodefile"
+export MPI="MPI"
+export APPSRC="/panfs/users/rpadma2/apps/${MPI}/vpic/vpic-install/harris.xl.lfs.Linux"
+export MPIPATH="/panfs/users/rpadma2/apps/latest_mpich" # not used for IMPI
+
+if [[ "$MPI" =~ "IMPI" ]]; then
+  . /opt/intel/impi/2021.2.0.215/setvars.sh --force
+else
+  export LD_LIBRARY_PATH=${MPIPATH}/lib:$LD_LIBRARY_PATH
+  export PATH=${MPIPATH}/bin:$PATH
+fi
+
+source /panfs/users/rpadma2/client/scripts/client_env.sh
+export PATH=/usr/local/ofed/CURRENT/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/ofed/CURRENT/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/ofed/CURRENT/lib64/libibverbs:$LD_LIBRARY_PATH
+
+
+echo "********"
+echo "Dump env"
+echo "********"
+env
+echo
+echo
+
+OUTDIR="/lfs/lfs12/rpadma2/vpic"
+echo "***************"
+echo "Output dir info"
+echo "***************"
+rm -rf ${OUTDIR}
+mkdir -p ${OUTDIR}
+echo VPIC files before run
+ls -al ${OUTDIR}
+ls ${OUTDIR} | wc -l
+echo Disk usage before run
+du -sh ${OUTDIR}
+echo
+
+pwd
+lfs setstripe -c -1 ${OUTDIR}
+
+echo LFS getstripe
+lfs getstripe ${OUTDIR}
+echo
+echo
+
+echo "********"
+echo "Run Test"
+echo "********"
+echo Which mpiexec
+which mpiexec
+if [[ ! "$MPI" =~ "IMPI" ]]; then
+  ls -al ${MPIPATH}
+fi
+echo
+
+echo "********"
+echo "Nodelist"
+echo "********"
+echo "${NODEFILE}"
+cat ${NODEFILE}
+
+echo
+echo
+date
+echo
+
+echo "mpiexec -bootstrap ssh -n 1024 --hostfile ${NODEFILE} -ppn 64 ${APPSRC}"
+mpiexec -bootstrap ssh -n 1024 --hostfile ${NODEFILE} -ppn 64 ${APPSRC} 2>&1
+
+echo
+echo
+date
+echo
+
+echo "***************"
+echo "Output dir info"
+echo "***************"
+echo VPIC files after run
+ls -al ${OUTDIR}
+ls ${OUTDIR} | wc -l
+echo Disk usage after run
+du -sh ${OUTDIR}
+echo
+echo
+date
+echo Remove files
+rm -rf ${OUTDIR}
+echo
+date
