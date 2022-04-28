@@ -40,10 +40,7 @@ def delete_csv(conn, table_name, key, csv_path):
 
 def main(args):
     parser = ArgumentParser()
-    parser.add_argument(
-        '--config',
-        default='db.cnf',
-        help='database config for connection')
+    db_utils.add_config_args(parser)
     parser.add_argument(
         'table_name',
         type=str,
@@ -66,9 +63,7 @@ def main(args):
             print_err(f'CSV not found: {csv_path}')
             return 1
 
-    with db_utils.connect(args.config) as conn:
-        if not conn:
-            return 1
+    with db_utils.connect(args) as conn:
         for csv_path in csv_paths:
             if not delete_csv(conn, args.table_name, args.key, csv_path):
                 return 1

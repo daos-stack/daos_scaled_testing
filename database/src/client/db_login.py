@@ -2,23 +2,18 @@ from argparse import ArgumentParser
 from os.path import isfile
 import subprocess
 
+from . import db_utils
+
 
 def main(args):
     parser = ArgumentParser()
-    parser.add_argument(
-        '--config',
-        default='db.cnf',
-        help='database config for connection')
+    db_utils.add_config_args(parser)
     parser.add_argument(
         '-u', '--user',
         help='user to login with')
     parser.add_argument(
         '-D', '--database',
         help='database to use')
-    parser.add_argument(
-        '-p', '--password',
-        action='store_true',
-        help='prompt for password')
     args = parser.parse_args(args)
 
     if args.config and not isfile(args.config):

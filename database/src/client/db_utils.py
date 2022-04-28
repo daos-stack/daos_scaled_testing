@@ -1,40 +1,125 @@
-import mariadb
+try:
+    import mariadb
+except:
+    mariadb = None
+try:
+    import mysql.connector as mysql_connector
+except:
+    mysql_connector = None
+try:
+    from ClusterShell.NodeSet import NodeSet
+except:
+    NodeSet = None
+
 import re
 import textwrap
 from os.path import isfile
+from collections import defaultdict, OrderedDict
+import sys
+import getpass
 
 from .io_utils import print_err
+from . import io_utils
 
-def connect(config_path):
-    '''Connect to the database.
 
+def add_config_args(parser):
+    '''Add shared config args.
+    
     Args:
-        config_path(str): the config for connection.
+        parser (ArgumentParser): the parser object
+    '''
+    parser.add_argument(
+        '--config',
+        default='utils/config/client.cnf',
+        help='database config for connection')
+    parser.add_argument(
+        '-p', '--pass',
+        action='store_true',
+        default=False,
+        help='prompt for a password. Default False')
+    parser.add_argument(
+        '--connector',
+        type=str,
+        default=None,
+        choices=('mariadb', 'mysql'),
+        help='connector to use. Default uses the first available.')
 
+# TODO use this
+def add_output_args(parser):
+    '''Add shared output args.
+    
+    Args:
+        parser (ArgumentParser): the parser object
+    '''
+    parser.add_argument(
+        '--output-format', '--of',
+        type=str,
+        choices=('table', 'csv', 'xlsx'),
+        default='table',
+        help='output format')
+    parser.add_argument(
+        '--output-path', '-o',
+        type=str,
+        default=sys.stdout,
+        help='output path')
+
+def _connect(default_file=None, autocommit=False, password=None, connector=None):
+    '''Wrapper for different SQL connectors.
+    
+    Args:
+        default_file (str, optional): database config file.
+        autocommit (bool) : whether SQL statements should always auto commit. Default False.
+        password (str, optional): the database password. Default None.
+        connector (str, optional): either "mariadb" or "mysql".
+            Default tries mariadb and then mysql, as available.
+    Returns:
+        obj: the resultant .connect() object.
+    '''
+    kwargs = {'autocommit': autocommit}
+    if password:
+        kwargs['password'] = password
+    if connector == 'mariadb' or (connector is None and mariadb is not None):
+        if default_file:
+            kwargs['default_file'] = default_file
+        return mariadb.connect(**kwargs)
+    if connector == 'mysql' or (connector is None and mysql_connector is not None):
+        if default_file:
+            kwargs['option_files'] = default_file
+        return mysql_connector.connect(**kwargs)
+    raise Exception('No valid SQL connector found')
+
+def _cur_type(cur):
+    if mysql_connector is not None and isinstance(cur, mysql_connector.cursor_cext.CMySQLCursor):
+        return 'mysql'
+    elif mariadb is not None:
+        return 'mariadb'
+    raise Exception('Unable to determine connector type')
+
+def _cur_placeholder(cur):
+    return '%s' if _cur_type(cur) == 'mysql' else '?'
+
+def connect(args):
+    '''Connect to the database.
+    Args:
+        args (argparse.Namespace): result of ArgumentParser.parse_args().
+            Tries to use args.[config, no_pass]
+            args.config (str): the config for connection. Default None.
+            args.pass (bool): 
     Returns:
         connection: the database connection object.
-            None on error.
-
+    Raises:
+        Exception: if config_path is invalid or failed to read password.
+        Exception: if connection failed.
     '''
-    if not isfile(config_path):
-        print_err(f'Config not found: {config_path}')
-        return None
+    config = getattr(args, 'config', None)
+    prompt_pass = getattr(args, 'pass', False)
+    connector = getattr(args, 'connector', None)
+    if config and not isfile(config):
+        raise Exception(f'Config not found: {config}')
 
-    try:
-        conn = mariadb.connect(
-            default_file=config_path,
-            autocommit=False)
-    except mariadb.Error as e:
-        print_err(f'Failed connect to MariaDB Platform: {e}')
-        return None
+    password = getpass.getpass('DB Password: ') if prompt_pass else None
 
-    # Sanity check
-    if not conn.user:
-        print_err('Failed to connect to MariaDB Platform. Check configuration.')
-        conn.close()
-        return None
-
-    return conn
+    return _connect(default_file=config, autocommit=False, password=password, connector=connector)
 
 def execute(cur, sql, values=None):
     '''Execute a single sql statement.
@@ -51,7 +136,7 @@ def execute(cur, sql, values=None):
     sql = textwrap.dedent(sql)
     try:
         cur.execute(sql, values)
-    except mariadb.Error as e:
+    except Exception as e:
         print_err(f'Failed to execute query:\n{sql}\n{values}\n{e}')
         return False
     return True
@@ -68,7 +153,7 @@ def execute_many(cur, sql, values=None):
     sql = textwrap.dedent(sql)
     try:
         cur.executemany(sql, values)
-    except mariadb.Error as e:
+    except Exception as e:
         if len(values) > 5:
             print_err(f'Failed to execute query:\n{sql}\n{values[:5]}\n...\n{e}')
         else:
@@ -150,18 +235,17 @@ def insert_rows(cur, rows, table_name, replace=False):
             return False
 
     insert_keyword = 'REPLACE' if replace else 'INSERT'
+    placeholder = _cur_placeholder(cur)
 
     sql = f'''
         {insert_keyword} INTO {table_name}
         ({','.join(row_keys)})
         VALUES
-        ({','.join((' ? ' for key in row_keys))})'''
+        ({','.join((f' {placeholder} ' for _ in row_keys))})'''
     values = []
     for row in rows:
-        # Append a tuple for each row and ensure the values are in the
-        # same order.
-        values.append(
-            tuple((row[key] if row[key] else None for key in row_keys)))
+        # Append a tuple for each row and ensure the values are in the same order.
+        values.append(tuple((row[key] if row[key] else None for key in row_keys)))
     return execute_many(cur, sql, values)
 
 def delete_rows(cur, table_name, key, values):
@@ -188,9 +272,11 @@ def delete_rows(cur, table_name, key, values):
     if not isinstance(values, list) and not isinstance(values, tuple):
        values = [values]
 
+    placeholder = _cur_placeholder(cur)
+
     sql = f'''
         DELETE FROM {table_name}
-        WHERE {key} IN ({','.join((' ? ' for v in values))})'''
+        WHERE {key} IN ({','.join((f' {placeholder} ' for _ in values))})'''
     return execute(cur, sql, values)
 
 def get_insertable_columns(conn, table_name):
@@ -210,11 +296,12 @@ def get_insertable_columns(conn, table_name):
         return None
 
     cur = conn.cursor()
-    sql = '''
+    placeholder = _cur_placeholder(cur)
+    sql = f'''
         SELECT column_name
           FROM information_schema.columns
-          WHERE table_schema = ?
-            AND table_name = ?
+          WHERE table_schema = {placeholder}
+            AND table_name = {placeholder}
             AND is_generated != 'ALWAYS'
           ORDER BY ordinal_position'''
     values = (conn.database, table_name)
@@ -236,28 +323,30 @@ def get_procedures(conn, name=None):
             None on failure.
 
     '''
-    if not name:
-        name = '%'
+    name = name or '%'
     proc_dict = {}
     cur = conn.cursor()
-    sql = '''
+    placeholder = _cur_placeholder(cur)
+    sql = f'''
         SELECT routine_name
           FROM information_schema.routines
           WHERE routine_type = 'PROCEDURE'
-            AND routine_schema = ?
-            AND routine_name like ?
+            AND routine_schema = {placeholder}
+            AND routine_name like {placeholder}
           ORDER BY routine_name'''
     values = (conn.database, name)
     if not execute(cur, sql, values):
         return None
 
+    placeholder = _cur_placeholder(cur)
+
     for name_row in list(cur):
         name = name_row[0]
         proc_dict[name] = []
-        sql = '''
+        sql = f'''
             SELECT parameter_mode, parameter_name, data_type
               FROM information_schema.parameters
-              WHERE specific_name=?
+              WHERE specific_name={placeholder}
               ORDER BY ordinal_position'''
         values = (name,)
         if not execute(cur, sql, values):
@@ -273,15 +362,24 @@ def get_procedures(conn, name=None):
 
 def cur_iter(cur):
     '''Iterator for a cursor's header row + data rows.
-
     Args:
-        cur (cursor): cursor for the database connection that contains the
-            rows.
-
+        cur (cursor): cursor for the database connection that contains the rows.
     Returns:
-        generator: generator for the header + data rows.
-
+        iter: iter for the header + data rows.
     '''
-    yield tuple((details[0] for details in cur.description))
-    for row in cur:
-        yield row
+    cur_type = _cur_type(cur)
+    if cur_type == 'mysql':
+        stored_results = list(cur.stored_results())
+        if stored_results:
+            for result in stored_results:
+                yield tuple((details[0] for details in result.description))
+                for row in result.fetchall():
+                    yield row
+        else:
+            yield tuple((details[0] for details in cur.description))
+            for row in cur:
+                yield row
+    elif cur_type== 'mariadb':
+        yield tuple((details[0] for details in cur.description))
+        for row in cur:
+            yield row

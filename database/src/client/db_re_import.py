@@ -4,14 +4,12 @@ import glob
 
 from .io_utils import print_err
 from . import db_import
+from . import db_utils
 
 
 def main(args):
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        '--config',
-        default='db.cnf',
-        help='database config for connection')
+    db_utils.add_config_args(parser)
     parser.add_argument(
         '--data_dir',
         type=str,

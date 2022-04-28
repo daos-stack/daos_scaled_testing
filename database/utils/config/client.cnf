@@ -1,0 +1,5 @@
+[client]
+socket=/mnt/mariadb/lib/mysql.sock
+user=root
+password=foo
+database=frontera_performance

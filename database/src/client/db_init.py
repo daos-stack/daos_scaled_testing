@@ -3,14 +3,11 @@ from os.path import isdir, isfile, join, dirname, realpath
 import subprocess
 
 from .io_utils import print_err, confirm
-from . import db_import
+from . import db_utils
 
 def main(args):
     parser = ArgumentParser()
-    parser.add_argument(
-        '--config',
-        default='db.cnf',
-        help='database config for connection')
+    db_utils.add_config_args(parser)
     parser.add_argument(
         '-u', '--user',
         help='user to login with')
@@ -18,10 +15,6 @@ def main(args):
         '-D', '--database',
         default='frontera_performance',
         help='database to use')
-    parser.add_argument(
-        '-p', '--password',
-        action='store_true',
-        help='prompt for password')
     parser.add_argument(
         'level',
         choices=('soft', 'hard'),

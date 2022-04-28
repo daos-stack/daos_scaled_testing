@@ -57,10 +57,7 @@ def import_csv(conn, csv_path, table_name, replace=False):
 def main(args):
     '''Import a CSV into the database.'''
     parser = ArgumentParser()
-    parser.add_argument(
-        '--config',
-        default='db.cnf',
-        help='database config for connection')
+    db_utils.add_config_args(parser)
     parser.add_argument(
         '--replace',
         action='store_true',
@@ -83,9 +80,7 @@ def main(args):
             print_err(f'CSV not found: {csv_path}')
             return 1
 
-    with db_utils.connect(args.config) as conn:
-        if not conn:
-            return 1
+    with db_utils.connect(args) as conn:
         for csv_path in csv_paths:
             if not import_csv(conn, csv_path, args.table_name, args.replace):
                 return 1
