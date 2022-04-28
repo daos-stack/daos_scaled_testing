@@ -253,3 +253,21 @@ CREATE OR REPLACE FUNCTION oclass_sort(
     RETURN NULL;
   END //
 DELIMITER ;
+
+
+/**
+ * Get sort order for server/client combination.
+ * Orders 1:4 first, followed by c16.
+ */
+DELIMITER //
+CREATE OR REPLACE FUNCTION server_client_sort(
+  num_servers INT,
+  num_clients INT
+) RETURNS INT
+  BEGIN
+    IF num_clients = num_servers * 4 THEN
+      RETURN 100000000 + (num_servers * 10000000) + (num_clients * 1000);
+    END IF;
+      RETURN 200000000 + (num_servers * 10000000) + (num_clients * 1000);
+  END //
+DELIMITER ;

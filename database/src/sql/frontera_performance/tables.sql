@@ -17,6 +17,7 @@ CREATE TABLE results_ior (
     test_eta_min int GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, start_time, end_time))
                  COMMENT "difference in minutes between start_time and end_time",
     daos_commit  varchar(40) NOT NULL,
+    provider     varchar(40) NOT NULL,
     oclass       varchar(40) NOT NULL,
     num_servers  int NOT NULL,
     num_targets  int,
@@ -49,6 +50,7 @@ CREATE TABLE results_mdtest (
     end_time     datetime,
     test_eta_min int GENERATED ALWAYS AS (TIMESTAMPDIFF(MINUTE, start_time, end_time)),
     daos_commit  varchar(40) NOT NULL,
+    provider     varchar(40) NOT NULL,
     oclass       varchar(40) NOT NULL,
     dir_oclass   varchar(40) NOT NULL,
     num_servers  int NOT NULL,
