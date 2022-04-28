@@ -22,7 +22,8 @@ def main(args):
     description = [
         'Generate canned database reports.',
         '',
-        '\simple      - IOR/MDTest easy/hard 1to4/c16 SX/S1 with no comparison',
+        '\tsimple      - IOR/MDTest easy/hard 1to4/c16 SX/S1 with no comparison',
+        '\tsimple_ec   - IOR/MDTest easy/hard EC with no comparison',
         '',
         '\tbasic      - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared for two commits',
         '\tbasic_repl - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RP_*GX/RP_*G1',
@@ -67,7 +68,7 @@ def main(args):
         return 1
 
     reports = args.report.split(',')
-    all_reports = ('simple', 'basic', 'basic_repl', 'basic_rf', 'ec', 's_ec', 'rebuild')
+    all_reports = ('simple', 'simple_ec', 'basic', 'basic_repl', 'basic_rf', 'ec', 's_ec', 'rebuild')
     for r in reports:
         if r not in all_reports:
             print_err(f'Invalid report: {r}')
@@ -98,6 +99,20 @@ def main(args):
                 'mdtest_hard%', 'S1', args.commit]],
             ['mdtest_hard_c16_S1.csv',      'simple_mdtest_c16',  [
                 'mdtest_hard%', 'S1', args.commit]]]
+
+    if 'simple_ec' in reports:
+        if not check_required(args, 'commit', 'rf'):
+            return 1
+
+        calls += [
+            [f'ior_easy_EC_rf{args.rf}.csv', 'simple_ior',
+                ['ior_easy%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
+            [f'ior_hard_EC_rf{args.rf}.csv', 'simple_ior',
+                ['ior_hard%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
+            [f'mdtest_easy_EC_rf{args.rf}.csv', 'simple_mdtest',
+                ['mdtest_easy%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
+            [f'mdtest_hard_EC_rf{args.rf}.csv', 'simple_mdtest',
+                ['mdtest_hard%', f'EC_%P{args.rf}%', args.commit, 'NULL']]]
 
     if 'basic' in reports:
         if not check_required(args, 'base_commit', 'commit'):
