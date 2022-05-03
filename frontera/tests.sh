@@ -391,8 +391,8 @@ function teardown_test(){
 function check_clock_sync(){
     pmsg "Retrieving local time of each node"
     run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
-                   -f ${SLURM_JOB_NUM_NODES} \
-                   ${DST_DIR}/frontera/print_node_local_time.sh"
+        -f ${SLURM_JOB_NUM_NODES} \
+        ${DST_DIR}/frontera/print_node_local_time.sh"
 
     pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
     clush -S -b --hostfile ${ALL_HOSTLIST_FILE} \
@@ -516,7 +516,6 @@ function prepare(){
 
 #Start DAOS agent
 function start_agent(){
-    pmsg "CMD: Starting agent..."
     local daos_cmd="daos_agent -o $DAOS_AGENT_YAML -s /tmp/daos_agent"
     local cmd="clush --hostfile ${CLIENT_HOSTLIST_FILE}
         -f ${SLURM_JOB_NUM_NODES} \"
@@ -527,7 +526,7 @@ function start_agent(){
         export CPATH=${CPATH};
         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
         $daos_cmd\" "
-    echo $daos_cmd
+    echo "CMD: ${daos_cmd}"
     echo
     eval $cmd &
     sleep 20
@@ -535,9 +534,8 @@ function start_agent(){
 
 #Dump attach info
 function dump_attach_info(){
-    pmsg "CMD: Dump attach info file..."
     local cmd="daos_agent -i -o $DAOS_AGENT_YAML dump-attachinfo -o ${RUN_DIR}/${SLURM_JOB_ID}/daos_server.attach_info_tmp"
-    echo $cmd
+    echo "CMD: ${cmd}"
     echo
     eval $cmd &
     sleep 20
@@ -577,6 +575,16 @@ function query_pools_rebuild(){
     echo "NUM_POOLS_REBUILD_DONE : ${num_rebuild_done}"
 }
 
+# Run daos pool query
+function daos_pool_query(){
+    local pool="${1:-${POOL_LABEL}}"
+
+    run_daos_cmd "daos pool query ${pool}"
+    if [ $? -ne 0 ]; then
+        teardown_test "daos pool query FAIL" 1
+    fi
+}
+
 # Run daos cont create
 function daos_cont_create(){
     local pool="${1:-${POOL_LABEL}}"
@@ -599,25 +607,22 @@ function daos_cont_create(){
     fi
 
     local daos_cmd="daos container create
-              --pool=${pool}
-              --label=${label}
-              --sys-name=daos_server
-              --type=POSIX"
+        --pool=${pool}
+        --label=${label}
+        --sys-name=daos_server
+        --type=POSIX"
 
     if [ ! -z $props ]; then
         daos_cmd+=" --properties=${props}"
     fi
 
-    pmsg "Creating container ${label}"
     run_daos_cmd "${daos_cmd}"
-    local rc=$?
+    if [ $? -ne 0 ]; then
+        teardown_test "daos container create FAIL" 1
+    fi
 
     # Set global CONT_LABEL
     CONT_LABEL="${label}"
-
-    if [ $rc -ne 0 ]; then
-        teardown_test "Daos container create FAIL" 1
-    fi
 }
 
 # Run daos cont query
@@ -625,10 +630,7 @@ function daos_cont_query(){
     local pool="${1:-${POOL_LABEL}}"
     local cont="${2:-${CONT_LABEL}}"
 
-    local daos_cmd="daos container query --pool=${pool} --cont=${cont}"
-
-    run_daos_cmd "${daos_cmd}"
-
+    run_daos_cmd "daos container query --pool=${pool} --cont=${cont}"
     if [ $? -ne 0 ]; then
         teardown_test "daos container query FAIL" 1
     fi
