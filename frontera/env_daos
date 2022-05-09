@@ -14,6 +14,7 @@ export OFI_DOMAIN=mlx5_0
 # For tcp
 #export CRT_PHY_ADDR_STR="ofi+tcp;ofi_rxm"
 #export OFI_DOMAIN=ib0
+#export FI_OFI_RXM_DEF_TCP_WAIT_OBJ=pollfd
 
 # For sockets
 #export CRT_PHY_ADDR_STR="ofi+sockets"
