@@ -8,6 +8,7 @@ port: 10001
 provider: ofi+verbs;ofi_rxm
 #provider: ofi+tcp;ofi_rxm
 #provider: ofi+sockets
+#provider: ucx+dc_x
 crt_timeout: 180
 crt_ctx_share_addr: 0
 engines:

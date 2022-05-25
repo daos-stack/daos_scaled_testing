@@ -1,3 +1,18 @@
+LOCATION="$1"
+if [ -z $LOCATION ]; then
+    echo "Usage: source env_daos <daos_path> [verbs|tcp|sockets|ucx]"
+    return 1
+fi
+PROVIDER="${2:-verbs}"
+
+daospath="$LOCATION/install"
+prereqpath="$LOCATION/install/prereq/release"
+
+if [ ! -d $daospath ]; then
+    echo "Not a directory: $daospath"
+    return 1
+fi
+
 export FI_UNIVERSE_SIZE=16383
 export FI_OFI_RXM_USE_SRX=1
 export FI_MR_CACHE_MONITOR=disabled
@@ -7,23 +22,29 @@ export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
 export DAOS_DISABLE_REQ_FWD=1
 export OFI_INTERFACE=ib0
 
-# For verbs
-export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
-export OFI_DOMAIN=mlx5_0
-
-# For tcp
-#export CRT_PHY_ADDR_STR="ofi+tcp;ofi_rxm"
-#export OFI_DOMAIN=ib0
-#export FI_OFI_RXM_DEF_TCP_WAIT_OBJ=pollfd
-
-# For sockets
-#export CRT_PHY_ADDR_STR="ofi+sockets"
-#export OFI_DOMAIN=ib0
-
-LOCATION=$1
-
-daospath=/$LOCATION/install
-prereqpath=/$LOCATION/install/prereq/release
+# Provider-specific exports
+case "$PROVIDER" in
+    verbs)
+        export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
+        export OFI_DOMAIN=mlx5_0
+        ;;
+    tcp)
+        export CRT_PHY_ADDR_STR="ofi+tcp;ofi_rxm"
+        export OFI_DOMAIN=ib0
+        export FI_OFI_RXM_DEF_TCP_WAIT_OBJ=pollfd
+        ;;
+    sockets)
+        export CRT_PHY_ADDR_STR="ofi+sockets"
+        export OFI_DOMAIN=ib0
+        ;;
+    ucx)
+        export CRT_PHY_ADDR_STR="ucx+dc_x"
+        export OFI_DOMAIN="mlx5_0:1"
+        ;;
+    *)
+        echo "Invalid provider: $PROVIDER"
+        return 1
+esac
 
 PATH=${prereqpath}/argobots/bin:$PATH
 PATH=${prereqpath}/isal/bin:$PATH
@@ -35,6 +56,10 @@ PATH=${prereqpath}/pmdk/bin:$PATH
 PATH=${prereqpath}/protobufc/bin:$PATH
 PATH=${prereqpath}/psm2/bin:$PATH
 PATH=${prereqpath}/spdk/bin:$PATH
+PATH=${prereqpath}/ucx/bin:$PATH
+
+PATH=~/.local/bin:$PATH
+PATH=${daospath}/bin/:${daospath}/sbin/:$PATH
 
 LD_LIBRARY_PATH=${prereqpath}/argobots/lib:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=${prereqpath}/isal/lib:$LD_LIBRARY_PATH
@@ -46,9 +71,7 @@ LD_LIBRARY_PATH=${prereqpath}/pmdk/lib:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=${prereqpath}/protobufc/lib:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=${prereqpath}/psm2/lib64:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=${prereqpath}/spdk/lib:$LD_LIBRARY_PATH
-
-PATH=~/.local/bin:$PATH
-PATH=${daospath}/bin/:${daospath}/sbin/:$PATH
+LD_LIBRARY_PATH=${prereqpath}/ucx/lib64:$LD_LIBRARY_PATH
 
 LD_LIBRARY_PATH=${daospath}/lib64/:${daospath}/lib/:${daospath}/lib64/daos_srv/:$LD_LIBRARY_PATH
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/
