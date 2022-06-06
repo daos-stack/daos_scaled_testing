@@ -96,7 +96,7 @@ done
 
 # Auto-detect running in a slurm job and use multiple processes to build
 if [ -z $SCONS_EXTRA_ARGS ] && [ ! -z $SLURM_JOB_NUM_NODES  ]; then
-    build_cores=$(scontrol show node "c204-007" | grep -o "CPUAlloc=[0-9]\+" | grep -o "[0-9]\+")
+    build_cores=$(scontrol show node $(hostname | cut -d "." -f 1) | grep -o "CPUAlloc=[0-9]\+" | grep -o "[0-9]\+")
     build_cores=$(( $build_cores / 2 ))
     SCONS_EXTRA_ARGS="-j$build_cores"
     echo "Detecting running in slurm. Building with ${SCONS_EXTRA_ARGS}"
