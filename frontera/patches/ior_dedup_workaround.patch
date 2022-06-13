@@ -1,8 +1,8 @@
 diff --git a/src/ior.c b/src/ior.c
-index a4af7b3..e591b89 100755
+index a999204..647aa5f 100755
 --- a/src/ior.c
 +++ b/src/ior.c
-@@ -1219,7 +1219,7 @@ static void TestIoSys(IOR_test_t *test)
+@@ -1221,7 +1221,7 @@ static void TestIoSys(IOR_test_t *test)
                            (&params->timeStampSignatureValue, 1, MPI_UNSIGNED, 0,
                             testComm), "cannot broadcast start time value");
  
@@ -11,7 +11,7 @@ index a4af7b3..e591b89 100755
  
                  /* use repetition count for number of multiple files */
                  if (params->multiFile)
-@@ -1635,7 +1635,7 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
+@@ -1642,7 +1642,7 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
    if (access == WRITE) {
            /* fills each transfer with a unique pattern
             * containing the offset into the file */
@@ -20,20 +20,20 @@ index a4af7b3..e591b89 100755
            amtXferred = backend->xfer(access, fd, buffer, transfer, offset, test->backend_options);
            if (amtXferred != transfer)
                    ERR("cannot write to file");
-@@ -1658,14 +1658,14 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
+@@ -1665,14 +1665,14 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
            amtXferred = backend->xfer(access, fd, buffer, transfer, offset, test->backend_options);
            if (amtXferred != transfer)
                    ERR("cannot read from file write check");
--          *errors += CompareData(buffer, transfer, *transferCount, test, offset, pretendRank, WRITECHECK);
-+          *errors += CompareData(buffer, transfer, *transferCount, test, offset, 0, WRITECHECK);
+-          *errors += CompareData(buffer, transfer, test, offset, pretendRank, WRITECHECK);
++          *errors += CompareData(buffer, transfer, test, offset, 0, WRITECHECK);
    } else if (access == READCHECK) {
            ((long long int*) buffer)[0] = ~((long long int*) buffer)[0]; // changes the buffer, no memset to reduce the memory pressure
            amtXferred = backend->xfer(access, fd, buffer, transfer, offset, test->backend_options);
            if (amtXferred != transfer){
              ERR("cannot read from file");
            }
--          *errors += CompareData(buffer, transfer, *transferCount, test, offset, pretendRank, READCHECK);
-+          *errors += CompareData(buffer, transfer, *transferCount, test, offset, 0, READCHECK);
+-          *errors += CompareData(buffer, transfer, test, offset, pretendRank, READCHECK);
++          *errors += CompareData(buffer, transfer, test, offset, 0, READCHECK);
    }
    return amtXferred;
  }
