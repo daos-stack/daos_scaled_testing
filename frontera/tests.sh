@@ -590,6 +590,7 @@ function daos_cont_create(){
     local pool="${1:-${POOL_LABEL}}"
     local label="${2:-test_cont}"
 
+    # TODO - Use CONT_PROP for all container properties
     local props="$CONT_PROP"
 
     if [ ! -z $CONT_RF ]; then
@@ -603,7 +604,7 @@ function daos_cont_create(){
         if [ ! -z $props ]; then
             props+=","
         fi
-        props+="ec_cell:$EC_CELL_SIZE"
+        props+="ec_cell_sz:$EC_CELL_SIZE"
     fi
 
     local daos_cmd="daos container create
