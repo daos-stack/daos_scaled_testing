@@ -4,27 +4,27 @@
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -s server_list -c clients -m mpi -t tb -r rf -i il -t mptype"
+   echo "Usage: $0 -s server_list -c clients -m mpi -b tb -r rf -i il -t mptype"
    echo -e "\t-s Server List (eg: 2,4,8,16,32) "
    echo -e "\t-c Total clients to use"
    echo -e "\t-m Type of MPI to use (MPI, IMPI)"
-   echo -e "\t-t DAOS Test Build to use (eg: daos_xxx) "
+   echo -e "\t-b DAOS Test Build to use (eg: daos_xxx) "
    echo -e "\t-r DAOS Redundancy Factor(eg: rf=0,1,..) "
    echo -e "\t-i DAOS Interception library(eg: il=0,1) "
-   echo -e "\t-p DAOS MPI Type (eg: mptype=FPP, MPIIO, MPIIODFS) "
+   echo -e "\t-t DAOS MPI Type (eg: mptype=fpp, mpiio, mpiiodfs) "
    exit 1 # Exit script after printing help
 }
 
-while getopts s:c:m:t:i:r:p: opt
+while getopts s:c:m:b:i:r:t: opt
 do
    case ${opt} in
       s) server_list="$OPTARG" ;;
       c) clients="$OPTARG" ;;
       m) mpi="$OPTARG" ;;
-      t) tb="$OPTARG" ;;
+      b) tb="$OPTARG" ;;
       r) rf="$OPTARG" ;;
       i) il="$OPTARG" ;;
-      p) mptype="$OPTARG" ;;
+      t) mptype="$OPTARG" ;;
       ?) helpFunction ;; # Print helpFunction in case parameter is non-existent
    esac
 done
