@@ -5,7 +5,7 @@ from os.path import join, isdir
 from os import mkdir
 import csv
 
-from .io_utils import csv_to_xlsx, print_err, list_to_csv
+from .io_utils import csv_to_xlsx, list_to_output_type, print_err, list_to_csv
 from . import db_utils
 
 
@@ -36,19 +36,12 @@ def main(args):
     parser = ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
         description='\n'.join(description))
-    parser.add_argument(
-        '--config',
-        default='db.cnf',
-        help='database config for connection')
+    db_utils.add_config_args(parser)
+    db_utils.add_output_args(parser)
     parser.add_argument(
         'report',
         type=str,
         help='comma-separated list of report(s) to generate (basic, basic_repl, basic_rf, rebuild)')
-    parser.add_argument(
-        '-o', '--output-dir',
-        type=str,
-        required=True,
-        help='output directory')
     parser.add_argument(
         '--base-commit',
         type=str,
@@ -60,12 +53,9 @@ def main(args):
     parser.add_argument(
         '--rf',
         type=str,
+        default='%',
         help='redundancy/replication factor')
     args = parser.parse_args(args)
-
-    if isdir(args.output_dir):
-        print_err(f'output directory already exists: {args.output_dir}')
-        return 1
 
     reports = args.report.split(',')
     all_reports = ('simple', 'simple_ec', 'basic', 'basic_repl', 'basic_rf', 'ec', 's_ec', 'rebuild')
@@ -83,21 +73,21 @@ def main(args):
             return 1
 
         calls += [
-            ['ior_easy_1to4_SX.csv',        'simple_ior_1to4',    [
+            ['ior_easy_1to4_SX',        'simple_ior_1to4',    [
                 'ior_easy%', 'SX', args.commit]],
-            ['ior_easy_c16_SX.csv',         'simple_ior_c16',     [
+            ['ior_easy_c16_SX',         'simple_ior_c16',     [
                 'ior_easy%', 'SX', args.commit]],
-            ['ior_hard_1to4_SX.csv',        'simple_ior_1to4',    [
+            ['ior_hard_1to4_SX',        'simple_ior_1to4',    [
                 'ior_hard%', 'SX', args.commit]],
-            ['ior_hard_c16_SX.csv',         'simple_ior_c16',     [
+            ['ior_hard_c16_SX',         'simple_ior_c16',     [
                 'ior_hard%', 'SX', args.commit]],
-            ['mdtest_easy_1to4_S1.csv',     'simple_mdtest_1to4', [
+            ['mdtest_easy_1to4_S1',     'simple_mdtest_1to4', [
                 'mdtest_easy%', 'S1', args.commit]],
-            ['mdtest_easy_c16_S1.csv',      'simple_mdtest_c16',  [
+            ['mdtest_easy_c16_S1',      'simple_mdtest_c16',  [
                 'mdtest_easy%', 'S1', args.commit]],
-            ['mdtest_hard_1to4_S1.csv',     'simple_mdtest_1to4', [
+            ['mdtest_hard_1to4_S1',     'simple_mdtest_1to4', [
                 'mdtest_hard%', 'S1', args.commit]],
-            ['mdtest_hard_c16_S1.csv',      'simple_mdtest_c16',  [
+            ['mdtest_hard_c16_S1',      'simple_mdtest_c16',  [
                 'mdtest_hard%', 'S1', args.commit]]]
 
     if 'simple_ec' in reports:
@@ -105,13 +95,13 @@ def main(args):
             return 1
 
         calls += [
-            [f'ior_easy_EC_rf{args.rf}.csv', 'simple_ior',
+            [f'ior_easy_EC_rf{args.rf}', 'simple_ior',
                 ['ior_easy%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
-            [f'ior_hard_EC_rf{args.rf}.csv', 'simple_ior',
+            [f'ior_hard_EC_rf{args.rf}', 'simple_ior',
                 ['ior_hard%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
-            [f'mdtest_easy_EC_rf{args.rf}.csv', 'simple_mdtest',
+            [f'mdtest_easy_EC_rf{args.rf}', 'simple_mdtest',
                 ['mdtest_easy%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
-            [f'mdtest_hard_EC_rf{args.rf}.csv', 'simple_mdtest',
+            [f'mdtest_hard_EC_rf{args.rf}', 'simple_mdtest',
                 ['mdtest_hard%', f'EC_%P{args.rf}%', args.commit, 'NULL']]]
 
     if 'basic' in reports:
@@ -119,55 +109,56 @@ def main(args):
             return 1
 
         calls += [
-            ['ior_easy_1to4_SX.csv',        'compare_ior_1to4',    [
+            ['ior_easy_1to4_SX',        'compare_ior_1to4',    [
                 'ior_easy%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['ior_easy_c16_SX.csv',         'compare_ior_c16',     [
+            ['ior_easy_c16_SX',         'compare_ior_c16',     [
                 'ior_easy%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['ior_hard_1to4_SX.csv',        'compare_ior_1to4',    [
+        # ]
+            ['ior_hard_1to4_SX',        'compare_ior_1to4',    [
                 'ior_hard%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['ior_hard_c16_SX.csv',         'compare_ior_c16',     [
+            ['ior_hard_c16_SX',         'compare_ior_c16',     [
                 'ior_hard%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['mdtest_easy_1to4_S1.csv',     'compare_mdtest_1to4', [
+            ['mdtest_easy_1to4_S1',     'compare_mdtest_1to4', [
                 'mdtest_easy%', 'S1', 'S1', args.base_commit, args.commit]],
-            ['mdtest_easy_c16_S1.csv',      'compare_mdtest_c16',  [
+            ['mdtest_easy_c16_S1',      'compare_mdtest_c16',  [
                 'mdtest_easy%', 'S1', 'S1', args.base_commit, args.commit]],
-            ['mdtest_hard_1to4_S1.csv',     'compare_mdtest_1to4', [
+            ['mdtest_hard_1to4_S1',     'compare_mdtest_1to4', [
                 'mdtest_hard%', 'S1', 'S1', args.base_commit, args.commit]],
-            ['mdtest_hard_c16_S1.csv',      'compare_mdtest_c16',  [
+            ['mdtest_hard_c16_S1',      'compare_mdtest_c16',  [
                 'mdtest_hard%', 'S1', 'S1', args.base_commit, args.commit]],
 
-            ['ior_easy_1to4_RP_2GX.csv',    'compare_ior_1to4',    [
+            ['ior_easy_1to4_RP_2GX',    'compare_ior_1to4',    [
                 'ior_easy%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['ior_easy_c16_RP_2GX.csv',     'compare_ior_c16',     [
+            ['ior_easy_c16_RP_2GX',     'compare_ior_c16',     [
                 'ior_easy%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['ior_hard_1to4_RP_2GX.csv',    'compare_ior_1to4',    [
+            ['ior_hard_1to4_RP_2GX',    'compare_ior_1to4',    [
                 'ior_hard%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['ior_hard_c16_RP_2GX.csv',     'compare_ior_c16',     [
+            ['ior_hard_c16_RP_2GX',     'compare_ior_c16',     [
                 'ior_hard%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['mdtest_easy_1to4_RP_2G1.csv', 'compare_mdtest_1to4', [
+            ['mdtest_easy_1to4_RP_2G1', 'compare_mdtest_1to4', [
                 'mdtest_easy%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-            ['mdtest_easy_c16_RP_2G1.csv',  'compare_mdtest_c16',  [
+            ['mdtest_easy_c16_RP_2G1',  'compare_mdtest_c16',  [
                 'mdtest_easy%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-            ['mdtest_hard_1to4_RP_2G1.csv', 'compare_mdtest_1to4', [
+            ['mdtest_hard_1to4_RP_2G1', 'compare_mdtest_1to4', [
                 'mdtest_hard%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-            ['mdtest_hard_c16_RP_2G1.csv',  'compare_mdtest_c16',  [
+            ['mdtest_hard_c16_RP_2G1',  'compare_mdtest_c16',  [
                 'mdtest_hard%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
 
-            ['ior_easy_1to4_RP_3GX.csv',    'compare_ior_1to4',    [
+            ['ior_easy_1to4_RP_3GX',    'compare_ior_1to4',    [
                 'ior_easy%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['ior_easy_c16_RP_3GX.csv',     'compare_ior_c16',     [
+            ['ior_easy_c16_RP_3GX',     'compare_ior_c16',     [
                 'ior_easy%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['ior_hard_1to4_RP_3GX.csv',    'compare_ior_1to4',    [
+            ['ior_hard_1to4_RP_3GX',    'compare_ior_1to4',    [
                 'ior_hard%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['ior_hard_c16_RP_3GX.csv',     'compare_ior_c16',     [
+            ['ior_hard_c16_RP_3GX',     'compare_ior_c16',     [
                 'ior_hard%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['mdtest_easy_1to4_RP_3G1.csv', 'compare_mdtest_1to4', [
+            ['mdtest_easy_1to4_RP_3G1', 'compare_mdtest_1to4', [
                 'mdtest_easy%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]],
-            ['mdtest_easy_c16_RP_3G1.csv',  'compare_mdtest_c16',  [
+            ['mdtest_easy_c16_RP_3G1',  'compare_mdtest_c16',  [
                 'mdtest_easy%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]],
-            ['mdtest_hard_1to4_RP_3G1.csv', 'compare_mdtest_1to4', [
+            ['mdtest_hard_1to4_RP_3G1', 'compare_mdtest_1to4', [
                 'mdtest_hard%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]],
-            ['mdtest_hard_c16_RP_3G1.csv',  'compare_mdtest_c16',  ['mdtest_hard%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]]]
+            ['mdtest_hard_c16_RP_3G1',  'compare_mdtest_c16',  ['mdtest_hard%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]]]
 
     if 'basic_repl' in reports:
         if not check_required(args, 'commit', 'rf'):
@@ -183,21 +174,21 @@ def main(args):
         for rf in rfs:
             repl = str(int(rf) + 1)
             calls += [
-                [f'ior_easy_1to4_RP_{repl}GX.csv',    'compare_ior_1to4',    [
+                [f'ior_easy_1to4_RP_{repl}GX',    'compare_ior_1to4',    [
                     'ior_easy%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_easy_c16_RP_{repl}GX.csv',     'compare_ior_c16',     [
+                [f'ior_easy_c16_RP_{repl}GX',     'compare_ior_c16',     [
                     'ior_easy%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_hard_1to4_RP_{repl}GX.csv',    'compare_ior_1to4',    [
+                [f'ior_hard_1to4_RP_{repl}GX',    'compare_ior_1to4',    [
                     'ior_hard%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_hard_c16_RP_{repl}GX.csv',     'compare_ior_c16',     [
+                [f'ior_hard_c16_RP_{repl}GX',     'compare_ior_c16',     [
                     'ior_hard%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'mdtest_easy_1to4_RP_{repl}GX.csv', 'compare_mdtest_1to4', [
+                [f'mdtest_easy_1to4_RP_{repl}GX', 'compare_mdtest_1to4', [
                     'mdtest_easy%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_easy_c16_RP_{repl}GX.csv',  'compare_mdtest_c16',  [
+                [f'mdtest_easy_c16_RP_{repl}GX',  'compare_mdtest_c16',  [
                     'mdtest_easy%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_1to4_RP_{repl}GX.csv', 'compare_mdtest_1to4', [
+                [f'mdtest_hard_1to4_RP_{repl}GX', 'compare_mdtest_1to4', [
                     'mdtest_hard%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_c16_RP_{repl}GX.csv',  'compare_mdtest_c16',  ['mdtest_hard%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]]]
+                [f'mdtest_hard_c16_RP_{repl}GX',  'compare_mdtest_c16',  ['mdtest_hard%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]]]
 
     if 'basic_rf' in reports:
         if not check_required(args, 'commit', 'rf'):
@@ -257,13 +248,13 @@ def main(args):
             rfs = [args.rf]
         for rf in rfs:
             calls += [
-                [f'ior_easy_EC_%P{rf}GX.csv',    'compare_ior',    [
+                [f'ior_easy_EC_%P{rf}GX',    'compare_ior',    [
                     'ior_easy%', f'EC_%P{rf}GX', f'EC_%P{rf}GX', args.base_commit, args.commit, 'NULL']],
-                [f'ior_hard_EC_%P{rf}GX.csv',    'compare_ior',    [
+                [f'ior_hard_EC_%P{rf}GX',    'compare_ior',    [
                     'ior_hard%', f'EC_%P{rf}GX', f'EC_%P{rf}GX', args.base_commit, args.commit, 'NULL']],
-                [f'mdtest_easy_EC_%P{rf}G1.csv',    'compare_mdtest',    [
+                [f'mdtest_easy_EC_%P{rf}G1',    'compare_mdtest',    [
                     'mdtest_easy%', f'EC_%P{rf}G1', f'EC_%P{rf}G1', args.base_commit, args.commit, 'NULL']],
-                [f'mdtest_hard_EC_%P{rf}G1.csv',    'compare_mdtest',    [
+                [f'mdtest_hard_EC_%P{rf}G1',    'compare_mdtest',    [
                     'mdtest_hard%', f'EC_%P{rf}G1', f'EC_%P{rf}G1', args.base_commit, args.commit, 'NULL']],]
 
     if 's_ec' in reports:
@@ -293,28 +284,32 @@ def main(args):
             return 1
 
         calls += [
-            [f'rebuild_{args.commit}.csv', 'show_rebuild', [args.commit]]]
+            [f'rebuild_{args.commit}', 'show_rebuild', [args.commit]]]
 
-    # Create a CSV for each procedure call
-    # TODO sanity check that csv names do not conflict
-    # TODO don't keep empty csv files (header only)
-    with db_utils.connect(args.config) as conn:
-        if not conn:
-            return 1
-        csv_list = []
-        mkdir(args.output_dir)
-        for csv_name, proc_name, proc_args in calls:
-            print(' '.join([f'{csv_name}:'] + [proc_name] + proc_args))
+    # Get data rows for each procedure call
+    data = []
+    sheet_names = []
+    with db_utils.connect(args) as conn:
+        for sheet_name, proc_name, proc_args in calls:
+            if sheet_name in sheet_names:
+                print_err(f'Duplicate sheet name: {sheet_name}')
+                return 1
+            print(' '.join([f'{sheet_name}:'] + [proc_name] + proc_args))
             with db_utils.callproc(conn, proc_name, proc_args) as cur:
                 if not cur:
                     return 1
-                csv_path = join(args.output_dir, csv_name)
-                if not list_to_csv(db_utils.cur_iter(cur), csv_path):
-                    return 1
-                csv_list.append(csv_path)
+                d = list(db_utils.cur_iter(cur))
+                if len(d) > 1:
+                    sheet_names.append(sheet_name)
+                    data.append(d)
 
-    # Add all CSVs to XLSX
-    if not csv_to_xlsx(csv_list, join(args.output_dir, f'report_{"_".join(reports)}.xlsx'), group_by_csv=True):
-        return 1
+    # Output all query results
+    success = list_to_output_type(
+        output_type=args.output_format,
+        data=data,
+        data_dims=2,
+        xlsx_sheet_names=sheet_names,
+        file=args.output_path)
+    return 0 if success else 1
 
-    return 0
+    # return 0

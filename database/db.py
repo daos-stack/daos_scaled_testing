@@ -39,7 +39,7 @@ def main(args):
         'login': 'db_login',
         'init': 'db_init'
     }.get(parser_args.tool)
-    package = import_module(f'.{package_name}', 'src.utils')
+    package = import_module(f'.{package_name}', 'src.client')
     return package.main(args[1:])
 
 if __name__ == '__main__':
