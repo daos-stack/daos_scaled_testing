@@ -266,8 +266,17 @@ function dmg_pool_create(){
                --scm-size ${POOL_SIZE}
                --label ${label}"
 
-    if [ ! -z "${DAOS_POOL_PROPS}" ]; then
-        cmd+=" --properties ${DAOS_POOL_PROPS}"
+    local props="$DAOS_POOL_PROPS"
+
+    if [ ! -z $EC_CELL_SIZE ]; then
+        if [ ! -z $props ]; then
+            props+=","
+        fi
+        props+="ec_cell_sz:$EC_CELL_SIZE"
+    fi
+
+    if [ ! -z $props ]; then
+        cmd+=" --properties=${props}"
     fi
 
     run_dmg_cmd "${cmd}"
@@ -598,13 +607,6 @@ function daos_cont_create(){
             props+=","
         fi
         props+="rf:$CONT_RF"
-    fi
-
-    if [ ! -z $EC_CELL_SIZE ]; then
-        if [ ! -z $props ]; then
-            props+=","
-        fi
-        props+="ec_cell_sz:$EC_CELL_SIZE"
     fi
 
     local daos_cmd="daos container create
