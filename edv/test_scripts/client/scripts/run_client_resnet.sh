@@ -150,6 +150,11 @@ if [ "$MOUNT_DFUSE" == "1" ]; then
   echo
 fi
 
+if [[ "$IL" == "1" ]]; then
+  #export envIL="-env LD_PRELOAD=${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so -env D_IL_REPORT=5 -env D_LOG_MASK=ERR"
+  export envIL="-env LD_PRELOAD=${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so -env D_LOG_MASK=ERR"
+fi
+
 export LOCALHOST=$(hostname)
 
 . /opt/intel/impi/2021.2.0.215/setvars.sh --force
@@ -163,15 +168,16 @@ export CCL_CONFIGURATION=cpu_icc
 
 echo "Copy DataSet to DAOS mountpoint"
 #clush -w ${LOCAL_HOST} "cd ${RUNDIR}/scripts; source set_impi.sh; mpirun -np 16 /panfs/users/schan15/SC21/setup/mfu/install/bin/dcp /panfs/projects/ML_datasets/imagenet/ilsvrc12_raw daos://${PLABEL}/${CLABEL}"
-echo "mpirun -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 /panfs/users/rpadma2/apps/MPI/mpifileutils/install/bin/dcp /panfs/projects/ML_datasets/imagenet/ilsvrc12_raw daos://${PLABEL}/${CLABEL}"
-#mpirun -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 /panfs/users/rpadma2/apps/MPI/mpifileutils/install/bin/dcp /panfs/projects/ML_datasets/imagenet/ilsvrc12_raw daos://${PLABEL}/${CLABEL}
+echo "mpirun ${envIL} -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 /panfs/users/rpadma2/apps/MPI/mpifileutils/install/bin/dcp /panfs/projects/ML_datasets/imagenet/ilsvrc12_raw daos://${PLABEL}/${CLABEL}"
+#mpirun ${envIL} -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 /panfs/users/rpadma2/apps/MPI/mpifileutils/install/bin/dcp /panfs/projects/ML_datasets/imagenet/ilsvrc12_raw daos://${PLABEL}/${CLABEL}
 
 echo "Running pytorch benchmark"
 #clush -w ${LOCAL_HOST} "cd ${RUNDIR}/scripts; source set_impi.sh; mpirun -np 2 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1"
-#echo "mpirun -np 2 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1"
-#mpirun -np 2 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1
-echo "mpirun -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1"
-#mpirun -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1 2>&1 |  tee ${RESULTDIR}/resnet50_out.log
+#echo "mpirun ${envIL} -np 2 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1"
+#mpirun ${envIL} -np 2 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1
+echo "mpirun ${envIL} -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1"
+mpirun ${envIL} -np 16 -ppn 1 -hosts edaosc057,edaosc058,edaosc059,edaosc060,edaosc061,edaosc062,edaosc063,edaosc064,edaosc065,edaosc066,edaosc067,edaosc068,edaosc069,edaosc070,edaosc071,edaosc072 python3 /panfs/users/${USER}/apps/MPI/resnet/install/pytorch_imagenet_resnet50.py --train-dir ${MOUNTDIR}/ilsvrc12_raw/train/ --val-dir ${MOUNTDIR}/ilsvrc12_raw/val/ --no-cuda --epochs 1 2>&1 |  tee ${RESULTDIR}/resnet50_out.log
+
 read -p "Press any key"
 echo Pool query after ${TEST}
 dmg -o ${RUNDIR}/scripts/daos_control.yml pool query $PLABEL
