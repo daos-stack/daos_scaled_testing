@@ -10,7 +10,7 @@ export HOSTLIST="hostlists/srv_hostlist${NSERVER}"
 
 cd ${SRVDIR}
 pwd
-clush --hostfile=${ALLHOST} "export TB=${TB}; export SRVDIR=${SRVDIR}; cd ${SRVDIR}; ./clean_server.sh; ./clean_server.sh"
+clush --hostfile=${ALLHOST} "export TB=${TB}; export SRVDIR=${SRVDIR}; cd ${SRVDIR}; ./clean_server.sh"
 sleep 15
 echo "Clean - DONE"
 clush --hostfile=${ALLHOST} "export TB=${TB}; export SRVDIR=${SRVDIR}; cd ${SRVDIR}; ./run_storage_scan.sh"
