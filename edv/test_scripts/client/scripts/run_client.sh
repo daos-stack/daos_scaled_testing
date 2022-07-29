@@ -38,8 +38,6 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-ls -al /panfs/users/rpadma2/apps/${MPI}/lammps
-
 echo "Sourcing env"
 if [[ "$TEST" =~ "EFISPEC" ]]; then
   . /opt/intel/oneAPI/latest/setvars.sh
@@ -69,12 +67,12 @@ which daos_agent
 echo
 
 echo "Cleaning Agent"
-clush --hostfile=${CLI_HOSTLIST} "export TB=$TB; export RUNDIR=${RUNDIR}; cd ${RUNDIR}/scripts; source client_env.sh; ./clean_agent.sh"
+clush --hostfile=${CLI_HOSTLIST} "export TB=$TB; export RUNDIR=${RUNDIR}; cd ${RUNDIR}/scripts; ./clean_agent.sh"
 sleep 5
 echo
 
 echo "Starting Agent"
-clush --hostfile=${CLI_HOSTLIST} "export TB=$TB; export RUNDIR=${RUNDIR}; cd ${RUNDIR}/scripts; source client_env.sh; ./start_agent.sh" &
+clush --hostfile=${CLI_HOSTLIST} "export TB=$TB; export RUNDIR=${RUNDIR}; cd ${RUNDIR}/scripts; ./start_agent.sh" &
 sleep 5
 echo
 
@@ -134,7 +132,7 @@ fi
 
 if [ "$MOUNT_DFUSE" == "1" ]; then
   echo "Mounting Dfuse"
-  clush --hostfile=${CLI_HOSTLIST} "export TB=${TB}; export RUNDIR=${RUNDIR}; export PLABEL=${PLABEL}; export CLABEL=${CLABEL}; export MOUNTDIR=${MOUNTDIR}; export DFUSECACHE=${DFUSECACHE}; ${RUNDIR}/scripts/mount_dfuse.sh"
+  clush --hostfile=${CLI_HOSTLIST} "export RUNDIR=${RUNDIR}; export PLABEL=${PLABEL}; export CLABEL=${CLABEL}; export MOUNTDIR=${MOUNTDIR}; export DFUSECACHE=${DFUSECACHE}; ${RUNDIR}/scripts/mount_dfuse.sh"
 
   if [[ ! -d ${MOUNTDIR} ]]; then
     echo Dfuse mount unsuccessful!!
