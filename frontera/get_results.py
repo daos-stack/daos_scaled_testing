@@ -1086,7 +1086,7 @@ def main(result_path, tests=["all"], output_format="csv", output_style="full",
                                ("cart", CsvCart)):
         if test in tests:
             print("")
-            csv_name = f"{test}_result_{result_name}.csv"
+            csv_name = f"{test}_{result_name}.csv"
             csv_path = join(result_path, csv_name)
             if generate_results(result_path, test, test_class, csv_path, output_style):
                 output_list.append(csv_path)

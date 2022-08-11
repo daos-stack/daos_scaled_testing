@@ -155,11 +155,12 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False,
     # TODO cleaner
     if Workbook is None:
         print_err('Not installed: xlsxwriter')
-        return None
+        return False
     # TODO cleaner
     options = WorkbookOptions(
         stat_cols=['write_gib%', 'read_gib%', 'create%', 'stat%', 'read%', 'remove%'])
     Workbook.from_csv(xlsx_file_path, csv_list, group_by_col, group_by_csv, sheet_names, options)
+    return True
 
 def list_to_output_type(data, output_type='table', file=sys.stdout, data_dims=1, xlsx_sheet_names=None):
     """Convert list(s) of data to various output types.
