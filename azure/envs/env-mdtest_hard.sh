@@ -1,0 +1,4 @@
+#!/bin/bash
+
+DAOS_CONTAINER_NAME=mdtest_hard
+MDTEST_OPTS="$MDTEST_OPTS -e 3901 -w 3901 --dfs.cont=$DAOS_CONTAINER_NAME"

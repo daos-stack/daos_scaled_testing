@@ -1,0 +1,6 @@
+[daos-ec_rotation]
+name=DAOS 2.4 with EC Rotation patch
+baseurl=file:///opt/repos/daos/ec_rotations/x86_64
+metadata_expire=-1
+gpgcheck=0
+enabled=0

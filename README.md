@@ -9,3 +9,6 @@ See [./edv](edv)
 
 ## Database
 See [./database](database)
+
+## Azure
+See [./azure](azure)

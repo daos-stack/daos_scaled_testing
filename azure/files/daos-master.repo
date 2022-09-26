@@ -1,0 +1,6 @@
+[daos-master]
+name=DAOS master
+baseurl=file:///opt/repos/daos/master/x86_64
+metadata_expire=-1
+gpgcheck=0
+enabled=0
