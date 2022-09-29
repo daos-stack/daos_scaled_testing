@@ -43,6 +43,12 @@ CLUSH_OPTS="-bL -S"
 
 NODESET_BIN=nodeset
 
+NTTTCP_BIN=$HOME/local/bin/ntttcp
+NTTTCP_DURATION=300
+
+SOCKPERF_BIN=$HOME/local/bin/sockperf
+SOCKPERF_TIME=120
+
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 function generate-daos_control_cfg

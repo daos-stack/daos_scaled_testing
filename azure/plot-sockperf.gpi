@@ -1,0 +1,18 @@
+set border 3
+set xtics nomirror
+set ytics nomirror
+set grid ytics
+set autoscale
+set encoding iso_8859_1
+set datafile separator ";"
+set boxwidth 0.5
+set style fill solid
+
+set ylabel "Latencies (usec)"
+
+set term png transparent interlace lw 2 large size 1280,1024
+set title "SockPerf Network Latencies"
+set output "sockperf.png"
+# set term x11 title "IOR: type=$test_type file_mode=$file_mode"
+
+plot 'sockperf.dat' using 1:3:xtic(2) with boxes notitle

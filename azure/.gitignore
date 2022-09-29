@@ -1,1 +1,4 @@
 files/*.txz
+tmp/
+dat/
+gpi/
