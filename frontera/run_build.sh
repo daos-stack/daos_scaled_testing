@@ -127,43 +127,47 @@ function git_has_commit() {
 # Merge a "hack" branch and user-specified branches
 function merge_extra_daos_branches() {
   local hack_branch=""
-  if $(git_has_commit "5b24460") = true; then
+  if [ $(git_has_commit "5c330f9") = true ]; then
+    hack_branch="origin/dbohning/io500-base-5c330f9"
+  elif [ $(git_has_commit "e23c00c") = true ]; then
+    hack_branch="origin/dbohning-io500-base-cdc3cd0"
+  elif [ $(git_has_commit "5b24460") = true ]; then
     hack_branch="origin/dbohning-io500-base-5b24460-2.2"
-  elif $(git_has_commit "e23c00c") = true; then
+  elif [ $(git_has_commit "e23c00c") = true ]; then
     hack_branch="origin/dbohning-io500-base-e23c00c"
-  elif $(git_has_commit "56baf9b") = true; then
+  elif [ $(git_has_commit "56baf9b") = true ]; then
     hack_branch="origin/dbohning-io500-base-56baf9b-2.2"
-  elif $(git_has_commit "e41ad8a") = true; then
+  elif [ $(git_has_commit "e41ad8a") = true ]; then
     hack_branch="origin/dbohning-io500-base-e41ad8a-2.2"
-  elif $(git_has_commit "c180955") = true; then
+  elif [ $(git_has_commit "c180955") = true ]; then
     hack_branch="origin/dbohning-io500-base-c180955"
-  elif $(git_has_commit "8c3bf03") = true; then
+  elif [ $(git_has_commit "8c3bf03") = true ]; then
     hack_branch="origin/dbohning-io500-base-8c3bf03"
-  elif $(git_has_commit "6373e4f") = true; then
+  elif [ $(git_has_commit "6373e4f") = true ]; then
     hack_branch="origin/dbohning-io500-base-6373e4f-2.2"
-  elif $(git_has_commit "59bdf06") = true; then
+  elif [ $(git_has_commit "59bdf06") = true ]; then
     hack_branch="origin/dbohning-io500-base-59bdf06"
-  elif $(git_has_commit "b1933c3") = true; then
+  elif [ $(git_has_commit "b1933c3") = true ]; then
     hack_branch="origin/dbohning-io500-base-b1933c3"
-  elif $(git_has_commit "ec8f3d7") = true; then
+  elif [ $(git_has_commit "ec8f3d7") = true ]; then
     hack_branch="origin/dbohning-io500-base-ec8f3d7"
-  elif $(git_has_commit "0fd0d78") = true; then
+  elif [ $(git_has_commit "0fd0d78") = true ]; then
     hack_branch="origin/dbohning-io500-base-0fd0d78"
-  elif $(git_has_commit "1c9fbac") = true; then
+  elif [ $(git_has_commit "1c9fbac") = true ]; then
     hack_branch="origin/dbohning-io500-base-1c9fbac"
-  elif $(git_has_commit "1650544") = true; then
+  elif [ $(git_has_commit "1650544") = true ]; then
     hack_branch="origin/dbohning-io500-base-1650544-2.0"
-  elif $(git_has_commit "f15d6c9") = true; then
+  elif [ $(git_has_commit "f15d6c9") = true ]; then
     hack_branch="origin/dbohning-io500-base-f15d6c9"
-  elif $(git_has_commit "b7a8e51") = true; then
+  elif [ $(git_has_commit "b7a8e51") = true ]; then
     hack_branch="origin/dbohning-io500-base-b7a8e51-2.0"
-  elif $(git_has_commit "3e37280") = true; then
+  elif [ $(git_has_commit "3e37280") = true ]; then
     hack_branch="origin/dbohning-io500-base-3e37280"
-  elif $(git_has_commit "af19e7f") = true; then
+  elif [ $(git_has_commit "af19e7f") = true ]; then
     hack_branch="origin/dbohning-io500-base-af19e7f"
-  elif $(git_has_commit "40f8636") = true; then
+  elif [ $(git_has_commit "40f8636") = true ]; then
     hack_branch="origin/dbohning-io500-base-40f8636"
-  elif $(git_has_commit "daaf038") = true; then
+  elif [ $(git_has_commit "daaf038") = true ]; then
     hack_branch="origin/dbohning-io500-base-daaf038"
   else
     hack_branch="origin/mjmac/io500-frontera"
@@ -244,9 +248,17 @@ function clone_daos() {
 # Build DAOS
 function build_daos() {
   pushd ${BUILD_DIR}/${TIMESTAMP}/daos
+  # Revert stdatomic.h stuff
+  if [ $(git_has_commit "c992d41942f472991fd7ac06dd9a0e581b51898a") = true ]; then
+    git revert --no-edit c992d41942f472991fd7ac06dd9a0e581b51898a
+  fi
+  if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
+    git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8
+  fi
   scons MPI_PKG=any \
         --build-deps=${SCONS_BUILD_DEPS} \
         --config=force \
+        --prepend-path="$(dirname $(which cmake))" \
         BUILD_TYPE=${DAOS_BUILD_TYPE} \
         install ${SCONS_EXTRA_ARGS}
   popd

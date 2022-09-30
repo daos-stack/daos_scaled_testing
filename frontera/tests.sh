@@ -599,6 +599,16 @@ function daos_cont_create(){
     local pool="${1:-${POOL_LABEL}}"
     local label="${2:-test_cont}"
 
+    # Compatibility params
+    if [ -z $_DAOS_CONT_CREATE_POS ]; then
+        run_daos_cmd "daos cont create --help | grep -- '--pool'"
+        if [ $? -ne 0 ]; then
+            _DAOS_CONT_CREATE_POS=true
+        else
+            _DAOS_CONT_CREATE_POS=false
+        fi
+    fi
+
     # TODO - Use CONT_PROP for all container properties
     local props="$CONT_PROP"
 
@@ -609,11 +619,17 @@ function daos_cont_create(){
         props+="rf:$CONT_RF"
     fi
 
-    local daos_cmd="daos container create
-        --pool=${pool}
-        --label=${label}
-        --sys-name=daos_server
-        --type=POSIX"
+    if [ $_DAOS_CONT_CREATE_POS = true ]; then
+        local daos_cmd="daos container create ${pool} ${label}
+            --sys-name=daos_server
+            --type=POSIX"
+    else
+        local daos_cmd="daos container create
+            --pool=${pool}
+            --label=${label}
+            --sys-name=daos_server
+            --type=POSIX"
+    fi
 
     if [ ! -z $props ]; then
         daos_cmd+=" --properties=${props}"
@@ -633,7 +649,21 @@ function daos_cont_query(){
     local pool="${1:-${POOL_LABEL}}"
     local cont="${2:-${CONT_LABEL}}"
 
-    run_daos_cmd "daos container query --pool=${pool} --cont=${cont}"
+    # Compatibility params
+    if [ -z $_DAOS_CONT_QUERY_POS ]; then
+        run_daos_cmd "daos cont query --help | grep -- '--pool'"
+        if [ $? -ne 0 ]; then
+            _DAOS_CONT_QUERY_POS=true
+        else
+            _DAOS_CONT_QUERY_POS=false
+        fi
+    fi
+
+    if [ $_DAOS_CONT_QUERY_POS = true ]; then
+        run_daos_cmd "daos container query ${pool} ${cont}"
+    else
+        run_daos_cmd "daos container query --pool=${pool} --cont=${cont}"
+    fi
     if [ $? -ne 0 ]; then
         teardown_test "daos container query FAIL" 1
     fi
