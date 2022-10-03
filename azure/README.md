@@ -27,6 +27,54 @@ The _instal-daos.sh_ and _install-ior.sh_ scripts allow to respectively install 
 an Azure cloud cluster.  The _instal-daos.sh_ script used the _generate-daos_server\_cfg.sh_ script
 to create the _/etc/daos/daos\_server.yml_ of each DAOS server.
 
+The _instal-daos.sh_ script needs a tarball compressed throughh xz containing the DAOS rpms and some
+of there direct dependencies.  Folllowing is the content of a tarball of the DAOS master branch
+which could be used with this script:
+
+```bash
+$ tar tf daos-master-el8.txz
+daos-master-el8/
+daos-master-el8/daos-2.3.100-22.8622.g03165cb1.el8.src.rpm
+daos-master-el8/daos-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-admin-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-admin-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-client-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-client-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-client-tests-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-client-tests-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-client-tests-openmpi-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-devel-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-firmware-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-serialize-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-server-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-server-tests-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-tests-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-tests-internal-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/argobots-1.1-1.el8.x86_64.rpm
+daos-master-el8/compat-hwloc1-2.2.0-3.el8.x86_64.rpm
+daos-master-el8/dpdk-21.11.1-1.el8.x86_64.rpm
+daos-master-el8/hdf5-mpich-1.13.1-1.el8.x86_64.rpm
+daos-master-el8/libfabric-1.15.1-1.el8.x86_64.rpm
+daos-master-el8/libisa-l-2.30.0-1.el8_3.x86_64.rpm
+daos-master-el8/libisa-l_crypto-2.23.0-1.el8.x86_64.rpm
+daos-master-el8/libpmem-1.12.1~rc1-1.el8.x86_64.rpm
+daos-master-el8/libpmemobj-1.12.1~rc1-1.el8.x86_64.rpm
+daos-master-el8/libpmempool-1.12.1~rc1-1.el8.x86_64.rpm
+daos-master-el8/librpmem-1.11.0-3.el8.x86_64.rpm
+daos-master-el8/mercury-2.2.0-1.el8.x86_64.rpm
+daos-master-el8/mpich-4.0~a2-3.el8.src.rpm
+daos-master-el8/spdk-22.01.1-2.el8.x86_64.rpm
+daos-master-el8/spdk-tools-22.01.1-2.el8.noarch.rpm
+daos-master-el8/daos-client-tests-openmpi-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-debugsource-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-firmware-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-mofed-shim-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-serialize-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-server-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+daos-master-el8/daos-server-tests-debuginfo-2.3.100-22.8622.g03165cb1.el8.x86_64.rpm
+```
+
 
 ## DAOS Starting Scripts
 
