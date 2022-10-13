@@ -3,9 +3,10 @@
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -s server_list -c clients -m mpi -b tb -r rf -i il -t mptype"
+   echo "Usage: $0 -s server_list -c clients -p ppn -m mpi -b tb -r rf -i il -t mptype"
    echo -e "\t-s Server List (eg: 2,4,8,16,32)"
    echo -e "\t-c Total clients to use"
+   echo -e "\t-p Number of processors per node (default=64)"
    echo -e "\t-m Type of MPI to use (MPI, IMPI)"
    echo -e "\t-b DAOS Test Build to use (eg: daos_xxx)"
    echo -e "\t-r DAOS Redundancy Factor(eg: rf=0,1,..)"
@@ -14,11 +15,12 @@ helpFunction()
    exit 1 # Exit script after printing help
 }
 
-while getopts s:c:m:b:r:i:t: opt
+while getopts s:c:p:m:b:r:i:t: opt
 do
    case ${opt} in
       s) server_list="$OPTARG" ;;
       c) clients="$OPTARG" ;;
+      p) ppn="$OPTARG" ;;
       m) mpi="$OPTARG" ;;
       b) tb="$OPTARG" ;;
       r) rf="$OPTARG" ;;
@@ -30,6 +32,7 @@ done
 
 [ -z $server_list ] && echo "Server List Argument Missing" && exit 1
 [ -z $clients ] && echo "Number of Clients Argument Missing" && exit 1
+[ -z $ppn ] && ppn=64
 [ -z $mpi ] && echo "MPI Argument Missing (MPI or IMPI)" && exit 1
 [ -z $tb ] && echo "Test Build Argument Missing (eg: daos_xxx)" && exit 1
 [ -z $rf ] && echo "DAOS Redundancy Argument Missing (eg: rf=0,1,..)" && exit 1
@@ -41,17 +44,17 @@ export NVME="30T" #1T
 
 export SRV_HEADNODE="edaos11"
 export MPI="${mpi}"
-export MPIPATH="/panfs/users/rpadma2/apps/latest_mpich"
-export RUNDIR="/panfs/users/rpadma2/client"
-export BUILDDIR="/panfs/users/rpadma2/builds"
+export MPIPATH="/panfs/users/${USER}/apps/latest_mpich"
+export RUNDIR="/panfs/users/${USER}/client"
+export BUILDDIR="/panfs/users/${USER}/builds"
 export TB="${tb}"
 export MOUNTDIR="/tmp/daos_m"
-export APPSRC="/panfs/users/rpadma2/apps/${MPI}/lammps"
+export APPSRC="/panfs/users/${USER}/apps/${MPI}/lammps"
 export APPNAME="lammps"
 export APPRUNDIR="${APPSRC}"
 export OUTDIR="${MOUNTDIR}/${APPNAME}"
 
-export PPN=64
+export PPN=${ppn}
 export MOUNT_DFUSE=1
 
 cd $RUNDIR
