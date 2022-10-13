@@ -188,25 +188,10 @@ dmg -o ${RUNDIR}/scripts/daos_control.yml pool query $PLABEL
 #done
 
 echo
-echo "Copying clientlogs"
+# Copy DAOS client and server logs
+echo "Copying logs"
+${RUNDIR}/scripts/collect_logs.sh
 echo
-
-rm -rf ${RESULTDIR}/clientlogs
-mkdir -p ${RESULTDIR}/clientlogs
-
-clush --hostfile=${CLI_HOSTLIST} "mkdir -p ${RESULTDIR}/clientlogs/\`hostname\`; cp /tmp/daos_agent-${USER}/daos_client.log ${RESULTDIR}/clientlogs/\`hostname\`/"
-
-echo
-echo "Copying serverlogs"
-echo
-
-rm -rf ${RESULTDIR}/serverlogs
-mkdir -p ${RESULTDIR}/serverlogs
-chmod 777 ${RESULTDIR}/serverlogs
-
-clush --user=daos_server --hostfile=${SRV_HOSTLIST} "export TB=${TB}; cd ${RUNDIR}/../server; source srv_env.sh; daos_metrics -S 0 --csv > /tmp/daos_metrics_0.csv; daos_metrics -S 1 --csv > /tmp/daos_metrics_1.csv; dmesg > /tmp/daos_dmesg.txt"
-
-clush --user=daos_server --hostfile=${SRV_HOSTLIST} "mkdir -p ${RESULTDIR}/serverlogs/\`hostname\`; cp /tmp/daos_*.* ${RESULTDIR}/serverlogs/\`hostname\`/; chmod -R 777 ${RESULTDIR}/serverlogs/\`hostname\`/"
 
 echo Files after run
 date
