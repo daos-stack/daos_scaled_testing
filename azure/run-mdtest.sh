@@ -17,6 +17,10 @@ if  ! [[ "$DAOS_REDUNDANCY_FACTOR" =~ ^(0|1|2)$ ]] ; then
 	exit 1
 fi
 
+if [[ -n $3 ]] ; then
+	MDTEST_EXTRA_OPTS="$3"
+fi
+
 source "$CWD/envs/env.sh"
 source "$CWD/envs/env-mdtest_${MDTEST_MODE}.sh"
 HOSTFILE_NAME=$($NODESET_BIN -c "$CLIENT_NODES")-nodes.cfg
@@ -62,7 +66,7 @@ do
 
 		echo
 		echo "[INF0] Running mdtest: nnb=$nnb, ppn=$ppn (np=$np)"
-		$MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $MDTEST_BIN $MDTEST_OPTS 2>&1 | tee /tmp/$of
+		$MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $MDTEST_BIN $MDTEST_OPTS $MDTEST_EXTRA_OPTS 2>&1 | tee /tmp/$of
 		EOF
 	} | $RSH_BIN $LOGIN_NODE bash
 	$RSH_BIN $LOGIN_NODE cat /tmp/$of > "$CWD/results/rf$DAOS_REDUNDANCY_FACTOR/$DAOS_CONTAINER_NAME/$TIMESTAMP/$of"

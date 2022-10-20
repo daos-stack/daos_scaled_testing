@@ -2,3 +2,5 @@ files/*.txz
 tmp/
 dat/
 gpi/
+png/
+results/

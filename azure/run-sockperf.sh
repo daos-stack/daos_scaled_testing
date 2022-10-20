@@ -7,7 +7,7 @@ set -o pipefail
 CWD="$(realpath "$(dirname $0)")"
 
 SERVER_HOSTNAME=${1?'Missing ntttp server hostname'}
-CLIENT_HOSTNAME=${2?'Missing ntttp client nodeset'}
+CLIENT_HOSTNAME=${2?'Missing ntttp client hostname'}
 
 source "$CWD/envs/env.sh"
 
@@ -34,4 +34,3 @@ sleep 1
 echo
 echo "[INFO] cleanning up"
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_HOSTNAME -w $CLIENT_HOSTNAME "pkill -e sockperf || true"
-$CLUSH_BIN $CLUSH_OPTS -w $SERVER_HOSTNAME -w $CLIENT_HOSTNAME "rm -f /tmp/ntttcp.json"

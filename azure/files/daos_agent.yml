@@ -1,6 +1,6 @@
 name: daos_server
 access_points:
-  - daos-server-01
+  - daos-serv000000
 log_file: /tmp/daos_agent.log
 
 port: 10001

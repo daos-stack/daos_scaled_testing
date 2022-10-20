@@ -16,7 +16,7 @@ fi
 cat << EOF
 name: daos_server
 access_points:
-  - daos-server-01
+  - daos-serv000000
 port: 10001
 provider: ofi+tcp;ofi_rxm
 nr_hugepages: @DAOS_HUGEPAGES_NB@

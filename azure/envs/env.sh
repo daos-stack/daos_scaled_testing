@@ -1,8 +1,18 @@
 #!/bin/bash
 
-CLIENT_NODES=daos-client-[01-16]
-SERVER_NODES=daos-server-[01-10]
-LOGIN_NODE=daos-client-01
+CLIENT_NODES=daos-clie000000
+for index in {1..15} ; do
+	CLIENT_NODES="$CLIENT_NODES $(printf "daos-clie%06x" $index)"
+done
+CLIENT_NODES=$(nodeset -f $CLIENT_NODES)
+
+SERVER_NODES=daos-serv000000
+for index in {1..9} ; do
+	SERVER_NODES="$SERVER_NODES $(printf "daos-serv%06x" $index)"
+done
+SERVER_NODES=$(nodeset -f $SERVER_NODES)
+
+LOGIN_NODE=daos-clie000000
 ADMIN_NODE=$LOGIN_NODE
 ALL_NODES=$SERVER_NODES,$CLIENT_NODES
 
@@ -24,17 +34,17 @@ IOR_OPTS="-a DFS -i 1 -r -w -o /testfile --dfs.group=daos_server --dfs.pool=$DAO
 
 MDTEST_BIN="$HOME/local/bin/mdtest"
 MDTEST_STONEWALL=120
-MDTEST_OCLASS_OPTS=(
-"--dfs.dir_oclass=SX --dfs.oclass=SX"
-"--dfs.dir_oclass=RP_2GX --dfs.oclass=EC_8P1GX"
-"--dfs.dir_oclass=RP_3GX --dfs.oclass=EC_8P2GX"
-)
+# MDTEST_OCLASS_OPTS=(
+# "--dfs.dir_oclass=SX --dfs.oclass=SX"
+# "--dfs.dir_oclass=RP_2GX --dfs.oclass=EC_8P1GX"
+# "--dfs.dir_oclass=RP_3GX --dfs.oclass=EC_8P2GX"
+# )
 # MDTEST_OCLASS_OPTS=(
 # "--dfs.dir_oclass=SX --dfs.oclass=S1"
 # "--dfs.dir_oclass=RP_2GX --dfs.oclass=EC_8P1G1"
 # "--dfs.dir_oclass=RP_3GX --dfs.oclass=EC_8P2G1"
 # )
-MDTEST_OPTS="-a DFS -F -P -G 27 -N 1 -d /testdir -p 10 -Y -v -C -T -r -u -L -i 1 -W $MDTEST_STONEWALL -z 0 -n 10000000 --dfs.pool=$DAOS_POOL_NAME --dfs.chunk_size=8M ${MDTEST_OCLASS_OPTS[$DAOS_REDUNDANCY_FACTOR]}"
+MDTEST_OPTS="-a DFS -F -P -G 27 -N 1 -d /testdir -p 10 -Y -v -C -T -r -u -L -i 1 -W $MDTEST_STONEWALL -z 0 -n 10000000 --dfs.pool=$DAOS_POOL_NAME --dfs.chunk_size=8M"
 
 RSH_BIN=ssh
 

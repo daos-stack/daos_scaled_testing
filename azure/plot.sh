@@ -5,7 +5,7 @@ set -e
 set -o pipefail
 CWD="$(realpath "$(dirname $0)")"
 
-rm -fr $CWD/dat
+declare -A is_file_path_iniialized
 for dirpath in "$@" ; do
 
 	if [[ ! -d  "$dirpath" ]] ; then
@@ -32,7 +32,12 @@ for dirpath in "$@" ; do
 			write_bw=$(awk 'f;/^Summary of all tests:$/{f=1}' < $filepath | grep -E -e '^write' | sed -E -e  's/[[:space:]]+/ /g' | cut -d" " -f2)
 			read_bw=$(awk 'f;/^Summary of all tests:$/{f=1}' < $filepath | grep -E -e '^read' | sed -E -e  's/[[:space:]]+/ /g' | cut -d" " -f2)
 
-			echo "$ppn;$write_bw;$read_bw" >> dat/$test_name/$test_type/$file_mode/$oclass/${nsvr}_${nclt}_$rf.dat
+			file_path="dat/$test_name/$test_type/$file_mode/$oclass/${nsvr}_${nclt}_$rf.dat"
+			if [[ ${is_file_path_iniialized["$file_path"]} != true ]] ; then
+				> "$file_path"
+				is_file_path_iniialized["$file_path"]=true
+			fi
+			echo "$ppn;$write_bw;$read_bw" >> "$file_path"
 		elif [[ $test_name == mdtest ]] ; then
 			test_type=$(cut -d_ -f2 <<< $filename | cut -d- -f1)
 			oclass=$(grep -E -e "^Command line used:.*$" $filepath | sed -n -E -e "s/^.*--dfs\.oclass=([^']+)'.*$/\1/p")
@@ -46,7 +51,12 @@ for dirpath in "$@" ; do
 			file_stat=$(awk '/^SUMMARY rate:.*$/{f=1;next};/^SUMMARY time:.*$/{f=0;next};f' < $filepath | grep -E -e 'File stat' | sed -E -e  's/^[[:space:]]+//' -e  's/[[:space:]]+/;/g' | cut -d\; -f5)
 			file_removal=$(awk '/^SUMMARY rate:.*$/{f=1;next};/^SUMMARY time:.*$/{f=0;next};f' < $filepath | grep -E -e 'File removal' | sed -E -e  's/^[[:space:]]+//' -e  's/[[:space:]]+/;/g' | cut -d\; -f5)
 
-			echo "$ppn;$file_creation;$file_stat;$file_removal" >> dat/$test_name/$test_type/$oclass/${nsvr}_${nclt}_$rf.dat
+			file_path="dat/$test_name/$test_type/$oclass/${nsvr}_${nclt}_$rf.dat"
+			if [[ ${is_file_path_iniialized["$file_path"]} != true ]] ; then
+				> "$file_path"
+				is_file_path_iniialized["$file_path"]=true
+			fi
+			echo "$ppn;$file_creation;$file_stat;$file_removal" >> "$file_path"
 		fi
 
 		file_nb=$(( $file_nb + 1 ))
@@ -70,9 +80,6 @@ for filepath in $(find $CWD/dat -type f) ; do
 done
 echo
 
-rm -fr gpi png
-mkdir gpi png
-
 for dirpath in $(find $CWD/dat/ior -type d -links 2 -exec dirname {} \; | uniq) ; do
 	file_mode=$(basename $dirpath)
 	test_type=$(basename $(dirname $dirpath))
@@ -95,19 +102,43 @@ for dirpath in $(find $CWD/dat/ior -type d -links 2 -exec dirname {} \; | uniq) 
 	set xlabel "Processes Number"
 	set ylabel "Bandwitdh (MiB/s)"
 
-	set term png transparent interlace medium size 1280,1024
+	set term png transparent interlace lw 2 giant size 1280,1024
 	set title "IOR: type=$test_type file_mode=$file_mode"
-	set output "$file_png"
-	# set term x11 title "IOR: type=$test_type file_mode=$file_mode"
 
+	set output "$file_png"
 	plot \\
 	EOF
-
 	for filepath in $(find "$dirpath" -name "*.dat") ; do
 		oclass=$(basename $(dirname $filepath))
 		cat >> $file_gpi <<- EOF
-		'$filepath' every ::1 using 1:2 with lines axes x1y1 title 'write-$oclass', \\
-		'$filepath' every ::1 using 1:3 with lines axes x1y1 title 'read-$oclass', \\
+		'$filepath' using 1:2 with lines axes x1y1 title 'write-$oclass', \\
+		'$filepath' using 1:3 with lines axes x1y1 title 'read-$oclass', \\
+		EOF
+	done
+
+	file_png=$CWD/png/${filename}_write.png
+	cat >> $file_gpi <<- EOF
+
+	set output "$file_png"
+	plot \\
+	EOF
+	for filepath in $(find "$dirpath" -name "*.dat") ; do
+		oclass=$(basename $(dirname $filepath))
+		cat >> $file_gpi <<- EOF
+		'$filepath' using 1:2 with lines axes x1y1 title 'write-$oclass', \\
+		EOF
+	done
+
+	file_png=$CWD/png/${filename}_read.png
+	cat >> $file_gpi <<- EOF
+
+	set output "$file_png"
+	plot \\
+	EOF
+	for filepath in $(find "$dirpath" -name "*.dat") ; do
+		oclass=$(basename $(dirname $filepath))
+		cat >> $file_gpi <<- EOF
+		'$filepath' using 1:3 with lines axes x1y1 title 'read-$oclass', \\
 		EOF
 	done
 
@@ -135,20 +166,60 @@ for dirpath in $(find $CWD/dat/mdtest -type d -links 2 -exec dirname {} \; | uni
 	set xlabel "Processes Number"
 	set ylabel "IOPS"
 
-	set term png transparent interlace medium size 1280,1024
+	set term png transparent interlace lw 2 giant size 1280,1024
 	set title "MDTEST: type=$test_type"
-	set output "$file_png"
-	# set term x11 title "MDTEST: type=$test_type"
 
+	set output "$file_png"
+	plot \\
+	EOF
+	for filepath in $(find "$dirpath" -name "*.dat") ; do
+		oclass=$(basename $(dirname $filepath))
+		cat >> $file_gpi <<- EOF
+		'$filepath' using 1:2 with lines axes x1y1 title 'create_$oclass', \\
+		'$filepath' using 1:3 with lines axes x1y1 title 'stat_$oclass', \\
+		'$filepath' using 1:4 with lines axes x1y1 title 'removal_$oclass', \\
+		EOF
+	done
+
+	file_png=$CWD/png/${filename}_create.png
+	cat >> $file_gpi <<- EOF
+
+	set output "$file_png"
 	plot \\
 	EOF
 
 	for filepath in $(find "$dirpath" -name "*.dat") ; do
 		oclass=$(basename $(dirname $filepath))
 		cat >> $file_gpi <<- EOF
-		'$filepath' every ::1 using 1:2 with lines axes x1y1 title 'create_$oclass', \\
-		'$filepath' every ::1 using 1:3 with lines axes x1y1 title 'stat_$oclass', \\
-		'$filepath' every ::1 using 1:4 with lines axes x1y1 title 'removal_$oclass', \\
+		'$filepath' using 1:2 with lines axes x1y1 title 'create_$oclass', \\
+		EOF
+	done
+
+	file_png=$CWD/png/${filename}_stat.png
+	cat >> $file_gpi <<- EOF
+
+	set output "$file_png"
+	plot \\
+	EOF
+
+	for filepath in $(find "$dirpath" -name "*.dat") ; do
+		oclass=$(basename $(dirname $filepath))
+		cat >> $file_gpi <<- EOF
+		'$filepath' using 1:3 with lines axes x1y1 title 'stat_$oclass', \\
+		EOF
+	done
+
+	file_png=$CWD/png/${filename}_removal.png
+	cat >> $file_gpi <<- EOF
+
+	set output "$file_png"
+	plot \\
+	EOF
+
+	for filepath in $(find "$dirpath" -name "*.dat") ; do
+		oclass=$(basename $(dirname $filepath))
+		cat >> $file_gpi <<- EOF
+		'$filepath' using 1:4 with lines axes x1y1 title 'removal_$oclass', \\
 		EOF
 	done
 

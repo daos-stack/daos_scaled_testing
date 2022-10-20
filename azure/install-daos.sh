@@ -67,6 +67,7 @@ $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES cat /etc/sysctl.d/50-hugepages.conf
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo sysctl -p
 
 cat "$CWD/files/daos_server.service" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo bash -c 'cat > /usr/lib/systemd/system/daos_server.service'"
+$CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo systemctl daemon-reload"
 cat "$CWD/files/daos_agent.yml" | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES "sudo bash -c 'cat > /etc/daos/daos_agent.yml'"
 generate-daos_control_cfg | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /etc/daos/daos_control.yml'"
 cat "$CWD/generate-daos_server_cfg.sh" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo env DAOS_HUGEPAGES_NB=$DAOS_HUGEPAGES_NB bash"
