@@ -59,6 +59,12 @@ NTTTCP_DURATION=300
 SOCKPERF_BIN=$HOME/local/bin/sockperf
 SOCKPERF_TIME=120
 
+SELFTEST_BIN=self_test
+SELFTEST_OPTS="-u --group-name daos_server --endpoint 0-9:2 --message-size '(0 0) (b1048576 0) (0 b1048576) (b1048576 b1048576)' --max-inflight-rpcs 16 --repetitions 100000"
+
+NVMEPERF_BIN=spdk_nvme_perf
+NVMEPERF_OPTS="-q 16 -c 0xff -t 120"
+
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 function generate-daos_control_cfg
