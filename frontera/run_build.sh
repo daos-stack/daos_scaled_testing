@@ -259,6 +259,14 @@ function build_daos() {
   if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
     git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8
   fi
+
+  # Point to removed mercury patch for old builds
+  local config="${BUILD_DIR}/${TIMESTAMP}/daos/utils/build.config"
+  sed -i \
+      's/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/master\/na_ucx_changes.patch/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/d993cda60d9346d1bd3451f334340d3b08e5aa42\/na_ucx_changes.patch/' \
+      "$config"
+
+
   scons MPI_PKG=any \
         --build-deps=${SCONS_BUILD_DEPS} \
         --config=force \
