@@ -29,6 +29,7 @@ for dirpath in $(find "$RESULTS_PATH" -type d -links 2) ; do
 	echo "Processing $dirpath"
 
 	receiver_throughputs=$(cat $dirpath/ntttcp-$RECEIVER_HOSTNAME.json | jq -r '.ntttcpr.throughputs[] | select(.metric=="MB/s") | .value')
+	receiver_throughputs=$(echo "$receiver_throughputs * .953674" | bc -l)
 
 	(( min=(2**63) - 1 ))
 	max=0
@@ -60,7 +61,8 @@ for dirpath in $(find "$RESULTS_PATH" -type d -links 2) ; do
 	echo "$sender_nb;$mean;$min;$max" >> "$CWD/dat/${FILE_NAME}-sender.dat"
 done
 
-for filepath in $CWD/dat/* ; do
+for item in receiver sender ; do
+	filepath="$CWD/dat/${FILE_NAME}-$item.dat"
 	sort -n < $filepath > $filepath.new
 	cat $filepath.new > $filepath
 	rm -f $filepath.new
@@ -93,7 +95,7 @@ set title "NTTTCP Network Throughputs"
 set output "$file_png"
 
 plot '$CWD/dat/ntttcp-receiver.dat' using 1:2 with lines axes x1y1 title 'Receiver: $RECEIVER_HOSTNAME', \\
-     '$CWD/dat/ntttcp-sender.dat' using 1:2:3:4 with yerrorlines axes x1y1 title 'Sender: $SENDER_NODESET'
+     '$CWD/dat/ntttcp-sender.dat' using 1:2:3:4 with yerrorlines axes x1y1 title 'Senders: $SENDER_NODESET'
 EOF
 
 gnuplot -p "$file_gpi"
