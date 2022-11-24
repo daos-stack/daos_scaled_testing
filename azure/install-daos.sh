@@ -27,7 +27,7 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo wget -O /etc/yum.repos.d/daos-packages
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rpm --import https://packages.daos.io/RPM-GPG-KEY
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-disabled daos-packages
 
-for branch_name in master ec_rotations ; do
+for branch_name in master ; do
 	echo
 	echo "[INFO] Setting up DAOS repo of branch: $branch_name"
 	$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rm -fr "/opt/repos/daos/$branch_name/x86_64"
@@ -47,8 +47,6 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf autoremove daos-c
 
 echo
 echo "[INFO] Install of DAOS"
-# $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled daos-packages
-# $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled daos-ec_rotations
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled daos-master
 
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
