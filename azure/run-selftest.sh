@@ -13,15 +13,17 @@ echo "[INFO] cleanning up"
 $RSH_BIN $LOGIN_NODE "pkill -e self_test || true"
 sleep 1
 
-of=self_test.log
-{
-	cat <<- EOF
-	# set -x
-	set -e
-	set -o pipefail
-
-	$SELFTEST_BIN $SELFTEST_OPTS 2>&1 | tee /tmp/$of
-	EOF
-} | $RSH_BIN $LOGIN_NODE bash
 mkdir -p  "$CWD/results/self_test/$TIMESTAMP"
-$RSH_BIN $LOGIN_NODE cat /tmp/$of > "$CWD/results/self_test/$TIMESTAMP/$of"
+for rank in {0..9} ; do
+	of=self_test-$rank.log
+	{
+		cat <<- EOF
+		set -x
+		set -e
+		set -o pipefail
+
+		$SELFTEST_BIN $SELFTEST_OPTS --endpoint "0-$rank:2" 2>&1 | tee /tmp/$of
+		EOF
+	} | $RSH_BIN $LOGIN_NODE bash
+	$RSH_BIN $LOGIN_NODE cat /tmp/$of > "$CWD/results/self_test/$TIMESTAMP/$of"
+done

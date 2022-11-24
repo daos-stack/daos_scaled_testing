@@ -34,16 +34,6 @@ IOR_OPTS="-a DFS -i 1 -r -w -o /testfile --dfs.group=daos_server --dfs.pool=$DAO
 
 MDTEST_BIN="$HOME/local/bin/mdtest"
 MDTEST_STONEWALL=120
-# MDTEST_OCLASS_OPTS=(
-# "--dfs.dir_oclass=SX --dfs.oclass=SX"
-# "--dfs.dir_oclass=RP_2GX --dfs.oclass=EC_8P1GX"
-# "--dfs.dir_oclass=RP_3GX --dfs.oclass=EC_8P2GX"
-# )
-# MDTEST_OCLASS_OPTS=(
-# "--dfs.dir_oclass=SX --dfs.oclass=S1"
-# "--dfs.dir_oclass=RP_2GX --dfs.oclass=EC_8P1G1"
-# "--dfs.dir_oclass=RP_3GX --dfs.oclass=EC_8P2G1"
-# )
 MDTEST_OPTS="-a DFS -F -P -G 27 -N 1 -d /testdir -p 10 -Y -v -C -T -r -u -L -i 1 -W $MDTEST_STONEWALL -z 0 -n 10000000 --dfs.pool=$DAOS_POOL_NAME --dfs.chunk_size=8M"
 
 RSH_BIN=ssh
@@ -60,7 +50,7 @@ SOCKPERF_BIN=$HOME/local/bin/sockperf
 SOCKPERF_TIME=120
 
 SELFTEST_BIN=self_test
-SELFTEST_OPTS="-u --group-name daos_server --endpoint 0-9:2 --message-size '(0 0) (b1048576 0) (0 b1048576) (b1048576 b1048576)' --max-inflight-rpcs 16 --repetitions 100000"
+SELFTEST_OPTS="-u --group-name daos_server --message-size '(0 0) (b1048576 0) (0 b1048576) (b1048576 b1048576)' --max-inflight-rpcs 16 --repetitions 100000"
 
 NVMEPERF_BIN=spdk_nvme_perf
 NVMEPERF_OPTS="-q 16 -c 0xff -t 120"
