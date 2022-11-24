@@ -19,6 +19,16 @@ ALL_NODES=$SERVER_NODES,$CLIENT_NODES
 DAOS_HUGEPAGES_NB=4092
 SYS_HUGEPAGES_NB=4164
 
+declare -A dir_oclasses=(
+[0]="SX S1"
+[2]="RP_3GX RP_3G1"
+)
+
+declare -A oclasses=(
+[0]="SX S1"
+[2]="EC_8P2GX RP_3GX EC_8P2G1 RP_3G1"
+)
+
 DAOS_POOL_SIZE=6TB
 DAOS_POOL_NAME=tank
 DAOS_USER_NAME=azureuser
@@ -26,6 +36,7 @@ DAOS_GROUP_NAME=azureuser
 
 MPI_BIN=mpirun
 MPI_MODULE=mpi/mpich-x86_64
+MPI_PPN="1 4 8 16 32"
 
 IOR_BIN="$HOME/local/bin/ior"
 IOR_BLOCK_SIZE_MAX=1000

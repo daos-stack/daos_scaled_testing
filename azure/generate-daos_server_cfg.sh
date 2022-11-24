@@ -4,7 +4,7 @@ set -e
 set -o pipefail
 CWD="$(realpath "$(dirname $0)")"
 
-DAOS_NVME_ID="$(sudo lspci | grep "Non-Volatile memory controller" | cut -d" "  -f1)"
+DAOS_NVME_ID="$(sudo lspci | grep "Non-Volatile memory controller" | cut -d" "  -f1 | head -n1)"
 
 [[ -d /etc/daos ]]
 if [[ -f /etc/daos/daos_server.yml ]]
@@ -24,10 +24,11 @@ control_log_mask: INFO
 control_log_file: /tmp/daos_server.log
 helper_log_file: /tmp/daos_admin.log
 disable_vfio: true
+telemetry_port: 9191
 
 engines:
-  - targets: 2
-    nr_xs_helpers: 4
+  - targets: 4
+    nr_xs_helpers: 2
     fabric_iface: eth0
     fabric_iface_port: 31316
     log_mask: ERR

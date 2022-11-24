@@ -4,3 +4,4 @@ dat/
 gpi/
 png/
 results/
+*.log
