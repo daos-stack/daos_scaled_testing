@@ -47,6 +47,8 @@ MDTEST_BIN="$HOME/local/bin/mdtest"
 MDTEST_STONEWALL=120
 MDTEST_OPTS="-a DFS -F -P -G 27 -N 1 -d /testdir -p 10 -Y -v -C -T -r -u -L -i 1 -W $MDTEST_STONEWALL -z 0 -n 10000000 --dfs.pool=$DAOS_POOL_NAME --dfs.chunk_size=8M"
 
+FIO_BIN="$HOME/local/bin/fio"
+
 RSH_BIN=ssh
 
 CLUSH_BIN=clush
