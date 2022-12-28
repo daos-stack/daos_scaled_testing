@@ -3,6 +3,9 @@
 # Build DAOS locally.
 #
 
+# Version of this script to use
+_SCRIPT_VER=2
+
 # Default params
 BUILD_DIR="${WORK}/BUILDS/"
 TIMESTAMP=$(date +%Y%m%d)
@@ -97,7 +100,7 @@ done
 # Auto-detect running in a slurm job and use multiple processes to build
 if [ -z $SCONS_EXTRA_ARGS ] && [ ! -z $SLURM_JOB_NUM_NODES  ]; then
     build_cores=$(scontrol show node $(hostname | cut -d "." -f 1) | grep -o "CPUAlloc=[0-9]\+" | grep -o "[0-9]\+")
-    build_cores=$(( $build_cores / 2 ))
+    build_cores=$(( $build_cores - 4 ))
     SCONS_EXTRA_ARGS="-j$build_cores"
     echo "Detecting running in slurm. Building with ${SCONS_EXTRA_ARGS}"
 fi
@@ -107,7 +110,6 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 
 # Setup the environment
 function setup_env() {
-  module unload impi pmix hwloc || return
   export PATH=~/.local/bin:$PATH
   export PYTHONPATH=$PYTHONPATH:~/.local/lib
   source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET} || return
@@ -215,13 +217,16 @@ function install_python_deps() {
     cmd="python3 -m pip install --user --ignore-installed distro scons"
     echo ${cmd}
     eval ${cmd} || return
+
     # Hack because scons doesn't propagate the environment
-    cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
-    echo ${cmd}
-    eval ${cmd} || return
-    cmd="/usr/bin/python3 -m pip install --user --ignore-installed pyelftools"
-    echo ${cmd}
-    eval ${cmd} || return
+    if [ $_SCRIPT_VER -lt 2 ]; then
+      cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
+      echo ${cmd}
+      eval ${cmd} || return
+      cmd="/usr/bin/python3 -m pip install --user --ignore-installed pyelftools"
+      echo ${cmd}
+      eval ${cmd} || return
+    fi
 }
 
 # Setup a new build directory, removing if it already exists
@@ -230,6 +235,15 @@ function setup_build_dir() {
   mkdir -p ${BUILD_DIR}/${TIMESTAMP}
   rm -f ${BUILD_DIR}/latest
   ln -s ${BUILD_DIR}/${TIMESTAMP} ${BUILD_DIR}/latest
+}
+
+# Copy a patch from the script directory and apply it
+function copy_and_apply_patch() {
+  local patch="$1"
+  local patch_path="${CURRENT_DIR}/patches/$patch"
+  cp "$patch_path" .
+  echo "Applying patch $patch"
+  git apply "$patch_path"
 }
 
 # Clone, checkout, and merge DAOS branches
@@ -252,13 +266,6 @@ function clone_daos() {
 # Build DAOS
 function build_daos() {
   pushd ${BUILD_DIR}/${TIMESTAMP}/daos
-  # Revert stdatomic.h stuff
-  if [ $(git_has_commit "c992d41942f472991fd7ac06dd9a0e581b51898a") = true ]; then
-    git revert --no-edit c992d41942f472991fd7ac06dd9a0e581b51898a
-  fi
-  if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
-    git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8
-  fi
 
   # Point to removed mercury patch for old builds
   local config="${BUILD_DIR}/${TIMESTAMP}/daos/utils/build.config"
@@ -266,13 +273,46 @@ function build_daos() {
       's/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/master\/na_ucx_changes.patch/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/d993cda60d9346d1bd3451f334340d3b08e5aa42\/na_ucx_changes.patch/' \
       "$config"
 
+  if [ $_SCRIPT_VER -ge 2 ]; then
+    # To allow SCONS_ENV=full
+    copy_and_apply_patch daos_scons_env_option.patch
 
-  scons MPI_PKG=any \
-        --build-deps=${SCONS_BUILD_DEPS} \
-        --config=force \
-        --prepend-path="$(dirname $(which cmake))" \
-        BUILD_TYPE=${DAOS_BUILD_TYPE} \
-        install ${SCONS_EXTRA_ARGS}
+    # Revert GO build changes that break linkage
+    if [ $(git_has_commit "4b02fd116dd711511b655c1a1adec73959f585eb") = true ]; then
+      git revert --no-edit 4b02fd116dd711511b655c1a1adec73959f585eb
+    fi
+    #if [ $(git_has_commit "2dd117964ded28d0ded1dd5290907225ee7a723d") = true ]; then
+    #  git revert --no-edit 2dd117964ded28d0ded1dd5290907225ee7a723d
+    #fi
+
+    # Build flags fixes
+    copy_and_apply_patch daos_scons_linkage.patch
+
+    scons MPI_PKG=any \
+          --build-deps=${SCONS_BUILD_DEPS} \
+          --config=force \
+          BUILD_TYPE=${DAOS_BUILD_TYPE} \
+          SCONS_ENV=full \
+          COMPILER=gcc \
+          install ${SCONS_EXTRA_ARGS}
+
+  else
+    # Revert stdatomic.h stuff
+    if [ $(git_has_commit "c992d41942f472991fd7ac06dd9a0e581b51898a") = true ]; then
+      git revert --no-edit c992d41942f472991fd7ac06dd9a0e581b51898a
+    fi
+    if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
+      git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8
+    fi
+
+    scons MPI_PKG=any \
+          --build-deps=${SCONS_BUILD_DEPS} \
+          --config=force \
+          --prepend-path="$(dirname $(which cmake))" \
+          BUILD_TYPE=${DAOS_BUILD_TYPE} \
+          install ${SCONS_EXTRA_ARGS}
+  fi
+
   popd
 }
 
@@ -288,8 +328,7 @@ function clone_ior_mdtest() {
 
   # Apply patch to make all processes write the same data.
   # This is needed to reduce pool space usage so a larger number of clients can be used.
-  cp ${CURRENT_DIR}/patches/ior_dedup_workaround.patch .
-  git apply ior_dedup_workaround.patch
+  copy_and_apply_patch ior_dedup_workaround.patch
 
   print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
   ./bootstrap
@@ -303,6 +342,8 @@ function build_ior_mdtest() {
   ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
               MPICC=${MPI_BIN}/mpicc \
               --with-daos=${LATEST_DAOS} \
+              --with-cuda=no \
+              --with-gpuDirect=no \
               CPPFLAGS=-I${LATEST_DAOS}/prereq/release/mercury/include \
               LIBS=-lmpi
   make clean

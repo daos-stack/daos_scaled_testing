@@ -25,11 +25,11 @@ def get_email():
     out = subprocess.run('git config user.email', shell=True, stdout=subprocess.PIPE)
     return out.stdout.decode('utf-8').strip(' \n')
 
-env['JOBNAME']     = "<sbatch_jobname>"
+env['JOBNAME']     = "daos-12267"
 env['EMAIL']       = "" or get_email()
-env['DAOS_DIR']    = abspath(expandvars("${WORK}/BUILDS/latest/daos")) # Path to daos
+env['DAOS_DIR']    = abspath(expandvars("${WORK}/BUILDS/master_env/latest/daos")) # Path to daos
 env['DST_DIR']     = abspath(expandvars("../")) # Path to daos_scaled_testing repo
-env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS")) # Path to test results
+env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS/daos-12267")) # Path to test results
 
 env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
 

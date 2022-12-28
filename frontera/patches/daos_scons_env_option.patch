@@ -1,0 +1,37 @@
+diff --git a/site_scons/prereq_tools/base.py b/site_scons/prereq_tools/base.py
+index a2da974b3..5c6010c6c 100644
+--- a/site_scons/prereq_tools/base.py
++++ b/site_scons/prereq_tools/base.py
+@@ -619,16 +619,22 @@ class PreReqComponent():
+         self.__opts = variables
+         self.configs = None
+ 
+-        real_env = self.__env['ENV']
+-
+-        for var in ["HOME", "TERM", "SSH_AUTH_SOCK",
+-                    "http_proxy", "https_proxy",
+-                    "PKG_CONFIG_PATH", "MODULEPATH",
+-                    "MODULESHOME", "MODULESLOADED",
+-                    "I_MPI_ROOT"]:
+-            value = os.environ.get(var)
+-            if value:
+-                real_env[var] = value
++        self.add_opts(EnumVariable('SCONS_ENV', "Default SCons environment inheritance",
++                                   'minimal', ['minimal', 'full'], ignorecase=1))
++
++        if self.__env.get("SCONS_ENV") == 'full':
++            real_env = os.environ
++        else:
++            real_env = self.__env['ENV']
++
++            for var in ["HOME", "TERM", "SSH_AUTH_SOCK",
++                        "http_proxy", "https_proxy",
++                        "PKG_CONFIG_PATH", "MODULEPATH",
++                        "MODULESHOME", "MODULESLOADED",
++                        "I_MPI_ROOT"]:
++                value = os.environ.get(var)
++                if value:
++                    real_env[var] = value
+ 
+         libtoolize = 'libtoolize'
+         if self.__env['PLATFORM'] == 'darwin':

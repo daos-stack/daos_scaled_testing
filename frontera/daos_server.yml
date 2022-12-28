@@ -30,6 +30,8 @@ engines:
   - SWIM_PROTOCOL_PERIOD_LEN=2000
   - SWIM_SUSPECT_TIMEOUT=19000
   - SWIM_PING_TIMEOUT=1900
+#  env_pass_through:
+#  - LD_LIBRARY_PATH
   # For tcp
   #- FI_OFI_RXM_DEF_TCP_WAIT_OBJ=pollfd
   # For sockets

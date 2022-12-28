@@ -8,8 +8,9 @@ MPI_TARGET=${1}
 export IOR_BIN=daosior
 export MDTEST_BIN=daosmdt
 
-# Activate mpi
+module unload impi pmix hwloc intel
 
+# Activate mpi and export some vars
 function activate_mpi(){
   NAME=${1}
   MPI_DIR=${2}
