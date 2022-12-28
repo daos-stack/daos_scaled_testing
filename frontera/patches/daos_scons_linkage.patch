@@ -1,0 +1,66 @@
+diff --git a/site_scons/compiler_setup.py b/site_scons/compiler_setup.py
+index 3f5b48432..3db590d10 100644
+--- a/site_scons/compiler_setup.py
++++ b/site_scons/compiler_setup.py
+@@ -53,6 +53,9 @@ def _base_setup(env):
+                         '-fpic'])
+ 
+     env.AppendIfSupported(CCFLAGS=DESIRED_FLAGS)
++    env.AppendIfSupported(LINKFLAGS=DESIRED_FLAGS)
++    if '-fstack-protector-strong' in env["CCFLAGS"]:
++        env.AppendENVPath("CGO_LDFLAGS", "-fstack-protector-strong", sep=" ")
+ 
+     if build_type == 'debug':
+         if compiler == 'gcc':
+diff --git a/src/gurt/tests/SConscript b/src/gurt/tests/SConscript
+index 90d57406a..4a9ca4a70 100644
+--- a/src/gurt/tests/SConscript
++++ b/src/gurt/tests/SConscript
+@@ -39,13 +39,11 @@ def scons():
+     tests = []
+ 
+     for test in TEST_SRC:
+-        flags = []
+         testobj = test_env.Object(test)
+         testname = os.path.splitext(test)[0]
+         testprog = test_env.d_test_program(target=testname,
+                                            source=testobj + gurt_targets,
+-                                           LIBS=test_env["LIBS"] + ['yaml'],
+-                                           LINKFLAGS=flags)
++                                           LIBS=test_env["LIBS"] + ['yaml'])
+         tests.append(testprog)
+ 
+     Default(tests)
+diff --git a/src/tests/ftest/cart/utest/SConscript b/src/tests/ftest/cart/utest/SConscript
+index cc8699f63..85d313e1f 100644
+--- a/src/tests/ftest/cart/utest/SConscript
++++ b/src/tests/ftest/cart/utest/SConscript
+@@ -43,14 +43,12 @@ def scons():
+     test_env.AppendUnique(RPATH_FULL=LIBPATH)
+ 
+     for test in TEST_SRC:
+-        flags = []
+         testobj = test_env.Object(test)
+         testname = os.path.splitext(test)[0]
+         testprog = test_env.d_test_program(target=testname,
+                                            source=[testobj, cart_targets, swim_targets,
+                                                    gurt_targets],
+-                                           LIBS=test_env["LIBS"] + ['yaml'],
+-                                           LINKFLAGS=flags)
++                                           LIBS=test_env["LIBS"] + ['yaml'])
+         Default(testprog)
+ 
+ 
+diff --git a/src/vos/tests/vos_cmd.c b/src/vos/tests/vos_cmd.c
+index d85be83a3..fbc6e323c 100644
+--- a/src/vos/tests/vos_cmd.c
++++ b/src/vos/tests/vos_cmd.c
+@@ -807,7 +807,7 @@ split_cmd_args(const char *arg0, const char *cmd)
+ 	char  *dest;
+ 	char  *src;
+ 	char   last;
+-	char  *saveptr;
++	char  *saveptr = NULL;
+ 	char **newptr;
+ 
+ 	memset(&args, 0, sizeof(args));

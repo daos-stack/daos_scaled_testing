@@ -111,16 +111,13 @@ CLOCK_DRIFT_THRESHOLD="${CLOCK_DRIFT_THRESHOLD:-500}"
 
 # Set daos paths and libraries
 function setup_daos_paths(){
-    # Unused modules
-    module unload impi pmix hwloc intel
-
     echo "DAOS_DIR:"
     echo "$(ls -ald $(realpath ${DAOS_DIR}/../.))"
 
     cat ${RUN_DIR}/${SLURM_JOB_ID}/repo_info.txt
 
-    source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
     source ${DST_DIR}/frontera/build_env.sh ${MPI_TARGET}
+    source ${RUN_DIR}/${SLURM_JOB_ID}/env_daos ${DAOS_DIR}
 
     export PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/bin:${PATH}
     export LD_LIBRARY_PATH=${DAOS_DIR}/install/ior_${MPI_TARGET}/lib:${LD_LIBRARY_PATH}
@@ -516,6 +513,17 @@ function prepare(){
         teardown_test "Failed to generate mpi hostlist" 1
     fi
 
+    # Use current LD_LIBRARY_PATH if DAOS was built with the full env
+    grep "SCONS_ENV = 'full'" "${DAOS_DIR}/daos.conf"
+    if [ $? -eq 0 ]; then
+        # Uncomment
+        sed -i -z 's/#  env_pass_through:\n#  - LD_LIBRARY_PATH/  env_pass_through:\n  - LD_LIBRARY_PATH/' $DAOS_SERVER_YAML
+    else
+        # Comment out
+        sed -i -z 's/  env_pass_through:\n  - LD_LIBRARY_PATH/#  env_pass_through:\n#  - LD_LIBRARY_PATH/' $DAOS_SERVER_YAML
+    fi
+
+
     # Use the first server as the access point
     ACCESS_POINT=`cat ${SERVER_HOSTLIST_FILE} | head -1 | grep -o -m 1 "^c[0-9\-]*"`
     sed -i "/^access_points/ c\access_points: ['$ACCESS_POINT:$ACCESS_PORT']" $DAOS_SERVER_YAML
@@ -677,7 +685,8 @@ function start_server(){
         -f $SLURM_JOB_NUM_NODES \"
         pushd ${DUMP_DIR}/server > /dev/null;
         ulimit -c unlimited;
-        export PATH=${PATH}; export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
+        export PATH=${PATH};
+        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH};
         export CPATH=${CPATH};
         export DAOS_DISABLE_REQ_FWD=${DAOS_DISABLE_REQ_FWD};
         $daos_cmd \" 2>&1 "
