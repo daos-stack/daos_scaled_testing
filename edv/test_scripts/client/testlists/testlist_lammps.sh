@@ -3,7 +3,7 @@
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -s server_list -c clients -p ppn -m mpi -b tb -r rf -i il -t mptype"
+   echo "Usage: $0 -s server_list -c clients -p ppn -m mpi -b tb -r rf -i il -t mptype -d"
    echo -e "\t-s Server List (eg: 2,4,8,16,32)"
    echo -e "\t-c Total clients to use"
    echo -e "\t-p Number of processors per node (default=64)"
@@ -12,10 +12,11 @@ helpFunction()
    echo -e "\t-r DAOS Redundancy Factor(eg: rf=0,1,..)"
    echo -e "\t-i DAOS Interception library(eg: il=0,1)"
    echo -e "\t-t DAOS MPI Type(eg: mptype=fpp, mpiio, mpiiodfs)"
+   echo -e "\t-d Trace application IO with Darshan [default=off]"
    exit 1 # Exit script after printing help
 }
 
-while getopts s:c:p:m:b:r:i:t: opt
+while getopts s:c:p:m:b:r:i:t:d opt
 do
    case ${opt} in
       s) server_list="$OPTARG" ;;
@@ -26,6 +27,7 @@ do
       r) rf="$OPTARG" ;;
       i) il="$OPTARG" ;;
       t) mptype="$OPTARG" ;;
+      d) darshan="1" ;;
       ?) helpFunction ;; # Print helpFunction in case parameter is non-existent
    esac
 done
@@ -38,6 +40,7 @@ done
 [ -z $rf ] && echo "DAOS Redundancy Argument Missing (eg: rf=0,1,..)" && exit 1
 [ -z $il ] && echo "Intersection Library Argument Missing (eg: il=0,1)" && exit 1
 [ -z $mptype ] && echo "MPI Type Argument Missing (eg: mptype=fpp,mpiio,mpiiodfs)" && exit 1
+[ -z $darshan ] && darshan="0"
 
 export SCM="700G" #700G
 export NVME="30T" #1T
@@ -55,6 +58,7 @@ export APPRUNDIR="${APPSRC}"
 export OUTDIR="${MOUNTDIR}/${APPNAME}"
 
 export PPN=${ppn}
+export DARSHAN=${darshan}
 export MOUNT_DFUSE=1
 
 cd $RUNDIR
