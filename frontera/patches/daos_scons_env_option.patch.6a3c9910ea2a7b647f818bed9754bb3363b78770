@@ -1,0 +1,37 @@
+diff --git a/site_scons/prereq_tools/base.py b/site_scons/prereq_tools/base.py
+index 70d880819..09961c390 100644
+--- a/site_scons/prereq_tools/base.py
++++ b/site_scons/prereq_tools/base.py
+@@ -599,16 +599,22 @@ class PreReqComponent():
+         self.__opts = variables
+         self._configs = None
+ 
+-        real_env = self.__env['ENV']
+-
+-        for var in ["HOME", "TERM", "SSH_AUTH_SOCK",
+-                    "http_proxy", "https_proxy",
+-                    "PKG_CONFIG_PATH", "MODULEPATH",
+-                    "MODULESHOME", "MODULESLOADED",
+-                    "I_MPI_ROOT", "COVFILE"]:
+-            value = os.environ.get(var)
+-            if value:
+-                real_env[var] = value
++        self.add_opts(EnumVariable('SCONS_ENV', "Default SCons environment inheritance",
++                                   'minimal', ['minimal', 'full'], ignorecase=1))
++
++        if self.__env.get("SCONS_ENV") == 'full':
++            real_env = os.environ
++        else:
++            real_env = self.__env['ENV']
++
++            for var in ["HOME", "TERM", "SSH_AUTH_SOCK",
++                        "http_proxy", "https_proxy",
++                        "PKG_CONFIG_PATH", "MODULEPATH",
++                        "MODULESHOME", "MODULESLOADED",
++                        "I_MPI_ROOT", "COVFILE"]:
++                value = os.environ.get(var)
++                if value:
++                    real_env[var] = value
+ 
+         self.__dry_run = GetOption('no_exec')
+         self._add_options()
