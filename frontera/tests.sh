@@ -259,9 +259,8 @@ function dmg_pool_create(){
 
     pmsg "Creating pool ${label}"
 
-    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create
-               --scm-size ${POOL_SIZE}
-               --label ${label}"
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool create ${label}
+               --scm-size ${POOL_SIZE}"
 
     local props="$DAOS_POOL_PROPS"
 
@@ -313,17 +312,20 @@ function dmg_pool_destroy(){
 }
 
 # Run dmg pool list
-# Use --verbose (new option) if available, added in v1.3.104-tb
 function dmg_pool_list(){
-    if [ -z "${DMG_POOL_LIST}" ]; then
-        DMG_POOL_LIST="dmg -o ${DAOS_CONTROL_YAML} pool list"
-        run_dmg_cmd "${DMG_POOL_LIST} --help" true true
-        if echo ${OUTPUT_CMD} | grep -qe "--verbose"; then
-            DMG_POOL_LIST+=" --verbose --no-query"
-        fi
+    local verbose="${1:-true}"
+    local no_query="${2:-true}"
+
+    local cmd="dmg -o ${DAOS_CONTROL_YAML} pool list"
+
+    if $verbose; then
+        cmd+=" --verbose"
+    fi
+    if $no_query; then
+        cmd+=" --no-query"
     fi
 
-    run_dmg_cmd "${DMG_POOL_LIST}"
+    run_dmg_cmd "$cmd"
 }
 
 # Run dmg pool query
