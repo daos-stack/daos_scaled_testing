@@ -1,12 +1,9 @@
-import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-import os
-from os.path import join, isdir
-from os import mkdir
-import csv
 
-from .io_utils import csv_to_xlsx, list_to_output_type, print_err, list_to_csv
+from .io_utils import list_to_output_type, print_err
 from . import db_utils
+from .sql_query_generator import SQLQuery
+from . import reports as report_funs
 
 
 def check_required(args, *check_args):
@@ -22,15 +19,11 @@ def main(args):
     description = [
         'Generate canned database reports.',
         '',
-        '\tsimple      - IOR/MDTest easy/hard 1to4/c16 SX/S1 with no comparison',
-        '\tsimple_ec   - IOR/MDTest easy/hard EC with no comparison',
-        '',
         '\tbasic      - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared for two commits',
-        '\tbasic_repl - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RP_*GX/RP_*G1',
-        '\tbasic_rf   - IOR/MDTest easy/hard 1to4/c16 SX/S1 compared to RF1+ oclasses',
         '',
         '\tec         - IOR/MDTest easy/hard EC_* compared for two commits',
         '\ts_ec       - IOR/MDTest easy/hard equivalent S* compared to EC_* oclasses',
+        '',
         '\trebuild    - Rebuild for a specific commit'
     ]
     parser = ArgumentParser(
@@ -41,7 +34,7 @@ def main(args):
     parser.add_argument(
         'report',
         type=str,
-        help='comma-separated list of report(s) to generate (basic, basic_repl, basic_rf, rebuild)')
+        help='comma-separated list of report(s) to generate')
     parser.add_argument(
         '--base-commit',
         type=str,
@@ -51,192 +44,72 @@ def main(args):
         type=str,
         help='commit to report on')
     parser.add_argument(
-        '--rf',
+        '--rf', # TODO unused??
         type=str,
         default='%',
         help='redundancy/replication factor')
+    parser.add_argument(
+        'kv',
+        nargs='*',
+        type=str,
+        help='col=val pairs for report arguments')
     args = parser.parse_args(args)
 
     reports = args.report.split(',')
-    all_reports = ('simple', 'simple_ec', 'basic', 'basic_repl', 'basic_rf', 'ec', 's_ec', 'rebuild')
-    for r in reports:
-        if r not in all_reports:
-            print_err(f'Invalid report: {r}')
+    all_reports = ('basic', 'ec', 's_ec', 'rebuild')
+    if 'all' in reports:
+        reports = list(all_reports)
+    for _report in reports:
+        if _report not in all_reports:
+            print_err(f'Invalid report: {_report}')
             return 1
+
+    # Parse KV args for report args
+    try:
+        where = SQLQuery.kv_to_where(args.kv)
+    except Exception as error:
+        print_err(error)
+        return 1
 
     # Generate a list of procedure calls.
-    # If specified, multiple reports are rolled into one.
     calls = []
 
-    if 'simple' in reports:
-        if not check_required(args, 'commit'):
-            return 1
+    def _commit_test_oclass_args(prefix, commit1, commit2, test_case1, test_case2, oclass1):
+        return [
+            [f'{prefix}1.daos_commit', commit1, '='],
+            [f'{prefix}2.daos_commit', commit2, '='],
+            [f'{prefix}1.test_case', test_case1, '='],
+            [f'{prefix}2.test_case', test_case2, '='],
+            [f'{prefix}1.oclass', oclass1, '=']]
 
-        calls += [
-            ['ior_easy_1to4_SX',        'simple_ior_1to4',    [
-                'ior_easy%', 'SX', args.commit]],
-            ['ior_easy_c16_SX',         'simple_ior_c16',     [
-                'ior_easy%', 'SX', args.commit]],
-            ['ior_hard_1to4_SX',        'simple_ior_1to4',    [
-                'ior_hard%', 'SX', args.commit]],
-            ['ior_hard_c16_SX',         'simple_ior_c16',     [
-                'ior_hard%', 'SX', args.commit]],
-            ['mdtest_easy_1to4_S1',     'simple_mdtest_1to4', [
-                'mdtest_easy%', 'S1', args.commit]],
-            ['mdtest_easy_c16_S1',      'simple_mdtest_c16',  [
-                'mdtest_easy%', 'S1', args.commit]],
-            ['mdtest_hard_1to4_S1',     'simple_mdtest_1to4', [
-                'mdtest_hard%', 'S1', args.commit]],
-            ['mdtest_hard_c16_S1',      'simple_mdtest_c16',  [
-                'mdtest_hard%', 'S1', args.commit]]]
+    def _ior_commit_test_oclass_args(*args, **kwargs):
+        return _commit_test_oclass_args('ior', *args, **kwargs)
 
-    if 'simple_ec' in reports:
-        if not check_required(args, 'commit', 'rf'):
-            return 1
-
-        calls += [
-            [f'ior_easy_EC_rf{args.rf}', 'simple_ior',
-                ['ior_easy%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
-            [f'ior_hard_EC_rf{args.rf}', 'simple_ior',
-                ['ior_hard%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
-            [f'mdtest_easy_EC_rf{args.rf}', 'simple_mdtest',
-                ['mdtest_easy%', f'EC_%P{args.rf}%', args.commit, 'NULL']],
-            [f'mdtest_hard_EC_rf{args.rf}', 'simple_mdtest',
-                ['mdtest_hard%', f'EC_%P{args.rf}%', args.commit, 'NULL']]]
+    def _mdtest_commit_test_oclass_args(*args, **kwargs):
+        return _commit_test_oclass_args('mdtest', *args, **kwargs)
 
     if 'basic' in reports:
         if not check_required(args, 'base_commit', 'commit'):
             return 1
 
         calls += [
-            ['ior_easy_1to4_SX',        'compare_ior_1to4',    [
-                'ior_easy%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['ior_easy_c16_SX',         'compare_ior_c16',     [
-                'ior_easy%', 'SX', 'SX', args.base_commit, args.commit]],
-        # ]
-            ['ior_hard_1to4_SX',        'compare_ior_1to4',    [
-                'ior_hard%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['ior_hard_c16_SX',         'compare_ior_c16',     [
-                'ior_hard%', 'SX', 'SX', args.base_commit, args.commit]],
-            ['mdtest_easy_1to4_S1',     'compare_mdtest_1to4', [
-                'mdtest_easy%', 'S1', 'S1', args.base_commit, args.commit]],
-            ['mdtest_easy_c16_S1',      'compare_mdtest_c16',  [
-                'mdtest_easy%', 'S1', 'S1', args.base_commit, args.commit]],
-            ['mdtest_hard_1to4_S1',     'compare_mdtest_1to4', [
-                'mdtest_hard%', 'S1', 'S1', args.base_commit, args.commit]],
-            ['mdtest_hard_c16_S1',      'compare_mdtest_c16',  [
-                'mdtest_hard%', 'S1', 'S1', args.base_commit, args.commit]],
-
-            ['ior_easy_1to4_RP_2GX',    'compare_ior_1to4',    [
-                'ior_easy%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['ior_easy_c16_RP_2GX',     'compare_ior_c16',     [
-                'ior_easy%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['ior_hard_1to4_RP_2GX',    'compare_ior_1to4',    [
-                'ior_hard%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['ior_hard_c16_RP_2GX',     'compare_ior_c16',     [
-                'ior_hard%', 'RP_2GX', 'RP_2GX', args.base_commit, args.commit]],
-            ['mdtest_easy_1to4_RP_2G1', 'compare_mdtest_1to4', [
-                'mdtest_easy%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-            ['mdtest_easy_c16_RP_2G1',  'compare_mdtest_c16',  [
-                'mdtest_easy%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-            ['mdtest_hard_1to4_RP_2G1', 'compare_mdtest_1to4', [
-                'mdtest_hard%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-            ['mdtest_hard_c16_RP_2G1',  'compare_mdtest_c16',  [
-                'mdtest_hard%', 'RP_2G1', 'RP_2G1', args.base_commit, args.commit]],
-
-            ['ior_easy_1to4_RP_3GX',    'compare_ior_1to4',    [
-                'ior_easy%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['ior_easy_c16_RP_3GX',     'compare_ior_c16',     [
-                'ior_easy%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['ior_hard_1to4_RP_3GX',    'compare_ior_1to4',    [
-                'ior_hard%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['ior_hard_c16_RP_3GX',     'compare_ior_c16',     [
-                'ior_hard%', 'RP_3GX', 'RP_3GX', args.base_commit, args.commit]],
-            ['mdtest_easy_1to4_RP_3G1', 'compare_mdtest_1to4', [
-                'mdtest_easy%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]],
-            ['mdtest_easy_c16_RP_3G1',  'compare_mdtest_c16',  [
-                'mdtest_easy%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]],
-            ['mdtest_hard_1to4_RP_3G1', 'compare_mdtest_1to4', [
-                'mdtest_hard%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]],
-            ['mdtest_hard_c16_RP_3G1',  'compare_mdtest_c16',  ['mdtest_hard%', 'RP_3G1', 'RP_3G1', args.base_commit, args.commit]]]
-
-    if 'basic_repl' in reports:
-        if not check_required(args, 'commit', 'rf'):
-            return 1
-
-        if not args.base_commit:
-            args.base_commit = args.commit
-
-        if args.rf == '%':
-            rfs = ['1', '2']
-        else:
-            rfs = [args.rf]
-        for rf in rfs:
-            repl = str(int(rf) + 1)
-            calls += [
-                [f'ior_easy_1to4_RP_{repl}GX',    'compare_ior_1to4',    [
-                    'ior_easy%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_easy_c16_RP_{repl}GX',     'compare_ior_c16',     [
-                    'ior_easy%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_hard_1to4_RP_{repl}GX',    'compare_ior_1to4',    [
-                    'ior_hard%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_hard_c16_RP_{repl}GX',     'compare_ior_c16',     [
-                    'ior_hard%', 'SX', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'mdtest_easy_1to4_RP_{repl}GX', 'compare_mdtest_1to4', [
-                    'mdtest_easy%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_easy_c16_RP_{repl}GX',  'compare_mdtest_c16',  [
-                    'mdtest_easy%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_1to4_RP_{repl}GX', 'compare_mdtest_1to4', [
-                    'mdtest_hard%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_c16_RP_{repl}GX',  'compare_mdtest_c16',  ['mdtest_hard%', 'S1', f'RP_{repl}G1', args.base_commit, args.commit]]]
-
-    if 'basic_rf' in reports:
-        if not check_required(args, 'commit', 'rf'):
-            return 1
-
-        if not args.base_commit:
-            args.base_commit = args.commit
-
-        if args.rf == '%':
-            rfs = ['1', '2']
-        else:
-            rfs = [args.rf]
-        for rf in rfs:
-            repl = str(int(rf) + 1)
-            calls += [
-                [f'ior_easy_1to4_rf{rf}_sx_vs_ec',      'compare_ior_1to4',    [
-                    'ior_easy%', 'S%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
-                [f'ior_easy_c16_rf{rf}_sx_vs_ec',       'compare_ior_c16',     [
-                    'ior_easy%', 'S%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
-                [f'ior_hard_1to4_rf{rf}_sx_vs_ec',      'compare_ior_1to4',    [
-                    'ior_hard%', 'S%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
-                [f'ior_hard_c16_rf{rf}_sx_vs_ec',       'compare_ior_c16',     [
-                    'ior_hard%', 'S%', f'EC_%P{rf}GX', args.base_commit, args.commit]],
-                [f'mdtest_easy_1to4_rf{rf}_sx_vs_ec',   'compare_mdtest_1to4', [
-                    'mdtest_easy%', 'S%', f'EC_%P{rf}G1', args.base_commit, args.commit]],
-                [f'mdtest_easy_c16_rf{rf}_sx_vs_ec',    'compare_mdtest_c16',  [
-                    'mdtest_easy%', 'S%', f'EC_%P{rf}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_1to4_rf{rf}_sx_vs_ec',   'compare_mdtest_1to4', [
-                    'mdtest_hard%', 'S%', f'EC_%P{rf}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_c16_rf{rf}_sx_vs_ec',    'compare_mdtest_c16',  [
-                    'mdtest_hard%', 'S%', f'EC_%P{rf}G1', args.base_commit, args.commit]],
-                [f'ior_easy_1to4_rf{rf}_sx_vs_repl',      'compare_ior_1to4',    [
-                    'ior_easy%', 'S%', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_easy_c16_rf{rf}_sx_vs_repl',       'compare_ior_c16',     [
-                    'ior_easy%', 'S%', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_hard_1to4_rf{rf}_sx_vs_repl',      'compare_ior_1to4',    [
-                    'ior_hard%', 'S%', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'ior_hard_c16_rf{rf}_sx_vs_repl',       'compare_ior_c16',     [
-                    'ior_hard%', 'S%', f'RP_{repl}GX', args.base_commit, args.commit]],
-                [f'mdtest_easy_1to4_rf{rf}_sx_vs_repl',   'compare_mdtest_1to4', [
-                    'mdtest_easy%', 'S%', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_easy_c16_rf{rf}_sx_vs_repl',    'compare_mdtest_c16',  [
-                    'mdtest_easy%', 'S%', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_1to4_rf{rf}_sx_vs_repl',   'compare_mdtest_1to4', [
-                    'mdtest_hard%', 'S%', f'RP_{repl}G1', args.base_commit, args.commit]],
-                [f'mdtest_hard_c16_rf{rf}_sx_vs_repl',    'compare_mdtest_c16',  ['mdtest_hard%', 'S%', f'RP_{repl}G1', args.base_commit, args.commit]]]
-        calls += [
-            [f'ior_easy_1to4_rf{rf}_s128_vs_sx',      'compare_ior_c16',    ['ior_easy%', 'S128', f'SX', args.base_commit, args.commit]]]
+            ['ior_easy_1to4_SX', 'report_compare_ior_1to4', _ior_commit_test_oclass_args(
+                args.base_commit, args.commit, '%easy%', '%easy%', 'SX')],
+            ['ior_easy_c16_SX', 'report_compare_ior_c16', _ior_commit_test_oclass_args(
+                args.base_commit, args.commit, '%easy%', '%easy%', 'SX')],
+            ['ior_hard_1to4_SX', 'report_compare_ior_1to4', _ior_commit_test_oclass_args(
+                args.base_commit, args.commit, '%hard%', '%hard%', 'SX')],
+            ['ior_hard_c16_SX', 'report_compare_ior_c16', _ior_commit_test_oclass_args(
+                args.base_commit, args.commit, '%hard%', '%hard%', 'SX')],
+            ['mdtest_easy_1to4_SX', 'report_compare_mdtest_easy_1to4', _mdtest_commit_test_oclass_args(
+                args.base_commit, args.commit, '%easy%', '%easy%', 'S1')],
+            ['mdtest_easy_c16_SX', 'report_compare_mdtest_easy_c16', _mdtest_commit_test_oclass_args(
+                args.base_commit, args.commit, '%easy%', '%easy%', 'S1')],
+            ['mdtest_hard_1to4_SX', 'report_compare_mdtest_hard_1to4', _mdtest_commit_test_oclass_args(
+                args.base_commit, args.commit, '%hard%', '%hard%', 'S1')],
+            ['mdtest_hard_c16_SX', 'report_compare_mdtest_hard_c16', _mdtest_commit_test_oclass_args(
+                args.base_commit, args.commit, '%hard%', '%hard%', 'S1')],
+        ]
 
     if 'ec' in reports:
         if not check_required(args, 'base_commit', 'commit', 'rf'):
@@ -248,16 +121,18 @@ def main(args):
             rfs = [args.rf]
         for rf in rfs:
             calls += [
-                [f'ior_easy_EC_%P{rf}GX',    'compare_ior',    [
-                    'ior_easy%', f'EC_%P{rf}GX', f'EC_%P{rf}GX', args.base_commit, args.commit, 'NULL']],
-                [f'ior_hard_EC_%P{rf}GX',    'compare_ior',    [
-                    'ior_hard%', f'EC_%P{rf}GX', f'EC_%P{rf}GX', args.base_commit, args.commit, 'NULL']],
-                [f'mdtest_easy_EC_%P{rf}G1',    'compare_mdtest',    [
-                    'mdtest_easy%', f'EC_%P{rf}G1', f'EC_%P{rf}G1', args.base_commit, args.commit, 'NULL']],
-                [f'mdtest_hard_EC_%P{rf}G1',    'compare_mdtest',    [
-                    'mdtest_hard%', f'EC_%P{rf}G1', f'EC_%P{rf}G1', args.base_commit, args.commit, 'NULL']],]
+                [f'ior_easy_EC_%P{rf}GX', 'report_compare_ior_ec', _ior_commit_test_oclass_args(
+                    args.base_commit, args.commit, '%easy%', '%easy%', f'EC_%P{rf}GX')],
+                [f'ior_hard_EC_%P{rf}GX', 'report_compare_ior_ec', _ior_commit_test_oclass_args(
+                    args.base_commit, args.commit, '%hard%', '%hard%', f'EC_%P{rf}GX')],
+                [f'mdtest_easy_EC_%P{rf}GX', 'report_compare_mdtest_easy_ec', _mdtest_commit_test_oclass_args(
+                    args.base_commit, args.commit, '%easy%', '%easy%', f'EC_%P{rf}G1')],
+                [f'mdtest_hard_EC_%P{rf}GX', 'report_compare_mdtest_hard_ec', _mdtest_commit_test_oclass_args(
+                    args.base_commit, args.commit, '%hard%', '%hard%', f'EC_%P{rf}G1')],
+            ]
 
     if 's_ec' in reports:
+        raise Exception('TODO Report s_ec needs to be converted')
         if not check_required(args, 'commit', 'rf'):
             return 1
 
@@ -280,6 +155,7 @@ def main(args):
                     'mdtest_hard%', f'EC_%P{rf}G1', args.base_commit, args.commit]]]
 
     if 'rebuild' in reports:
+        raise Exception('TODO Report rebuild needs to be converted')
         if not check_required(args, 'commit'):
             return 1
 
@@ -289,27 +165,20 @@ def main(args):
     # Get data rows for each procedure call
     data = []
     sheet_names = []
-    with db_utils.connect(args) as conn:
-        for sheet_name, proc_name, proc_args in calls:
-            if sheet_name in sheet_names:
-                print_err(f'Duplicate sheet name: {sheet_name}')
-                return 1
-            print(' '.join([f'{sheet_name}:'] + [proc_name] + proc_args))
-            with db_utils.callproc(conn, proc_name, proc_args) as cur:
-                if not cur:
-                    return 1
-                d = list(db_utils.cur_iter(cur))
-                if len(d) > 1:
+    cur = None
+    try:
+        with db_utils.connect(args) as conn:
+            for sheet_name, report_fun, extra_where in calls:
+                with conn.cursor() as cur:
+                    report_fun = getattr(report_funs, report_fun)
+                    sql, values = report_fun(where + extra_where, bind_pattern=db_utils._cur_placeholder(cur))
+                    db_utils.execute(cur, sql, values)
+                    data.append(list(db_utils.cur_iter(cur)))
                     sheet_names.append(sheet_name)
-                    data.append(d)
+            if not list_to_output_type(args, data, data_dims=2, xlsx_sheet_names=sheet_names):
+                raise Exception('TODO list_to_output_type failed')
+    except Exception as error:
+        print_err(error)
+        return 1
 
-    # Output all query results
-    success = list_to_output_type(
-        output_type=args.output_format,
-        data=data,
-        data_dims=2,
-        xlsx_sheet_names=sheet_names,
-        file=args.output_path)
-    return 0 if success else 1
-
-    # return 0
+    return 0
