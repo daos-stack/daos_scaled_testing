@@ -7,7 +7,7 @@
 _SCRIPT_VER=2
 
 # Default params
-BUILD_DIR="${WORK}/BUILDS/"
+BUILD_DIR="${WORK}/BUILDS/master"
 TIMESTAMP=$(date +%Y%m%d)
 DAOS_BRANCH="master"
 DAOS_COMMIT=""
@@ -191,22 +191,27 @@ function merge_extra_daos_branches() {
   done
 }
 
+function git_cherry_pick() {
+    local commit="$1"
+    echo "Cherry-picking commit: ${commit}"
+    git log -n 1 --pretty=format:"commit %H%n" "${commit}" || return
+    git cherry-pick --no-edit ${commit} || return
+    echo ""
+}
+
 function cherry_pick_daos_commits() {
-  for COMMIT in "${EXTRA_DAOS_CHERRY[@]}"
-  do
-    echo "Cherry-picking commit: ${COMMIT}"
-    git log -n 1 --pretty=format:"commit %H%n" "${COMMIT}" || return
-    git cherry-pick --no-edit ${COMMIT} || return
-    echo
-  done
+    for COMMIT in "${EXTRA_DAOS_CHERRY[@]}"
+    do
+        git_cherry_pick "${COMMIT}"
+    done
 }
 
 function print_repo_info() {
-  REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
-  printf '%80s\n' | tr ' ' =
-  echo "Repo: ${REPO_NAME}"
-  git log -n 1 --pretty=format:"commit %H%n"
-  echo
+    REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
+    printf '%80s\n' | tr ' ' =
+    echo "Repo: ${REPO_NAME}"
+    git log -n 1 --pretty=format:"commit %H%n"
+    echo
 }
 
 function install_python_deps() {
@@ -231,130 +236,141 @@ function install_python_deps() {
 
 # Setup a new build directory, removing if it already exists
 function setup_build_dir() {
-  rm -rf ${BUILD_DIR}/${TIMESTAMP}
-  mkdir -p ${BUILD_DIR}/${TIMESTAMP}
-  rm -f ${BUILD_DIR}/latest
-  ln -s ${BUILD_DIR}/${TIMESTAMP} ${BUILD_DIR}/latest
+    rm -rf ${BUILD_DIR}/${TIMESTAMP}
+    mkdir -p ${BUILD_DIR}/${TIMESTAMP}
+    rm -f ${BUILD_DIR}/latest
+    ln -s ${BUILD_DIR}/${TIMESTAMP} ${BUILD_DIR}/latest
 }
 
 # Copy a patch from the script directory and apply it
 function copy_and_apply_patch() {
-  local patch="$1"
-  local patch_path="${CURRENT_DIR}/patches/$patch"
-  cp "$patch_path" .
-  echo "Applying patch $patch"
-  git apply "$patch_path"
+    local patch="$1"
+    local patch_path="${CURRENT_DIR}/patches/$patch"
+    cp "$patch_path" .
+    echo "Applying patch $patch"
+    git apply "$patch_path"
 }
 
 # Clone, checkout, and merge DAOS branches
 function clone_daos() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}
-  git clone https://github.com/daos-stack/daos.git -b "${DAOS_BRANCH}"
-  pushd daos
-  if [ ! -z "${DAOS_COMMIT}" ]; then
-      git checkout -b "${DAOS_COMMIT}" "${DAOS_COMMIT}"
-  fi
-  git submodule init
-  git submodule update
-  print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  cherry_pick_daos_commits |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  popd
-  popd
+    pushd ${BUILD_DIR}/${TIMESTAMP}
+    git clone https://github.com/daos-stack/daos.git -b "${DAOS_BRANCH}"
+    pushd daos
+    if [ ! -z "${DAOS_COMMIT}" ]; then
+        git checkout -b "${DAOS_COMMIT}" "${DAOS_COMMIT}"
+    fi
+    git submodule init
+    git submodule update
+    print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    cherry_pick_daos_commits |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    popd
+    popd
 }
 
 # Build DAOS
 function build_daos() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}/daos
+    pushd ${BUILD_DIR}/${TIMESTAMP}/daos
 
-  # Point to removed mercury patch for old builds
-  local config="${BUILD_DIR}/${TIMESTAMP}/daos/utils/build.config"
-  sed -i \
-      's/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/master\/na_ucx_changes.patch/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/d993cda60d9346d1bd3451f334340d3b08e5aa42\/na_ucx_changes.patch/' \
-      "$config"
+    # Point to removed mercury patch for old builds
+    local config="${BUILD_DIR}/${TIMESTAMP}/daos/utils/build.config"
+    sed -i \
+        's/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/master\/na_ucx_changes.patch/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/d993cda60d9346d1bd3451f334340d3b08e5aa42\/na_ucx_changes.patch/' \
+        "$config"
 
-  if [ $_SCRIPT_VER -ge 2 ]; then
-    # To allow SCONS_ENV=full
-    copy_and_apply_patch daos_scons_env_option.patch
+    if [ $_SCRIPT_VER -ge 2 ]; then
+        # Newer build process uses SCONS_ENV=full to use the current environment
 
-    # Revert GO build changes that break linkage
-    if [ $(git_has_commit "4b02fd116dd711511b655c1a1adec73959f585eb") = true ]; then
-      git revert --no-edit 4b02fd116dd711511b655c1a1adec73959f585eb
+        # SCONS_ENV option
+        if [ $(git_has_commit "0f55c8157ef30d2d44573502d40fe6dab3486f27") = true ]; then
+            if [ ! $(git_has_commit "32aaa88543ec721471b5902364ac668ac67b4bc9") = true ]; then
+                git_cherry_pick "32aaa88543ec721471b5902364ac668ac67b4bc9" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+            fi
+        else
+            copy_and_apply_patch amd_scons_env.patch.df1f8034e516b5887a37ae4733d39cbd669612ea |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+            #if [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
+            #    copy_and_apply_patch daos_scons_env_option.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
+            #else
+            #    copy_and_apply_patch daos_scons_env_option.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+            #fi
+        fi
+
+        # Build flags fixes
+        if [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
+            copy_and_apply_patch daos_scons_linkage.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
+        else
+            copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        fi
+
+        scons MPI_PKG=any \
+              --build-deps=${SCONS_BUILD_DEPS} \
+              --config=force \
+              BUILD_TYPE=${DAOS_BUILD_TYPE} \
+              SCONS_ENV=full \
+              COMPILER=gcc \
+              install ${SCONS_EXTRA_ARGS}
+
+    else
+        # Older build process does not use SCONS_ENV
+
+        # Revert stdatomic.h stuff
+        if [ $(git_has_commit "c992d41942f472991fd7ac06dd9a0e581b51898a") = true ]; then
+          git revert --no-edit c992d41942f472991fd7ac06dd9a0e581b51898a |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        fi
+        if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
+          git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8 |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        fi
+
+        scons MPI_PKG=any \
+              --build-deps=${SCONS_BUILD_DEPS} \
+              --config=force \
+              --prepend-path="$(dirname $(which cmake))" \
+              BUILD_TYPE=${DAOS_BUILD_TYPE} \
+              install ${SCONS_EXTRA_ARGS}
     fi
-    #if [ $(git_has_commit "2dd117964ded28d0ded1dd5290907225ee7a723d") = true ]; then
-    #  git revert --no-edit 2dd117964ded28d0ded1dd5290907225ee7a723d
-    #fi
 
-    # Build flags fixes
-    copy_and_apply_patch daos_scons_linkage.patch
-
-    scons MPI_PKG=any \
-          --build-deps=${SCONS_BUILD_DEPS} \
-          --config=force \
-          BUILD_TYPE=${DAOS_BUILD_TYPE} \
-          SCONS_ENV=full \
-          COMPILER=gcc \
-          install ${SCONS_EXTRA_ARGS}
-
-  else
-    # Revert stdatomic.h stuff
-    if [ $(git_has_commit "c992d41942f472991fd7ac06dd9a0e581b51898a") = true ]; then
-      git revert --no-edit c992d41942f472991fd7ac06dd9a0e581b51898a
-    fi
-    if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
-      git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8
-    fi
-
-    scons MPI_PKG=any \
-          --build-deps=${SCONS_BUILD_DEPS} \
-          --config=force \
-          --prepend-path="$(dirname $(which cmake))" \
-          BUILD_TYPE=${DAOS_BUILD_TYPE} \
-          install ${SCONS_EXTRA_ARGS}
-  fi
-
-  popd
+    popd
 }
 
 
 # Clone and checkout IOR and MDTest
 function clone_ior_mdtest() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}
-  git clone https://github.com/hpc/ior.git
-  pushd ${BUILD_DIR}/${TIMESTAMP}/ior
-  if [ ! -z "${IOR_COMMIT}" ]; then
-      git checkout -b "${IOR_COMMIT}" "${IOR_COMMIT}"
-  fi
+    pushd ${BUILD_DIR}/${TIMESTAMP}
+    git clone https://github.com/hpc/ior.git
+    pushd ${BUILD_DIR}/${TIMESTAMP}/ior
+    if [ ! -z "${IOR_COMMIT}" ]; then
+        git checkout -b "${IOR_COMMIT}" "${IOR_COMMIT}"
+    fi
 
-  # Apply patch to make all processes write the same data.
-  # This is needed to reduce pool space usage so a larger number of clients can be used.
-  copy_and_apply_patch ior_dedup_workaround.patch
+    # Apply patch to make all processes write the same data.
+    # This is needed to reduce pool space usage so a larger number of clients can be used.
+    copy_and_apply_patch ior_dedup_workaround.patch
 
-  print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  ./bootstrap
-  popd
-  popd
+    print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    ./bootstrap
+    popd
+    popd
 }
 
 # Build IOR and MDTest
 function build_ior_mdtest() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}/ior
-  ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
-              MPICC=${MPI_BIN}/mpicc \
-              --with-daos=${LATEST_DAOS} \
-              --with-cuda=no \
-              --with-gpuDirect=no \
-              CPPFLAGS=-I${LATEST_DAOS}/prereq/release/mercury/include \
-              LIBS=-lmpi
-  make clean
-  make
-  make install
+    pushd ${BUILD_DIR}/${TIMESTAMP}/ior
+    ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
+                MPICC=${MPI_BIN}/mpicc \
+                --with-daos=${LATEST_DAOS} \
+                --with-cuda=no \
+                --with-gpuDirect=no \
+                CPPFLAGS=-I${LATEST_DAOS}/prereq/release/mercury/include \
+                LIBS=-lmpi
+    make clean
+    make
+    make install
 
-  pushd ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin
-  mv -v ior ${IOR_BIN}
-  mv -v mdtest ${MDTEST_BIN}
-  popd
-  popd
+    pushd ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin
+    mv -v ior ${IOR_BIN}
+    mv -v mdtest ${MDTEST_BIN}
+    popd
+    popd
 }
 
 # Perform a basic revision of the built binaries
