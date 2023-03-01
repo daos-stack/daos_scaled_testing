@@ -2,6 +2,7 @@
 ioengine=dfs
 pool=${DAOS_POOL_NAME}
 cont=${DAOS_CONTAINER_NAME}
+chunk_size=${DAOS_CHUNK_SIZE}
 object_class=${DAOS_OCLASS}
 
 filename_format=fio-test.$jobnum
@@ -14,9 +15,12 @@ disable_slat=1
 disable_clat=1
 
 
+; bs=1M
 bs=${FIO_BLOCK_SIZE}
+# size=100G
+# size=10G
 size=${FIO_SIZE}
-iodepth=${FIO_IODEPTH}
+iodepth=16
 numjobs=16
 
 [daos-seqwrite]

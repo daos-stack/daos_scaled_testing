@@ -2,8 +2,6 @@
 ioengine=dfs
 pool=${DAOS_POOL_NAME}
 cont=${DAOS_CONTAINER_NAME}
-object_class=${DAOS_OCLASS}
-
 filename_format=fio-test.$jobnum
 
 cpus_allowed_policy=split
@@ -13,10 +11,9 @@ percentile_list=99.0:99.9:99.99:99.999:99.9999:100
 disable_slat=1
 disable_clat=1
 
-
-bs=${FIO_BLOCK_SIZE}
-size=${FIO_SIZE}
-iodepth=${FIO_IODEPTH}
+bs=4K
+size=2G
+iodepth=16
 numjobs=16
 
 [daos-seqwrite]

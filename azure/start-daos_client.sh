@@ -8,7 +8,12 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
+CLIENT_NODES=${1:-$CLIENT_NODES}
+
 source "$CWD/cleanup-daos_client.sh"
+
+echo "[INF0] Copying DAOS agent configuration file..."
+cat "$CWD/files/daos_agent.yml" | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES "sudo bash -c 'cat > /etc/daos/daos_agent.yml'"
 
 echo "[INF0] Starting DAOS agents..."
 $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo systemctl daemon-reload

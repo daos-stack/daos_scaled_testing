@@ -7,6 +7,8 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
+SERVER_NODES=${1:-$SERVER_NODES}
+
 echo  "[INFO] Clean up of DAOS servers"
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo systemctl stop daos_server
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo rm -rf /tmp/daos_server.log /tmp/daos_engine_0.log /tmp/daos_admin.log

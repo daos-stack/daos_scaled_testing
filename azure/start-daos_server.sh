@@ -7,9 +7,12 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
+SERVER_NODES=${1:-$SERVER_NODES}
+
 source "$CWD/cleanup-daos_server.sh"
 
 echo "[INF0] Generating DAOS servers configuration files..."
+generate-daos_control_cfg | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /etc/daos/daos_control.yml'"
 cat "$CWD/generate-daos_server_cfg.sh" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo env DAOS_HUGEPAGES_NB=$DAOS_HUGEPAGES_NB bash"
 
 echo "[INF0] Starting DAOS servers..."
@@ -50,9 +53,9 @@ fi
 
 echo
 echo "[INF0] Formating servers..."
-$CLUSH_BIN $CLUSH_OPTS -w $ADMIN_NODE sudo dmg storage format -l $(nodeset -e -S, $SERVER_NODES) --force
+$RSH_BIN $ADMIN_NODE sudo dmg storage format -l $(nodeset -e -S, $SERVER_NODES) --force
 
 echo
 echo "[INF0] Checking DAOS system storage..."
-$CLUSH_BIN $CLUSH_OPTS -w $ADMIN_NODE sudo dmg system query --verbose
-$CLUSH_BIN $CLUSH_OPTS -w $ADMIN_NODE sudo dmg storage query usage
+$RSH_BIN $ADMIN_NODE sudo dmg system query --verbose
+$RSH_BIN $ADMIN_NODE sudo dmg storage query usage

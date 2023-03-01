@@ -61,7 +61,6 @@ for filepath in $(find $CWD/dat -type f -name "*.dat") ; do
 	echo -e "Sorting dat file $filepath"
 
 	sort -n < "$filepath" > "$filepath.new"
-	test_name=$(cut -d_ -f1 <<< "$filename")
 	echo "# ppn read(MiB) write(MiB)" > "$filepath"
 	cat "$filepath.new" >> "$filepath"
 	rm "$filepath.new"

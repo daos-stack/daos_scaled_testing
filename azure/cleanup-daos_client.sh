@@ -7,6 +7,8 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
+CLIENT_NODES=${1:-$CLIENT_NODES}
+
 echo  "[INFO] Clean up of DAOS clients"
 $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo systemctl stop daos_agent
 $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo rm -rf /tmp/daos_client.log /tmp/daos_admin.log /tmp/daos_agent.log

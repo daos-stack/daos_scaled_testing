@@ -45,7 +45,7 @@ source "$CWD/envs/env.sh"
 	"\$source_dir/configure" --prefix="\$install_dir"
 	make -j \$(nproc) install
 	EOF
-} | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES bash -s
+} | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES -w localhost bash -s
 
 
 $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES 'bash -c "$HOME/local/bin/fio --enghelp=dfs"'
