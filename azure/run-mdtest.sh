@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # set -x
-set -e
-set -o pipefail
+set -e -o pipefail
 
 CWD="$(realpath "$(dirname $0)")"
 
@@ -28,7 +27,9 @@ source "$CWD/envs/env.sh"
 source "$CWD/envs/env-mdtest_${MDTEST_MODE}.sh"
 HOSTFILE_NAME=$($NODESET_BIN -c "$CLIENT_NODES")-nodes.cfg
 
-MDTEST_OPTS+=" --dfs.dir_oclass=$DAOS_DIR_OCLASS --dfs.oclass=$DAOS_OCLASS"
+MDTEST_OPTS+=" --dfs.dir_oclass=$DAOS_DIR_OCLASS"
+MDTEST_OPTS+=" --dfs.oclass=$DAOS_OCLASS"
+MDTEST_OPTS+=" --dfs.chunk_size=${chunk_size[$DAOS_OCLASS]}"
 
 echo
 echo "[INF0] Benchmark setup"
@@ -70,6 +71,7 @@ for ppn in $MPI_PPN ; do
 
 		echo
 		echo "[INF0] Running mdtest: nnb=$nnb, ppn=$ppn (np=$np)"
+		set -x
 		$MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $MDTEST_BIN $MDTEST_OPTS 2>&1 | tee /tmp/$LOG_FILE_NAME
 		EOF
 	} | $RSH_BIN $LOGIN_NODE bash
