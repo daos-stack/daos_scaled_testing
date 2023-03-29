@@ -31,6 +31,7 @@ engines:
     nr_xs_helpers: 2
     fabric_iface: eth0
     fabric_iface_port: 31316
+    # log_mask: INFO
     log_mask: ERR
     log_file: /tmp/daos_engine_0.log
     env_vars:
