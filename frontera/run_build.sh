@@ -111,6 +111,10 @@ LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 # Setup the environment
 function setup_env() {
   export PATH=~/.local/bin:$PATH
+  export PATH="${WORK}/daos_deps/bin:$PATH"
+  export LD_LIBRARY_PATH="${WORK}/daos_deps/lib:$LD_LIBRARY_PATH"
+  export LIBRARY_PATH="${WORK}/daos_deps/lib:$LIBRARY_PATH"
+  export CPATH="${WORK}/daos_deps/include:$CPATH"
   export PYTHONPATH=$PYTHONPATH:~/.local/lib
   source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET} || return
   module list || return
@@ -129,7 +133,9 @@ function git_has_commit() {
 # Merge a "hack" branch and user-specified branches
 function merge_extra_daos_branches() {
   local hack_branch=""
-  if [ $(git_has_commit "e2a10d7") = true ]; then
+  if [ $(git_has_commit "ec18c59") = true ]; then
+    hack_branch="origin/dbohning/io500-base-ec18c59"
+  elif [ $(git_has_commit "e2a10d7") = true ]; then
     hack_branch="origin/dbohning/io500-base-e2a10d7"
   elif [ $(git_has_commit "1185938") = true ]; then
     hack_branch="origin/dbohning/io500-base-1185938"
@@ -198,6 +204,13 @@ function git_cherry_pick() {
     git cherry-pick --no-edit ${commit} || return
     echo ""
 }
+git_cherry_pick_cond() {
+    local commit="$1"
+
+    if [ ! $(git_has_commit "$1") = true ]; then
+        git_cherry_pick "$1"
+    fi
+}
 
 function cherry_pick_daos_commits() {
     for COMMIT in "${EXTRA_DAOS_CHERRY[@]}"
@@ -231,6 +244,18 @@ function install_python_deps() {
       cmd="/usr/bin/python3 -m pip install --user --ignore-installed pyelftools"
       echo ${cmd}
       eval ${cmd} || return
+    fi
+}
+
+function install_daos_deps() {
+    local rc=0
+    if [ $_SCRIPT_VER -ge 2 ]; then
+        "${CURRENT_DIR}/utils/check_for_lib" "lmdb"
+        rc=$?
+        if [ $rc -ne 0 ]; then
+            "${CURRENT_DIR}/utils/build_install_lmdb" "${WORK}/daos_deps" || return
+            "${CURRENT_DIR}/utils/check_for_lib" "lmdb" || return
+        fi
     fi
 }
 
@@ -283,9 +308,7 @@ function build_daos() {
 
         # SCONS_ENV option
         if [ $(git_has_commit "0f55c8157ef30d2d44573502d40fe6dab3486f27") = true ]; then
-            if [ ! $(git_has_commit "32aaa88543ec721471b5902364ac668ac67b4bc9") = true ]; then
-                git_cherry_pick "32aaa88543ec721471b5902364ac668ac67b4bc9" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-            fi
+            git_cherry_pick_cond "32aaa88543ec721471b5902364ac668ac67b4bc9" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
         else
             copy_and_apply_patch amd_scons_env.patch.df1f8034e516b5887a37ae4733d39cbd669612ea |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
             #if [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
@@ -293,6 +316,11 @@ function build_daos() {
             #else
             #    copy_and_apply_patch daos_scons_env_option.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
             #fi
+        fi
+
+        # Patch for os.environ.copy()
+        if [ $(git_has_commit "efe7889c02e2a0781c3661a652785404bcdc25a2") = true ]; then
+            git_cherry_pick_cond "de10c18c46ac054b2ada4e4b2a7245988e78cd2b" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
         fi
 
         # Build flags fixes
@@ -415,12 +443,17 @@ function check_retcode(){
 }
 
 function main() {
-  trap 'check_retcode $? ${BASH_COMMAND}' EXIT
+  #trap 'check_retcode $? ${BASH_COMMAND}' EXIT
   set -e
   set -o pipefail
 
-  setup_env
-  install_python_deps
+  setup_env || exit
+  install_python_deps || exit
+  install_daos_deps || exit
+
+  # Capture all bad returns
+  trap 'check_retcode $? ${BASH_COMMAND}' EXIT
+
   setup_build_dir
   clone_daos
   build_daos
