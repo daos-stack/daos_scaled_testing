@@ -27,7 +27,7 @@ $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo 'bash -c "killall -q -9 orterun mpi
 } | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo bash
 
 
-echo "[INFO] Cleaning huge pages"
+echo "[INFO] Cleaning control plance metadata"
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo rm -frv /tmp/daos_server
 
 echo "[INFO] Cleaning huge pages"

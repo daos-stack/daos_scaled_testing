@@ -4,7 +4,11 @@ set -e
 set -o pipefail
 CWD="$(realpath "$(dirname $0)")"
 
-DAOS_BDEV_CFG=${1?"Missing block device configuration (accepted value: 'single-bdev' and 'multi-bdevs')"}
+DAOS_BDEV_CFG=${1?"Missing block device configuration (accepted value: 'single_bdev' and 'multi_bdevs')"}
+if  ! [[ "$DAOS_BDEV_CFG" =~ ^(single_bdev|multi_bdevs)$ ]] ; then
+	echo "[ERROR] Invalid DAOS block device configuration \"$DAOS_BDEV_CFG\": accepted mode are \"single_bdev\" and \"multi_bdevs\"" >&2
+	exit 1
+fi
 
 DAOS_FIRST_NVME_ID="$(sudo lspci | grep "Non-Volatile memory controller" | cut -d" "  -f1 | sed -n -e 1p)"
 DAOS_SECOND_NVME_ID="$(sudo lspci | grep "Non-Volatile memory controller" | cut -d" "  -f1 | sed -n -e 2p)"
@@ -53,13 +57,13 @@ fi
 	EOF
 
 	case $DAOS_BDEV_CFG in
-		single-bdev)
+		single_bdev)
 			cat <<- EOF
 			      - class: nvme
 			        bdev_list: ['$DAOS_FIRST_NVME_ID']
 			EOF
 			;;
-		multi-bdevs)
+		multi_bdevs)
 			cat <<- EOF
 			      - class: nvme
 			        bdev_list: ['$DAOS_FIRST_NVME_ID']

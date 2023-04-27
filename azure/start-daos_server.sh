@@ -7,10 +7,14 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
-DAOS_BDEV_CFG=${1?"Missing block device configuration (accepted value: 'single-bdev' and 'multi-bdevs')"}
+DAOS_BDEV_CFG=${1?"Missing block device configuration (accepted value: 'single_bdev' and 'multi_bdevs')"}
+if  ! [[ "$DAOS_BDEV_CFG" =~ ^(single_bdev|multi_bdevs)$ ]] ; then
+	echo "[ERROR] Invalid DAOS block device configuration \"$DAOS_BDEV_CFG\": accepted mode are \"single_bdev\" and \"multi_bdevs\"" >&2
+	exit 1
+fi
 SERVER_NODES=${2:-$SERVER_NODES}
 
-source "$CWD/cleanup-daos_server.sh"
+bash "$CWD/cleanup-daos_server.sh" $SERVER_NODES
 
 echo "[INF0] Generating DAOS servers configuration files..."
 cat "$CWD/generate-daos_server_cfg.sh" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo env DAOS_HUGEPAGES_NB=$DAOS_HUGEPAGES_NB bash -s -- $DAOS_BDEV_CFG"
@@ -56,11 +60,13 @@ echo "[INF0] Formating servers..."
 $RSH_BIN $ADMIN_NODE sudo dmg storage format -l $(nodeset -e -S, $SERVER_NODES) --force
 
 echo
-echo "[INF0] Checking DAOS system storage..."
-$RSH_BIN $ADMIN_NODE sudo dmg system query --verbose
-$RSH_BIN $ADMIN_NODE sudo dmg storage query usage
-
-echo
-echo "[INFO] Sleeping 10s to let the system properly start..."
-sleep 10
+echo "[INF0] Checking DAOS system storage in 20s..."
+sleep 20
+sleep_time=1
+while ! $RSH_BIN $ADMIN_NODE sudo dmg storage query usage > /dev/null 2>&1 ; do
+	echo "[INFO] DAOS system storage not yet ready: sleeping ${sleep_time}s"
+	sleep $sleep_time
+	((sleep_time++))
+done
+echo "[INFO] DAOS system storage ready :-)"
 $RSH_BIN $ADMIN_NODE sudo dmg storage query usage

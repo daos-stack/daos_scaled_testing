@@ -22,6 +22,11 @@ if  ! [[ "$DAOS_REDUNDANCY_FACTOR" =~ ^(0|1|2)$ ]] ; then
 fi
 DAOS_DIR_OCLASS=${4:?'Missing DAOS directory object class'}
 DAOS_OCLASS=${5:?'Missing DAOS file object class'}
+DAOS_BDEV_CFG=${6?"Missing block device configuration (accepted value: 'single_bdev' and 'multi_bdevs')"}
+if  ! [[ "$DAOS_BDEV_CFG" =~ ^(single_bdev|multi_bdevs)$ ]] ; then
+	echo "[ERROR] Invalid DAOS block device configuration \"$DAOS_BDEV_CFG\": accepted mode are \"single_bdev\" and \"multi_bdevs\"" >&2
+	exit 1
+fi
 
 source "$CWD/envs/env.sh"
 source "$CWD/envs/env-mdtest_${MDTEST_MODE}.sh"
@@ -33,7 +38,7 @@ MDTEST_OPTS+=" --dfs.chunk_size=${chunk_size[$DAOS_OCLASS]}"
 
 echo
 echo "[INF0] Benchmark setup"
-LOG_DIR="$LOG_DIR_ROOT/$MDTEST_MODE/rd_fac$DAOS_REDUNDANCY_FACTOR/$DAOS_DIR_OCLASS/$DAOS_OCLASS"
+LOG_DIR="$LOG_DIR_ROOT/$MDTEST_MODE/rd_fac$DAOS_REDUNDANCY_FACTOR/$DAOS_DIR_OCLASS/$DAOS_OCLASS/$DAOS_BDEV_CFG"
 mkdir -p "$LOG_DIR"
 $RSH_BIN $LOGIN_NODE mkdir -p /tmp/hostfiles
 cat "$CWD/hostfiles/$HOSTFILE_NAME" | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /tmp/hostfiles/$HOSTFILE_NAME'"
@@ -45,7 +50,7 @@ for ppn in $MPI_PPN ; do
 	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 ior > /dev/null 2>&1 || true
 	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 mdtest > /dev/null 2>&1 || true
 
-	# bash "$CWD/start-daos.sh"
+	bash "$CWD/start-daos.sh" $DAOS_BDEV_CFG
 
 	nnb=$($NODESET_BIN -c "$CLIENT_NODES")
 	np=$(( $nnb * $ppn ))
@@ -74,7 +79,7 @@ for ppn in $MPI_PPN ; do
 		echo
 		echo "[INF0] Running mdtest: nnb=$nnb, ppn=$ppn (np=$np)"
 		set -x
-		$MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $MDTEST_BIN $MDTEST_OPTS 2>&1 | tee /tmp/$LOG_FILE_NAME
+		/usr/bin/time --format="[INF0] Elapsed time=%E" $MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $MDTEST_BIN $MDTEST_OPTS 2>&1 | tee /tmp/$LOG_FILE_NAME
 		EOF
 	} | $RSH_BIN $LOGIN_NODE bash
 	$RSH_BIN $LOGIN_NODE cat /tmp/$LOG_FILE_NAME > "$LOG_DIR/$LOG_FILE_NAME"

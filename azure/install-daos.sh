@@ -23,24 +23,24 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf -y install createrepo_c
 
 echo
-echo "[INFO] Setting up DAOS repo of branch: $branch_name"
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rm -fr "/opt/repos/daos/$branch_name/x86_64"
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo mkdir -p "/opt/repos/daos/$branch_name/x86_64"
-cat "$CWD/files/daos-$branch_name-el8.txz" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'tar xvJf - --strip-components=1 --directory=/opt/repos/daos/$branch_name/x86_64'"
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo createrepo "/opt/repos/daos/$branch_name/x86_64"
-cat "$CWD/files/daos-$branch_name.repo" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'cat > /etc/yum.repos.d/daos-$branch_name.repo'"
+echo "[INFO] Setting up DAOS repo of branch: $DAOS_VERSION"
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rm -fvr "/opt/repos/daos" "/etc/yum.repos.d/daos.repo"
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo mkdir -p "/opt/repos/daos/x86_64"
+cat "$CWD/files/daos-$DAOS_VERSION-el8.txz" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'tar xvJf - --strip-components=1 --directory=/opt/repos/daos/x86_64'"
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo createrepo "/opt/repos/daos/x86_64"
+cat "$CWD/files/daos.repo" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'cat > /etc/yum.repos.d/daos.repo'"
 
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf makecache
 
 echo
 echo "[INFO] Removing old DAOS install"
-$CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo dnf autoremove daos-server daos-debuginfo daos-server-debuginfo
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf autoremove daos-client daos-client-tests
+$CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo dnf autoremove daos-server daos-debuginfo daos-server-debuginfo libfabric
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf autoremove daos-client daos-client-tests libfabric
 
 echo
 echo "[INFO] Install of DAOS $DAOS_VERSION"
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled daos-$DAOS_VERSION
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled daos
 
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf makecache

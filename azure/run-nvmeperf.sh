@@ -8,7 +8,7 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
-source "$CWD/cleanup-daos_server.sh"
+bash "$CWD/cleanup-daos_server.sh"
 
 mkdir -p  "$CWD/results/spdk_nvme_perf/$TIMESTAMP"
 for size in 4096 1048576 ; do

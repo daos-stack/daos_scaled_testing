@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# set -x
+set -e -o pipefail
+
+CWD="$(realpath "$(dirname $0)")"
+CWD="$(dirname "$CWD")"
+
+source "$CWD/envs/env.sh"
+
+IOR_MODE=hard
+IOR_SHARED=shared
+DAOS_RD_FAC=0
+DAOS_OCLASS=SX
+DAOS_DIR_OCLASS=SX
+
+mkdir -p "$CWD/results/md_on_ssd/libfabric/1.17"
+bash "$CWD/install-daos.sh" master-libfabric_1.17
+bash "$CWD/run-ior.sh" "$CWD/results/md_on_ssd/libfabric/1.17" $IOR_MODE $IOR_SHARED $DAOS_RD_FAC $DAOS_DIR_OCLASS $DAOS_OCLASS single_bdev
+
+mkdir -p "$CWD/results/md_on_ssd/libfabric/1.18"
+bash "$CWD/install-daos.sh" master-libfabric_1.18
+bash "$CWD/run-ior.sh" "$CWD/results/md_on_ssd/libfabric/1.18" $IOR_MODE $IOR_SHARED $DAOS_RD_FAC $DAOS_DIR_OCLASS $DAOS_OCLASS single_bdev

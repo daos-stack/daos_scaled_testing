@@ -27,6 +27,11 @@ if  ! [[ "$DAOS_REDUNDANCY_FACTOR" =~ ^(0|1|2)$ ]] ; then
 fi
 DAOS_DIR_OCLASS=${5:?'Missing DAOS directory object class'}
 DAOS_OCLASS=${6:?'Missing DAOS file object class'}
+DAOS_BDEV_CFG=${7?"Missing block device configuration (accepted value: 'single_bdev' and 'multi_bdevs')"}
+if  ! [[ "$DAOS_BDEV_CFG" =~ ^(single_bdev|multi_bdevs)$ ]] ; then
+	echo "[ERROR] Invalid DAOS block device configuration \"$DAOS_BDEV_CFG\": accepted mode are \"single_bdev\" and \"multi_bdevs\"" >&2
+	exit 1
+fi
 
 source "$CWD/envs/env.sh"
 source "$CWD/envs/env-ior_${IOR_MODE}.sh"
@@ -41,7 +46,7 @@ IOR_OPTS+=" --dfs.dir_oclass=$DAOS_DIR_OCLASS --dfs.oclass=$DAOS_OCLASS"
 
 echo
 echo "[INF0] Benchmark setup"
-LOG_DIR="$LOG_DIR_ROOT/$IOR_MODE/$IOR_FILE_SHARING/rd_fac$DAOS_REDUNDANCY_FACTOR/$DAOS_DIR_OCLASS/$DAOS_OCLASS"
+LOG_DIR="$LOG_DIR_ROOT/$IOR_MODE/$IOR_FILE_SHARING/rd_fac$DAOS_REDUNDANCY_FACTOR/$DAOS_DIR_OCLASS/$DAOS_OCLASS/$DAOS_BDEV_CFG"
 mkdir -p "$LOG_DIR"
 $RSH_BIN $LOGIN_NODE mkdir -p /tmp/hostfiles
 cat "$CWD/hostfiles/$HOSTFILE_NAME" | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /tmp/hostfiles/$HOSTFILE_NAME'"
@@ -53,7 +58,7 @@ for ppn in $MPI_PPN ; do
 	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 ior > /dev/null 2>&1 || true
 	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 mdtest > /dev/null 2>&1 || true
 
-	bash "$CWD/start-daos.sh"
+	bash "$CWD/start-daos.sh" $DAOS_BDEV_CFG
 
 	nnb=$($NODESET_BIN -c "$CLIENT_NODES")
 	np=$(( $nnb * $ppn ))
@@ -90,10 +95,10 @@ for ppn in $MPI_PPN ; do
 		echo
 		if [[ $IOR_MODE == easy ]] ; then
 			echo "[INF0] Running ior easy: nnb=$nnb, ppn=$ppn (np=$np), bs=$bs"
-			$MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $IOR_BIN $IOR_OPTS -b ${bs}G 2>&1 | tee /tmp/$LOG_FILE_NAME
+			/usr/bin/time --format="[INF0] Elapsed time=%E" $MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $IOR_BIN $IOR_OPTS -b ${bs}G 2>&1 | tee /tmp/$LOG_FILE_NAME
 		elif [[ $IOR_MODE == hard ]] ; then
 			echo "[INF0] Running ior hard: nnb=$nnb, ppn=$ppn (np=$np), sc=$sc"
-			$MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $IOR_BIN $IOR_OPTS -s $sc 2>&1 | tee /tmp/$LOG_FILE_NAME
+			/usr/bin/time --format="[INF0] Elapsed time=%E" $MPI_BIN -hostfile "/tmp/hostfiles/$HOSTFILE_NAME" -np $np --ppn $ppn --bind-to socket $IOR_BIN $IOR_OPTS -s $sc 2>&1 | tee /tmp/$LOG_FILE_NAME
 		fi
 		EOF
 	} | $RSH_BIN $LOGIN_NODE bash

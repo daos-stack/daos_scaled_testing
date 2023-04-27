@@ -46,9 +46,9 @@ declare -A chunk_size=(
 [RP_3G1]=3M
 )
 
-declare -A replication_method=(
-[SX]=no_replication
-[S1]=no_replication
+declare -A redundancy_mode=(
+[SX]=no_redundancy
+[S1]=no_redundancy
 [EC_8P2GX]=erasure_code
 [RP_3GX]=replication
 [EC_8P2G1]=erasure_code
@@ -71,11 +71,13 @@ IOR_OPTS="-a DFS -i 1 -r -w -o /testfile --dfs.group=daos_server --dfs.pool=$DAO
 
 MDTEST_BIN="$HOME/local/bin/mdtest"
 # XXX Too large values
-MDTEST_STONEWALL=120
-MDTEST_ITEMS=10000000
+# MDTEST_STONEWALL=120
+# MDTEST_ITEMS=100000000
 # XXX Acceptable values
 # MDTEST_STONEWALL=30
 # MDTEST_ITEMS=1000000
+MDTEST_STONEWALL=60
+MDTEST_ITEMS=100000000
 MDTEST_OPTS="-a DFS -F -P -G 27 -N 1 -d /testdir -p 10 -Y -v -C -T -r -u -L -i 1 -W $MDTEST_STONEWALL -z 0 -n $MDTEST_ITEMS --dfs.pool=$DAOS_POOL_NAME"
 
 FIO_BIN="$HOME/local/bin/fio"

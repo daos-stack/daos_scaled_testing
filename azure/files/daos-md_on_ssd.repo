@@ -1,6 +1,0 @@
-[daos-md_on_ssd]
-name=DAOS Meta Data on SSD
-baseurl=file:///opt/repos/daos/md_on_ssd/x86_64
-metadata_expire=-1
-gpgcheck=0
-enabled=0

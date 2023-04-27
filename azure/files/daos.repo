@@ -1,0 +1,6 @@
+[daos]
+name=DAOS local repo
+baseurl=file:///opt/repos/daos/x86_64
+metadata_expire=-1
+gpgcheck=0
+enabled=0
