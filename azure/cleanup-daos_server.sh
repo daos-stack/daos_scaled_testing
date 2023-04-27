@@ -26,6 +26,10 @@ $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo 'bash -c "killall -q -9 orterun mpi
 	EOF
 } | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo bash
 
+
+echo "[INFO] Cleaning huge pages"
+$CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo rm -frv /tmp/daos_server
+
 echo "[INFO] Cleaning huge pages"
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo ipcrm --all=shm
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo bash -c '/bin/rm -f /dev/hugepages/spdk_*'"

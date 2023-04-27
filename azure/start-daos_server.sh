@@ -7,13 +7,13 @@ CWD="$(realpath "$(dirname $0)")"
 
 source "$CWD/envs/env.sh"
 
-SERVER_NODES=${1:-$SERVER_NODES}
+DAOS_BDEV_CFG=${1?"Missing block device configuration (accepted value: 'single-bdev' and 'multi-bdevs')"}
+SERVER_NODES=${2:-$SERVER_NODES}
 
 source "$CWD/cleanup-daos_server.sh"
 
 echo "[INF0] Generating DAOS servers configuration files..."
-generate-daos_control_cfg | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /etc/daos/daos_control.yml'"
-cat "$CWD/generate-daos_server_cfg.sh" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo env DAOS_HUGEPAGES_NB=$DAOS_HUGEPAGES_NB bash"
+cat "$CWD/generate-daos_server_cfg.sh" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo env DAOS_HUGEPAGES_NB=$DAOS_HUGEPAGES_NB bash -s -- $DAOS_BDEV_CFG"
 
 echo "[INF0] Starting DAOS servers..."
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo systemctl daemon-reload

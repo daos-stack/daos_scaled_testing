@@ -23,20 +23,12 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf -y install createrepo_c
 
 echo
-echo "[INFO] Setting up DAOS-2.0 official repo"
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo wget -O /etc/yum.repos.d/daos-packages-2.0.repo https://packages.daos.io/v2.0/CentOS8/packages/x86_64/daos_packages.repo
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rpm --import https://packages.daos.io/RPM-GPG-KEY
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-disabled daos-packages
-
-for branch_name in master md_on_ssd ; do
-	echo
-	echo "[INFO] Setting up DAOS repo of branch: $branch_name"
-	$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rm -fr "/opt/repos/daos/$branch_name/x86_64"
-	$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo mkdir -p "/opt/repos/daos/$branch_name/x86_64"
-	cat "$CWD/files/daos-$branch_name-el8.txz" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'tar xvJf - --strip-components=1 --directory=/opt/repos/daos/$branch_name/x86_64'"
-	$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo createrepo "/opt/repos/daos/$branch_name/x86_64"
-	cat "$CWD/files/daos-$branch_name.repo" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'cat > /etc/yum.repos.d/daos-$branch_name.repo'"
-done
+echo "[INFO] Setting up DAOS repo of branch: $branch_name"
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo rm -fr "/opt/repos/daos/$branch_name/x86_64"
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo mkdir -p "/opt/repos/daos/$branch_name/x86_64"
+cat "$CWD/files/daos-$branch_name-el8.txz" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'tar xvJf - --strip-components=1 --directory=/opt/repos/daos/$branch_name/x86_64'"
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo createrepo "/opt/repos/daos/$branch_name/x86_64"
+cat "$CWD/files/daos-$branch_name.repo" | $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES "sudo bash -c 'cat > /etc/yum.repos.d/daos-$branch_name.repo'"
 
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf makecache
@@ -69,4 +61,3 @@ cat "$CWD/files/daos_server.service" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo systemctl daemon-reload"
 cat "$CWD/files/daos_agent.yml" | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES "sudo bash -c 'cat > /etc/daos/daos_agent.yml'"
 generate-daos_control_cfg | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /etc/daos/daos_control.yml'"
-cat "$CWD/generate-daos_server_cfg.sh" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo env DAOS_HUGEPAGES_NB=$DAOS_HUGEPAGES_NB bash"
