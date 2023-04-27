@@ -43,6 +43,8 @@ DAOS_PKGS=(
 	mercury
 	spdk
 	spdk-tools
+	# spdk-22.01.2-1.el8
+	# spdk-tools-22.01.2-1.el8
 )
 
 mkdir daos-master-el8
