@@ -51,6 +51,9 @@ for ppn in $MPI_PPN ; do
 	echo "[INF0] Cleanning processes on DAOS client nodes"
 	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 mpirun > /dev/null 2>&1 || true
 	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 ior > /dev/null 2>&1 || true
+	$CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES sudo pkill -9 mdtest > /dev/null 2>&1 || true
+
+	bash "$CWD/start-daos.sh"
 
 	nnb=$($NODESET_BIN -c "$CLIENT_NODES")
 	np=$(( $nnb * $ppn ))

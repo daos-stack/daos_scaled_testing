@@ -59,3 +59,8 @@ echo
 echo "[INF0] Checking DAOS system storage..."
 $RSH_BIN $ADMIN_NODE sudo dmg system query --verbose
 $RSH_BIN $ADMIN_NODE sudo dmg storage query usage
+
+echo
+echo "[INFO] Sleeping 10s to let the system properly start..."
+sleep 10
+$RSH_BIN $ADMIN_NODE sudo dmg storage query usage

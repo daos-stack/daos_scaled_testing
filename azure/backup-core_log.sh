@@ -12,7 +12,7 @@ if ! findmnt -t fuse -S blobfuse -M "$BLOB_DIR" ; then
 	blobfuse $BLOB_DIR \
 		--tmp-path=/mnt/blobfusetmp \
 		--config-file=/home/azureuser/local/share/blobfuse/fuse_connection.cfg \
-		 --use-adls=true \
+		--use-adls=true \
 		-o attr_timeout=240 \
 		-o entry_timeout=240 \
 		-o negative_timeout=120
