@@ -28,6 +28,7 @@ fi
 	port: 10001
 	provider: ofi+tcp;ofi_rxm
 	nr_hugepages: $DAOS_HUGEPAGES_NB
+	# control_log_mask: TRACE
 	control_log_mask: INFO
 	control_log_file: /tmp/daos_server.log
 	helper_log_file: /tmp/daos_admin.log
@@ -43,7 +44,7 @@ fi
 	    pinned_numa_node: 0
 	    fabric_iface: eth0
 	    fabric_iface_port: 31316
-	    # log_mask: INFO
+	    # log_mask: DEBUG
 	    log_mask: ERR
 	    log_file: /tmp/daos_engine_0.log
 	    env_vars:

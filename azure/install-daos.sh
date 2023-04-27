@@ -20,7 +20,7 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf install epel-release
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --enable epel
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled powertools
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf -y install createrepo_c
+$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf install createrepo_c
 
 echo
 echo "[INFO] Setting up DAOS repo of branch: $DAOS_VERSION"
@@ -36,7 +36,10 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf makecache
 echo
 echo "[INFO] Removing old DAOS install"
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo dnf autoremove daos-server daos-debuginfo daos-server-debuginfo libfabric
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf autoremove daos-client daos-client-tests libfabric
+$CLUSH_BIN $CLUSH_OPTS -w $ADMIN_NODE sudo dnf autoremove daos-admin daos-admin-debuginfo
+if [[ $(nodeset -c $ALL_NODES -x $SERVER_NODES) -gt 0 ]] ; then
+	$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf autoremove daos-client daos-client-tests libfabric
+fi
 
 echo
 echo "[INFO] Install of DAOS $DAOS_VERSION"
@@ -45,8 +48,11 @@ $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf config-manager --set-enabled daos
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf clean all
 $CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES sudo dnf makecache
 
-$CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo dnf install -y daos-server daos-debuginfo daos-server-debuginfo
-$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf install -y daos-client daos-client-tests
+$CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo dnf install daos-server daos-debuginfo daos-server-debuginfo
+$CLUSH_BIN $CLUSH_OPTS -w $ADMIN_NODE sudo dnf install daos-admin daos-admin-debuginfo
+if [[ $(nodeset -c $ALL_NODES -x $SERVER_NODES) -gt 0 ]] ; then
+	$CLUSH_BIN $CLUSH_OPTS -w $ALL_NODES -x $SERVER_NODES sudo dnf install daos-client daos-client-tests
+fi
 
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo daos_server storage prepare --nvme-only -u root
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo daos_server storage scan
@@ -59,5 +65,7 @@ $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES sudo sysctl -p
 
 cat "$CWD/files/daos_server.service" | $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo bash -c 'cat > /usr/lib/systemd/system/daos_server.service'"
 $CLUSH_BIN $CLUSH_OPTS -w $SERVER_NODES "sudo systemctl daemon-reload"
-cat "$CWD/files/daos_agent.yml" | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES "sudo bash -c 'cat > /etc/daos/daos_agent.yml'"
-generate-daos_control_cfg | $RSH_BIN $LOGIN_NODE "sudo bash -c 'cat > /etc/daos/daos_control.yml'"
+generate-daos_control_cfg | $RSH_BIN $ADMIN_NODE "sudo bash -c 'cat > /etc/daos/daos_control.yml'"
+if [[ -n "$CLIENT_NODES" ]] ; then
+	cat "$CWD/files/daos_agent.yml" | $CLUSH_BIN $CLUSH_OPTS -w $CLIENT_NODES "sudo bash -c 'cat > /etc/daos/daos_agent.yml'"
+fi

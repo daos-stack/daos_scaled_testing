@@ -1,28 +1,23 @@
 #!/bin/bash
 
-CLIENT_NODES=daos-clie000000
-for index in {1..15} ; do
-	CLIENT_NODES="$CLIENT_NODES $(printf "daos-clie%06x" $index)"
-done
-CLIENT_NODES=$(nodeset -f $CLIENT_NODES)
-# CLIENT_NODES=daos-serv000009
-
-# CLIENT_NODES=daos-serv000001
-# for index in {2..9} ; do
-# 	CLIENT_NODES="$CLIENT_NODES $(printf "daos-serv%06x" $index)"
+# CLIENT_NODES=daos-clie000000
+# for index in {1..15} ; do
+# 	CLIENT_NODES="$CLIENT_NODES $(printf "daos-clie%06x" $index)"
 # done
 # CLIENT_NODES=$(nodeset -f $CLIENT_NODES)
 
 SERVER_NODES=daos-serv000000
-for index in {1..9} ; do
-# for index in {1..8} ; do
-	SERVER_NODES="$SERVER_NODES $(printf "daos-serv%06x" $index)"
-done
-SERVER_NODES=$(nodeset -f $SERVER_NODES)
+# for index in {1..9} ; do
+# 	SERVER_NODES="$SERVER_NODES $(printf "daos-serv%06x" $index)"
+# done
+# SERVER_NODES=$(nodeset -f $SERVER_NODES)
 
-LOGIN_NODE=daos-clie000000
-ADMIN_NODE=$LOGIN_NODE
-ALL_NODES=$SERVER_NODES,$CLIENT_NODES
+# LOGIN_NODE=daos-clie000000
+ADMIN_NODE=daos-serv000000
+ALL_NODES=$SERVER_NODES
+if [[ -n $CLIENT_NODES ]] ; then
+	ALL_NODES+=,$CLIENT_NODES
+fi
 
 DAOS_HUGEPAGES_NB=4092
 SYS_HUGEPAGES_NB=4164
