@@ -133,7 +133,9 @@ function git_has_commit() {
 # Merge a "hack" branch and user-specified branches
 function merge_extra_daos_branches() {
   local hack_branch=""
-  if [ $(git_has_commit "ec18c59") = true ]; then
+  if [ $(git_has_commit "e64dd3b") = true ]; then
+    hack_branch="origin/dbohning/io500-base-e64dd3b"
+  elif [ $(git_has_commit "ec18c59") = true ]; then
     hack_branch="origin/dbohning/io500-base-ec18c59"
   elif [ $(git_has_commit "e2a10d7") = true ]; then
     hack_branch="origin/dbohning/io500-base-e2a10d7"
@@ -255,6 +257,12 @@ function install_daos_deps() {
         if [ $rc -ne 0 ]; then
             "${CURRENT_DIR}/utils/build_install_lmdb" "${WORK}/daos_deps" || return
             "${CURRENT_DIR}/utils/check_for_lib" "lmdb" || return
+        fi
+        "${CURRENT_DIR}/utils/check_for_lib" "capstone"
+        rc=$?
+        if [ $rc -ne 0 ]; then
+            "${CURRENT_DIR}/utils/build_install_capstone" "${WORK}/daos_deps" || return
+            "${CURRENT_DIR}/utils/check_for_lib" "capstone" || return
         fi
     fi
 }
