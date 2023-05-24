@@ -281,8 +281,7 @@ class TestList(object):
             if do_skip:
                 continue
             print(f"{idx:03}. Running {env['TESTCASE']} {env['OCLASS']}, "
-                  f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
-                  f"{env['EC_CELL_SIZE']} ec_ell_size")
+                  f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients")
             idx += 1
             if not dryrun:
                 if serial:

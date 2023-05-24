@@ -7,9 +7,9 @@
 env_vars = {
     'number_of_pools': '1',
     'pool_size': '85G',
-    'chunk_size': '1M',
+    'chunk_size': '1MiB',
     'segments': '1',
-    'xfer_size': '1M',
+    'xfer_size': '1MiB',
     'block_size': None, # placeholder
     'iterations': '1',
     'ppc': 32
@@ -28,7 +28,7 @@ tests = [
         ],
         'env_vars': dict(
             env_vars,
-            cont_rf=2,
+            cont_prop='dedup:memcmp,rf:2',
             ppc=16,
             block_size='8G'),
         'enabled': True

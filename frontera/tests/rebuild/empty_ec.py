@@ -23,7 +23,7 @@ tests = [
         ],
         'env_vars': dict(
             env_vars,
-            cont_rf=2),
+            cont_prop='dedup:memcmp,rf:2'),
         'enabled': True
     },
     {
@@ -37,7 +37,7 @@ tests = [
         ],
         'env_vars': dict(
             env_vars,
-            cont_rf=2,
+            cont_prop='dedup:memcmp,rf:2',
             number_of_pools=73,
             pool_size='256MiB', # Minimum 16MiB per rank
         ),

@@ -3,5 +3,6 @@ log_file: /tmp/daos_logs/daos_agent.log
 name: daos_server
 port: 10001
 runtime_dir: /tmp/daos_agent
+control_log_mask: ERROR
 transport_config:
   allow_insecure: true

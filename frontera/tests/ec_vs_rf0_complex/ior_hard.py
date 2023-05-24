@@ -80,7 +80,7 @@ tests = [
         'test_group': 'IOR',
         'test_name': 'ior_hard',
         'oclass': _oclass,
-        'ec_cell_size': '131072', # 128K
+        'ec_cell_size': '131072', # 128KiB
         'scale': _scale,
         'env_vars': dict(env_vars, chunk_size=_chunk),
         'enabled': True

@@ -6,7 +6,7 @@
 # Default environment variables used by each test
 env_vars = {
     'pool_size': '85G',
-    'chunk_size': '1M',
+    'chunk_size': '1MiB',
     'n_file': '10000000',
     'mdtest_flags': '-C -T -r -u -L',
     'bytes_read': '0',
