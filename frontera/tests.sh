@@ -17,6 +17,31 @@ ITERATIONS="${ITERATIONS:-1}"
 IOR_ITER_DELAY="${IOR_ITER_DELAY:-5}"
 IOR_PHASE_DELAY="${IOR_PHASE_DELAY:-0}"
 IOR_TREE_DEPTH="${IOR_TREE_DEPTH:-0}"
+IOR_API="${IOR_API:-DFS}"
+MDTEST_API="${MDTEST_API:-DFS}"
+
+# Conditionally export LD_PRELOAD
+export ORIGINAL_LD_PRELOAD="$LD_PRELOAD"
+
+# Handle IOR_API
+export IOR_LD_PRELOAD=""
+if [ "${IOR_API}" == "POSIX+PIL4DFS" ]; then
+    export IOR_LD_PRELOAD="${DAOS_DIR}/install/lib64/libpil4dfs.so:"
+    IOR_API="POSIX"
+elif [ "${IOR_API}" == "POSIX+IOIL" ]; then
+    export IOR_LD_PRELOAD="${DAOS_DIR}/install/lib64/libioil.so"
+    IOR_API="POSIX"
+fi
+
+# Handle MDTEST_API
+export MDTEST_LD_PRELOAD=""
+if [ "${MDTEST_API}" == "POSIX+PIL4DFS" ]; then
+    export MDTEST_LD_PRELOAD="${DAOS_DIR}/install/lib64/libpil4dfs.so"
+    MDTEST_API="POSIX"
+elif [ "${MDTEST_API}" == "POSIX+IOIL" ]; then
+    export MDTEST_LD_PRELOAD="${DAOS_DIR}/install/lib64/libioil.so"
+    MDTEST_API="POSIX"
+fi
 
 # Set common params/paths
 SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
@@ -54,6 +79,7 @@ elif [ "${MPI_TARGET}" == "openmpi" ]; then
              -x FI_UNIVERSE_SIZE
              -x FI_OFI_RXM_USE_SRX
              -x D_LOG_FILE -x D_LOG_MASK
+             -x LD_PRELOAD
              --timeout ${OMPI_TIMEOUT} -np ${NUM_PROCESSES} --map-by node
              --hostfile ${CLIENT_HOSTLIST_FILE}"
 else
@@ -84,7 +110,7 @@ echo "RANKS           : ${NUM_PROCESSES}"
 echo "SEGMENTS        : ${SEGMENTS}"
 echo "XFER_SIZE       : ${XFER_SIZE}"
 echo "BLOCK_SIZE      : ${BLOCK_SIZE}"
-echo "CONT_RF         : ${CONT_RF}"
+echo "CONT_PROP       : ${CONT_PROP}"
 echo "EC_CELL_SIZE    : ${EC_CELL_SIZE}"
 echo "ITERATIONS      : ${ITERATIONS}"
 echo "SW_TIME         : ${SW_TIME}"
@@ -99,6 +125,8 @@ echo "FPP             : ${FPP}"
 echo "MPI_TARGET      : ${MPI_TARGET}"
 echo "IOR_PHASE_DELAY : ${IOR_PHASE_DELAY}"
 echo "MDTEST_FLAGS    : ${MDTEST_FLAGS}"
+echo "IOR_API         : ${IOR_API}"
+echo "MDTEST_API      : ${MDTEST_API}"
 echo
 echo "Test runner hostname: ${HOSTNAME}"
 echo
@@ -372,6 +400,8 @@ function teardown_test(){
 
     collect_test_logs
 
+    dfuse_unmount
+
     pmsg "List test processes to be killed"
     eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
     pmsg "Killing test processes"
@@ -380,8 +410,8 @@ function teardown_test(){
     pmsg "List surviving processes"
     eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
-    pmsg "${DST_DIR}/frontera/cleanup_node.sh"
-    ${SRUN_CMD} ${DST_DIR}/frontera/cleanup_node.sh
+    pmsg "${DST_DIR}/frontera/utils/cleanup_node.sh"
+    ${SRUN_CMD} ${DST_DIR}/frontera/utils/cleanup_node.sh
 
     pmsg "Removing empty core dumps"
     find ${DUMP_DIR} -type d -empty -print -delete 
@@ -400,7 +430,7 @@ function check_clock_sync(){
     pmsg "Retrieving local time of each node"
     run_cmd "clush --hostfile ${ALL_HOSTLIST_FILE} \
         -f ${SLURM_JOB_NUM_NODES} \
-        ${DST_DIR}/frontera/print_node_local_time.sh"
+        ${DST_DIR}/frontera/utils/print_node_local_time.sh"
 
     pmsg "Review that clock drift is less than ${CLOCK_DRIFT_THRESHOLD} milliseconds"
     clush -S -b --hostfile ${ALL_HOSTLIST_FILE} \
@@ -619,31 +649,21 @@ function daos_cont_create(){
         fi
     fi
 
-    # TODO - Use CONT_PROP for all container properties
-    local props="$CONT_PROP"
-
-    if [ ! -z $CONT_RF ]; then
-        if [ ! -z $props ]; then
-            props+=","
-        fi
-        props+="rf:$CONT_RF"
-    fi
-
+    # TODO oclass params are not backward compatible
     if [ $_DAOS_CONT_CREATE_POS = true ]; then
-        local daos_cmd="daos container create ${pool} ${label}
-            --sys-name=daos_server
-            --type=POSIX"
+        local pool_arg="$pool"
+        local cont_arg="$label"
     else
-        local daos_cmd="daos container create
-            --pool=${pool}
-            --label=${label}
-            --sys-name=daos_server
-            --type=POSIX"
+        local pool_arg="--pool=${pool}"
+        local cont_arg="--label=${label}"
     fi
-
-    if [ ! -z $props ]; then
-        daos_cmd+=" --properties=${props}"
-    fi
+    local daos_cmd="daos container create ${pool_arg} ${cont_arg}
+        --sys-name=daos_server
+        --type=POSIX"
+    if [ ! -z $CHUNK_SIZE ]; then daos_cmd+=" --chunk-size=${CHUNK_SIZE}"; fi
+    if [ ! -z $OCLASS ]; then daos_cmd+=" --oclass=${OCLASS}"; fi
+    if [ ! -z $DIR_OCLASS ]; then daos_cmd+=" --dir-oclass=${DIR_OCLASS}"; fi
+    if [ ! -z $CONT_PROP ]; then daos_cmd+=" --properties=${CONT_PROP}"; fi
 
     run_daos_cmd "${daos_cmd}"
     if [ $? -ne 0 ]; then
@@ -676,6 +696,105 @@ function daos_cont_query(){
     fi
     if [ $? -ne 0 ]; then
         teardown_test "daos container query FAIL" 1
+    fi
+}
+
+# Mount dfuse
+function dfuse_mount(){
+    local pool="${1:-${POOL_LABEL}}"
+    local cont="${2:-${CONT_LABEL}}"
+
+    if [ ! -z $DFUSE_MOUNT_DIR ]; then
+        pmsg "dfuse mounted at: $DFUSE_MOUNT_DIR"
+        return 0
+    fi
+
+    # Generate directory that is probably unique
+    DFUSE_MOUNT_DIR=$(mktemp -d -u -p /tmp -t daos_dfuse_XXXXXXXXXX)
+    pmsg "Mounting dfuse at: $DFUSE_MOUNT_DIR"
+
+    local clush_prefix="clush --hostfile ${CLIENT_HOSTLIST_FILE}
+        -f $SLURM_JOB_NUM_NODES
+        --command_timeout ${CMD_TIMEOUT}
+        -S -B"
+
+    # Create the mount directory on all clients
+    local mkdir_cmd="mkdir -p ${DFUSE_MOUNT_DIR}"
+    pmsg "${mkdir_cmd}"
+    $clush_prefix "$mkdir_cmd"
+    if [ $? -ne 0 ]; then
+        teardown_test "Failed to create dfuse mount dir" 1
+    fi
+
+    # Set perms to 777 as a failsafe for easy cleanup by others
+    local chmod_cmd="chmod 777 ${DFUSE_MOUNT_DIR}"
+    pmsg "${chmod_cmd}"
+    $clush_prefix "$chmod_cmd"
+    if [ $? -ne 0 ]; then
+        teardown_test "Failed to setup dfuse mount dir" 1
+    fi
+
+    # Mount dfuse on all clients
+    local mount_cmd="dfuse $DFUSE_MOUNT_DIR $pool $cont --disable-caching"
+    local mount_exports="\
+        export PATH=$PATH; \
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH; \
+        export CPATH=$CPATH; \
+        export DAOS_DISABLE_REQ_FWD=$DAOS_DISABLE_REQ_FWD; \
+        export DAOS_AGENT_DRPC_DIR=$DAOS_AGENT_DRPC_DIR; \
+        export FI_UNIVERSE_SIZE=$FI_UNIVERSE_SIZE; \
+        export D_LOG_MASK=WARN; \
+        export D_LOG_FILE=${RUN_DIR}/${SLURM_JOB_ID}/dfuse.log;"
+    pmsg "${mount_cmd}"
+    $clush_prefix "$mount_exports $mount_cmd"
+    if [ $? -ne 0 ]; then
+        teardown_test "Failed to mount dfuse" 1
+    fi
+    # Sanity check mount
+    local ls_cmd="ls -ld $DFUSE_MOUNT_DIR"
+    pmsg "${ls_cmd}"
+    $clush_prefix "$ls_cmd"
+    if [ $? -ne 0 ]; then
+        teardown_test "Failed to mount dfuse" 1
+    fi
+}
+
+# Unmount dufse
+function dfuse_unmount(){
+    if [ -z $DFUSE_MOUNT_DIR ]; then
+        return 0
+    fi
+
+    pmsg "Unmounting dfuse at $DFUSE_MOUNT_DIR"
+    local clush_prefix="clush --hostfile ${CLIENT_HOSTLIST_FILE}
+        -f $SLURM_JOB_NUM_NODES
+        --command_timeout ${CMD_TIMEOUT}
+        -S -B"
+    local unmount_cmd="fusermount3 -u $DFUSE_MOUNT_DIR"
+    local num_tries=3
+    while true
+    do
+        pmsg "$unmount_cmd"
+        $clush_prefix "$unmount_cmd"
+        if [ $? -eq 0 ]; then
+            break
+        fi
+        pmsg "Failed to unmount dfuse"
+        num_tries=$[${num_tries} - 1]
+        if [ $num_tries -le 0 ]; then
+            pmsg "Not retrying"
+            break
+        else
+            pmsg "Retrying"
+            sleep 5
+        fi
+    done
+
+    local rm_cmd="rm -rf $DFUSE_MOUNT_DIR"
+    pmsg "$rm_cmd"
+    $clush_prefix "$rm_cmd"
+    if [ $? -ne 0 ]; then
+        pmsg "Failed to rm dfuse mount"
     fi
 }
 
@@ -724,21 +843,29 @@ function run_ior_write(){
     if $check_write; then
         write_params+=" -W"
     fi
+    local ior_testfile="/testFile"
+    if [ "$IOR_API" == "POSIX" ]; then
+        dfuse_mount ${POOL_LABEL} ${CONT_LABEL}
+        ior_testfile="${DFUSE_MOUNT_DIR}/testFile"
+    fi
     local ior_wr_cmd="${IOR_BIN}
         -C -e -g -G 27 -k -Q 1 -v ${write_params} ${FPP}
-        -a DFS
+        -a ${IOR_API}
         -b ${BLOCK_SIZE}
         -i ${ITERATIONS}
         -s ${SEGMENTS}
-        -o /testFile
+        -o ${ior_testfile}
         ${IOR_SW_CMD}
         -d ${IOR_ITER_DELAY}
-        -t ${XFER_SIZE}
+        -t ${XFER_SIZE}"
+    if [ "$IOR_API" == "DFS" ]; then
+        ior_wr_cmd+="
         --dfs.pool ${POOL_LABEL}
         --dfs.cont ${CONT_LABEL}
         --dfs.group daos_server
         --dfs.oclass ${OCLASS}
         --dfs.chunk_size ${CHUNK_SIZE}"
+    fi
 
     local wr_cmd="${MPI_CMD} ${ior_wr_cmd}"
 
@@ -748,7 +875,12 @@ function run_ior_write(){
     # Enable core dump creation
     pushd ${DUMP_DIR}/ior > /dev/null
     ulimit -c unlimited
+
+    export LD_PRELOAD="$IOR_LD_PRELOAD"
+    echo "LD_PRELOAD=${LD_PRELOAD}"
     eval ${wr_cmd}
+    export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
+
     local ior_rc=$?
     popd > /dev/null
 
@@ -768,21 +900,30 @@ function run_ior_read(){
     local teardown_on_daos_status="${1:-true}"
     pmsg "Running IOR READ"
 
+    local ior_testfile="/testFile"
+    if [ "$IOR_API" == "POSIX" ]; then
+        dfuse_mount ${POOL_LABEL} ${CONT_LABEL}
+        ior_testfile="${DFUSE_MOUNT_DIR}/testFile"
+    fi
+
     local ior_rd_cmd="${IOR_BIN}
         -C -e -g -G 27 -k -Q 1 -v -r -R ${FPP}
-        -a DFS
+        -a ${IOR_API}
         -b ${BLOCK_SIZE}
         -i ${ITERATIONS}
         -s ${SEGMENTS}
-        -o /testFile
+        -o ${ior_testfile}
         ${IOR_SW_CMD}
         -d ${IOR_ITER_DELAY}
-        -t ${XFER_SIZE}
+        -t ${XFER_SIZE}"
+    if [ "$IOR_API" == "DFS" ]; then
+        ior_rd_cmd+="
         --dfs.pool ${POOL_LABEL}
         --dfs.cont ${CONT_LABEL}
         --dfs.group daos_server
         --dfs.oclass ${OCLASS}
         --dfs.chunk_size ${CHUNK_SIZE}"
+    fi
 
     local rd_cmd="${MPI_CMD} ${ior_rd_cmd}"
 
@@ -792,7 +933,12 @@ function run_ior_read(){
     # Enable core dump creation
     pushd ${DUMP_DIR}/ior > /dev/null
     ulimit -c unlimited
+
+    export LD_PRELOAD="$IOR_LD_PRELOAD"
+    echo "LD_PRELOAD=${LD_PRELOAD}"
     eval ${rd_cmd}
+    export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
+
     local ior_rc=$?
     popd > /dev/null
 
@@ -912,17 +1058,24 @@ function run_cart_test_group_np_srv(){
 function run_mdtest(){
     pmsg "CMD: Starting MDTEST..."
 
-    local params="-F -P -G 27 -N 1 -d / -p 10 -Y -v ${MDTEST_FLAGS}"
+    local params="-F -P -G 27 -N 1 -p 10 -v ${MDTEST_FLAGS}"
+
+    # -Y doesn't work with pil4dfs, so only enable it for DFS.
+    # But it's a no-op for DFS anyway
+    if [ "$MDTEST_API" == "DFS" ]; then
+        params+=" -Y"
+    fi
+
+    local mdtest_dir="/"
+    if [ "$MDTEST_API" == "POSIX" ]; then
+        dfuse_mount ${POOL_LABEL} ${CONT_LABEL}
+        mdtest_dir="${DFUSE_MOUNT_DIR}/"
+    fi
 
     local mdtest_cmd="${MDTEST_BIN}
         ${params}
-        -a DFS
-        --dfs.pool ${POOL_LABEL}
-        --dfs.cont ${CONT_LABEL}
-        --dfs.group daos_server
-        --dfs.chunk_size ${CHUNK_SIZE}
-        --dfs.oclass ${OCLASS}
-        --dfs.dir_oclass ${DIR_OCLASS}
+        -a ${MDTEST_API}
+        -d ${mdtest_dir}
         -i ${ITERATIONS}
         -W ${SW_TIME}
         -e ${BYTES_READ}
@@ -930,6 +1083,15 @@ function run_mdtest(){
         -z ${IOR_TREE_DEPTH}
         -n ${N_FILE}
         -x ${RUN_DIR}/${SLURM_JOB_ID}/sw.mdt"
+    if [ "$MDTEST_API" == "DFS" ]; then
+        mdtest_cmd+="
+        --dfs.pool ${POOL_LABEL}
+        --dfs.cont ${CONT_LABEL}
+        --dfs.group daos_server
+        --dfs.chunk_size ${CHUNK_SIZE}
+        --dfs.oclass ${OCLASS}
+        --dfs.dir_oclass ${DIR_OCLASS}"
+    fi
 
     if [ ${IOR_PHASE_DELAY} -ne 0 ]; then
         mdtest_cmd+=" --run-cmd-before-phase=\"sleep ${IOR_PHASE_DELAY}\""
@@ -943,7 +1105,12 @@ function run_mdtest(){
     # Enable core dump creation
     pushd ${DUMP_DIR}/mdtest > /dev/null
     ulimit -c unlimited
+
+    export LD_PRELOAD="$MDTEST_LD_PRELOAD"
+    echo "LD_PRELOAD=${LD_PRELOAD}"
     eval $cmd
+    export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
+
     local mdtest_rc=$?
     popd > /dev/null
 

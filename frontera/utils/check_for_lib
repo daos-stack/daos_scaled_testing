@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#
+# Check if gcc can link against a library
+#
+
+function usage() {
+    echo "Usage: $(basename $0) <lib>"
+}
+
+function check_for_lib() {
+    local lib="$1"
+
+    echo -n "Checking for $lib... "
+    SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+    pushd "$SCRIPT_DIR" > /dev/null
+    gcc -o empty_main empty_main.c -Wall -l${lib} &> /dev/null
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "no"
+    else
+        echo "yes"
+    fi
+    rm -f empty_main
+    popd > /dev/null
+    return $rc
+}
+
+if [ -z "$1" ]; then
+    usage
+    exit 1
+fi
+
+check_for_lib "$1" || exit
+

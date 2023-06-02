@@ -6,9 +6,9 @@
 # Default environment variables used by each test
 env_vars = {
     'pool_size': '85G',
-    'chunk_size': '1M',
+    'chunk_size': '1MiB',
     'segments': '1',
-    'xfer_size': '1M',
+    'xfer_size': '1MiB',
     'block_size': '150G',
     'sw_time': '5',
     'iterations': '1',

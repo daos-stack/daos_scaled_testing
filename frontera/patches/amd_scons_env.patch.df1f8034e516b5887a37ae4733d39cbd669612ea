@@ -1,0 +1,1249 @@
+diff --git a/SConstruct b/SConstruct
+index 4a6463ecd..4db9afdc7 100644
+--- a/SConstruct
++++ b/SConstruct
+@@ -1,7 +1,6 @@
+ """Build DAOS"""
+ import os
+ import sys
+-import platform
+ import subprocess  # nosec
+ import time
+ import errno
+@@ -20,24 +19,139 @@ wrap scons-3.""")
+ SCons.Warnings.warningAsException()
+ 
+ 
+-def get_version(env):
+-    """ Read version from VERSION file """
++API_VERSION_MAJOR = "2"
++API_VERSION_MINOR = "7"
++API_VERSION_FIX = "0"
++API_VERSION = f'{API_VERSION_MAJOR}.{API_VERSION_MINOR}.{API_VERSION_FIX}'
++
++
++def read_and_save_version(env):
++    """Read version from VERSION file and update daos_version.h"""
++
++    env.Append(CCFLAGS=['-DAPI_VERSION=\\"' + API_VERSION + '\\"'])
++
+     with open("VERSION", "r") as version_file:
+         version = version_file.read().rstrip()
+ 
+         (major, minor, fix) = version.split('.')
+ 
+-        env.Append(DAOS_VERSION_MAJOR=major)
+-        env.Append(DAOS_VERSION_MINOR=minor)
+-        env.Append(DAOS_VERSION_FIX=fix)
++        env.Append(CCFLAGS=['-DDAOS_VERSION=\\"' + version + '\\"'])
++
++        if GetOption('help'):
++            return version
++
++        tmpl_hdr_in = os.path.join('src', 'include', 'daos_version.h.in')
++        subst_dict = {'@TMPL_MAJOR@': API_VERSION_MAJOR,
++                      '@TMPL_MINOR@': API_VERSION_MINOR,
++                      '@TMPL_FIX@': API_VERSION_FIX,
++                      '@TMPL_PKG_MAJOR@': major,
++                      '@TMPL_PKG_MINOR@': minor,
++                      '@TMPL_PKG_FIX@': fix,
++                      '@Template for @': ''}
++
++        out = env.Substfile(tmpl_hdr_in, SUBST_DICT=subst_dict)
++        print(f'generated daos version header file: {out[0].abspath}')
+ 
+         return version
+ 
+ 
+-API_VERSION_MAJOR = "2"
+-API_VERSION_MINOR = "7"
+-API_VERSION_FIX = "0"
+-API_VERSION = f'{API_VERSION_MAJOR}.{API_VERSION_MINOR}.{API_VERSION_FIX}'
++def add_command_line_options():
++    """Add command line options"""
++
++    AddOption('--preprocess',
++              dest='preprocess',
++              action='store_true',
++              default=False,
++              help='Preprocess selected files for profiling')
++    AddOption('--no-rpath',
++              dest='no_rpath',
++              action='store_true',
++              default=False,
++              help='Disable rpath')
++    AddOption('--analyze-stack',
++              dest='analyze_stack',
++              metavar='ARGSTRING',
++              default=None,
++              help='Gather stack usage statistics after build')
++
++    # We need to sometimes use alternate tools for building and need to add them to the PATH in the
++    # environment.
++    AddOption('--prepend-path',
++              dest='prepend_path',
++              default=None,
++              help="String to prepend to PATH environment variable.")
++
++    # Allow specifying the locale to be used.  Default "en_US.UTF8"
++    AddOption('--locale-name',
++              dest='locale_name',
++              default='en_US.UTF8',
++              help='locale to use for building. [%default]')
++
++    AddOption('--require-optional',
++              dest='require_optional',
++              action='store_true',
++              default=False,
++              help='Fail the build if check_component fails')
++
++    AddOption('--build-deps',
++              dest='build_deps',
++              type='choice',
++              choices=['yes', 'no', 'only', 'build-only'],
++              default='no',
++              help="Automatically download and build sources.  (yes|no|only|build-only) [no]")
++
++    # We want to be able to check what dependencies are needed without
++    # doing a build, similar to --dry-run.  We can not use --dry-run
++    # on the command line because it disables running the tests for the
++    # the dependencies.  So we need a new option
++    AddOption('--check-only',
++              dest='check_only',
++              action='store_true',
++              default=False,
++              help="Check dependencies only, do not download or build.")
++
++    # Need to be able to look for an alternate build.config file.
++    AddOption('--build-config',
++              dest='build_config',
++              default=os.path.join(Dir('#').abspath, 'utils', 'build.config'),
++              help='build config file to use. [%default]')
++
++
++def parse_and_save_conf(env, opts_file):
++    """Parse daos.conf
++
++    This only sets the initial values, most are set within prereqs as that's where they are used
++    and the defaults are calculated."""
++
++    opts = Variables(opts_file)
++
++    opts.Add(EnumVariable('SCONS_ENV', "Default SCons environment inheritance",
++                          'minimal', ['minimal', 'full'], ignorecase=2))
++
++    opts.Add('GO_BIN', 'Full path to go binary', None)
++
++    # TODO: Should we keep this?
++    opts.Add(PathVariable('ENV_SCRIPT', "Location of environment script",
++                          os.path.expanduser('~/.scons_localrc'),
++                          PathVariable.PathAccept))
++
++    # Finally parse the command line options and save to file if required.
++    opts.Update(env)
++
++    return opts
++
++
++def build_misc(build_prefix):
++    """Build miscellaneous items"""
++    # install the configuration files
++    common = os.path.join('utils', 'config')
++    path = os.path.join(build_prefix, common)
++    SConscript(os.path.join(common, 'SConscript'), variant_dir=path, duplicate=0)
++
++    # install certificate generation files
++    common = os.path.join('utils', 'certs')
++    path = os.path.join(build_prefix, common)
++    SConscript(os.path.join(common, 'SConscript'), variant_dir=path, duplicate=0)
+ 
+ 
+ def update_rpm_version(version, tag):
+@@ -94,56 +208,8 @@ def update_rpm_version(version, tag):
+     return True
+ 
+ 
+-def is_platform_arm():
+-    """Detect if platform is ARM"""
+-    processor = platform.machine()
+-    arm_list = ["arm", "aarch64", "arm64"]
+-    if processor.lower() in arm_list:
+-        return True
+-    return False
+-
+-
+-def set_defaults(env, daos_version):
+-    """set compiler defaults"""
+-    AddOption('--preprocess',
+-              dest='preprocess',
+-              action='store_true',
+-              default=False,
+-              help='Preprocess selected files for profiling')
+-    AddOption('--no-rpath',
+-              dest='no_rpath',
+-              action='store_true',
+-              default=False,
+-              help='Disable rpath')
+-    AddOption('--analyze-stack',
+-              dest='analyze_stack',
+-              metavar='ARGSTRING',
+-              default=None,
+-              help='Gather stack usage statistics after build')
+-
+-    env.Append(API_VERSION_MAJOR=API_VERSION_MAJOR)
+-    env.Append(API_VERSION_MINOR=API_VERSION_MINOR)
+-    env.Append(API_VERSION_FIX=API_VERSION_FIX)
+-
+-    env.Append(CCFLAGS=['-DDAOS_VERSION=\\"' + daos_version + '\\"'])
+-    env.Append(CCFLAGS=['-DAPI_VERSION=\\"' + API_VERSION + '\\"'])
+-
+-
+-def build_misc(build_prefix):
+-    """Build miscellaneous items"""
+-    # install the configuration files
+-    common = os.path.join('utils', 'config')
+-    path = os.path.join(build_prefix, common)
+-    SConscript(os.path.join(common, 'SConscript'), variant_dir=path, duplicate=0)
+-
+-    # install certificate generation files
+-    common = os.path.join('utils', 'certs')
+-    path = os.path.join(build_prefix, common)
+-    SConscript(os.path.join(common, 'SConscript'), variant_dir=path, duplicate=0)
+-
+-
+-def scons():  # pylint: disable=too-many-locals,too-many-branches
+-    """Execute build"""
++def check_for_release_target():  # pylint: disable=too-many-locals
++    """Update GitHub for release tag"""
+     if COMMAND_LINE_TARGETS == ['release']:
+         # pylint: disable=consider-using-f-string
+         try:
+@@ -319,55 +385,107 @@ def scons():  # pylint: disable=too-many-locals,too-many-branches
+ 
+         Exit(0)
+ 
++
++# Environment variables that are kept when SCONS_ENV=minimal (the default).
++MINIMAL_ENV = ('HOME', 'TERM', 'SSH_AUTH_SOCK', 'http_proxy', 'https_proxy', 'PKG_CONFIG_PATH',
++               'MODULEPATH', 'MODULESHOME', 'MODULESLOADED', 'I_MPI_ROOT', 'COVFILE')
++
++# Environment variables that are also kept when LD_PRELOAD is set.
++PRELOAD_ENV = ('LD_PRELOAD', 'D_LOG_FILE', 'DAOS_AGENT_DRPC_DIR', 'D_LOG_MASK', 'DD_MASK',
++               'DD_SUBSYS')
++
++
++def scons():
++    """Perform the build"""
++
++    check_for_release_target()
++
+     deps_env = Environment()
+ 
+-    # Scons strips out the environment, however to be able to build daos using the interception
+-    # library we need to add a few things back in.
+-    if 'LD_PRELOAD' in os.environ:
+-        deps_env['ENV']['LD_PRELOAD'] = os.environ['LD_PRELOAD']
++    add_command_line_options()
+ 
+-        for key in ['D_LOG_FILE', 'DAOS_AGENT_DRPC_DIR', 'D_LOG_MASK', 'DD_MASK', 'DD_SUBSYS']:
+-            value = os.environ.get(key, None)
+-            if value is not None:
+-                deps_env['ENV'][key] = value
++    # Scons strips out the environment, however that is not always desirable so add back in
++    # several options that might be needed.
+ 
+     opts_file = os.path.join(Dir('#').abspath, 'daos.conf')
+-    opts = Variables(opts_file)
+ 
+-    commits_file = os.path.join(Dir('#').abspath, 'utils/build.config')
+-    if not os.path.exists(commits_file):
+-        commits_file = None
++    opts = parse_and_save_conf(deps_env, opts_file)
++
++    if deps_env.get('SCONS_ENV') == 'full':
++        deps_env.Replace(ENV=os.environ)
++    else:
++
++        def _copy_env(var_list):
++            for var in var_list:
++                value = os.environ.get(var)
++                if value:
++                    print(f'Setting {var}={value}')
++                    real_env[var] = value
++
++        real_env = deps_env['ENV']
++
++        _copy_env(MINIMAL_ENV)
++
++        # This is used for the daos_build test, we could move to using SCONS_ENV=full instead to
++        # avoid this logic however this still has known issues.
++        if 'LD_PRELOAD' in os.environ:
++            _copy_env(PRELOAD_ENV)
++
++        deps_env.Replace(ENV=real_env)
+ 
+-    platform_arm = is_platform_arm()
++        venv_path = os.environ.get('VIRTUAL_ENV')
++        if venv_path:
++            deps_env.PrependENVPath('PATH', os.path.join(venv_path, 'bin'))
++            deps_env['ENV']['VIRTUAL_ENV'] = venv_path
+ 
+-    if 'VIRTUAL_ENV' in os.environ:
+-        deps_env.PrependENVPath('PATH', os.path.join(os.environ['VIRTUAL_ENV'], 'bin'))
+-        deps_env['ENV']['VIRTUAL_ENV'] = os.environ['VIRTUAL_ENV']
++    pre_path = GetOption('prepend_path')
++    if pre_path:
++        deps_env.PrependENVPath('PATH', pre_path)
+ 
+-    config = Configure(deps_env)
+-    if not config.CheckHeader('stdatomic.h'):
+-        Exit('stdatomic.h is required to compile DAOS, update your compiler or distro version')
+-    config.Finish()
++    locale_name = GetOption('locale_name')
++    if locale_name:
++        deps_env['ENV']['LC_ALL'] = locale_name
+ 
+-    prereqs = PreReqComponent(deps_env, opts, commits_file)
+-    if prereqs.check_component('valgrind_devel'):
+-        deps_env.AppendUnique(CPPDEFINES=["D_HAS_VALGRIND"])
++    # Legacy, parse a ~/.scons_localrc if it exists.
++    env_script = deps_env.get('ENV_SCRIPT')
++    if os.path.exists(env_script):
++        env = deps_env
++        SConscript(env_script, exports=['env'])
+ 
+-    prereqs.add_opts(('GO_BIN', 'Full path to go binary', None))
++    # This used to be set in prereqs so move it here but it may be best to remove entirely.
++    SetOption('implicit_cache', True)
++
++    # Perform this check early before loading PreReqs as if this header is missing then we want
++    # to exit before building any dependencies.
++    if not GetOption('help'):
++
++        config = deps_env.Configure()
++        if not config.CheckHeader('stdatomic.h'):
++            Exit('stdatomic.h is required to compile DAOS, update your compiler or distro version')
++        config.Finish()
++
++    # Define and load the components.  This will add more values to opt.
++    prereqs = PreReqComponent(deps_env, opts)
++    # Now save the daos.conf file before attempting to build anything.  This means that options
++    # are sticky even if there's a failed build.
+     opts.Save(opts_file, deps_env)
+ 
++    # This will add a final 'DEPS' value to opts but it will not be persistent.
++    prereqs.run_build(opts)
++
+     if GetOption('build_deps') == 'only':
+         print('Exiting because --build-deps=only was set')
+         Exit(0)
+ 
+     env = deps_env.Clone(tools=['extra', 'textfile', 'daos_builder', 'compiler_setup'])
+ 
++    if not GetOption('help'):
++        if prereqs.check_component('valgrind_devel'):
++            env.AppendUnique(CPPDEFINES=["D_HAS_VALGRIND"])
++
+     conf_dir = ARGUMENTS.get('CONF_DIR', '$PREFIX/etc')
+ 
+     env.Alias('install', '$PREFIX')
+-    daos_version = get_version(env)
+-
+-    set_defaults(env, daos_version)
+ 
+     base_env = env.Clone()
+ 
+@@ -386,9 +504,9 @@ def scons():  # pylint: disable=too-many-locals,too-many-branches
+     if args is not None:
+         env.Tool('stack_analyzer', prefix=build_prefix, args=args)
+ 
+-    # Export() is handled specially by pylint so do not merge these two lines.
+-    Export('daos_version', 'API_VERSION', 'env', 'base_env', 'base_env_mpi', 'prereqs')
+-    Export('platform_arm', 'conf_dir')
++    daos_version = read_and_save_version(env)
++
++    Export('daos_version', 'API_VERSION', 'env', 'base_env', 'base_env_mpi', 'prereqs', 'conf_dir')
+ 
+     # generate targets in specific build dir to avoid polluting the source code
+     path = os.path.join(build_prefix, 'src')
+diff --git a/site_scons/components/__init__.py b/site_scons/components/__init__.py
+index e194e37f3..40857058b 100644
+--- a/site_scons/components/__init__.py
++++ b/site_scons/components/__init__.py
+@@ -1,4 +1,4 @@
+-# Copyright 2016-2022 Intel Corporation
++# Copyright 2016-2023 Intel Corporation
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a copy
+ # of this software and associated documentation files (the "Software"), to deal
+@@ -22,6 +22,7 @@
+ 
+ import platform
+ import distro
++from SCons.Script import GetOption
+ from prereq_tools import GitRepoRetriever
+ # from prereq_tools import WebRetriever
+ 
+@@ -58,7 +59,8 @@ class InstalledComps():
+             self.installed.append(name)
+             return True
+ 
+-        print(f'Using build version of {name}')
++        if not GetOption('help'):
++            print(f'Using build version of {name}')
+         self.not_installed.append(name)
+         return False
+ 
+@@ -68,7 +70,8 @@ def include(reqs, name, use_value, exclude_value):
+     if reqs.included(name):
+         print(f'Including {name} optional component from build')
+         return use_value
+-    print(f'Excluding {name} optional component from build')
++    if not GetOption('help'):
++        print(f'Excluding {name} optional component from build')
+     return exclude_value
+ 
+ 
+@@ -88,14 +91,17 @@ def check(reqs, name, built_str, installed_str=""):
+ 
+ def ofi_config(config):
+     """Check ofi version"""
++    print('Checking for libfabric > 1.11...', end=' ')
+     code = """#include <rdma/fabric.h>
+ _Static_assert(FI_MAJOR_VERSION == 1 && FI_MINOR_VERSION >= 11,
+                "libfabric must be >= 1.11");"""
+-    return config.TryCompile(code, ".c")
++    rc = config.TryCompile(code, ".c")
++    print('yes' if rc else 'no')
++    return rc
+ 
+ 
+ def define_mercury(reqs):
+-    """mercury definitions"""
++    """Mercury definitions"""
+     libs = ['rt']
+ 
+     if reqs.get_env('PLATFORM') == 'darwin':
+@@ -216,7 +222,7 @@ def define_mercury(reqs):
+ 
+ 
+ def define_common(reqs):
+-    """common system component definitions"""
++    """Common system component definitions"""
+     reqs.define('cmocka', libs=['cmocka'], package='libcmocka-devel')
+ 
+     reqs.define('libunwind', libs=['unwind'], headers=['libunwind.h'],
+diff --git a/site_scons/prereq_tools/base.py b/site_scons/prereq_tools/base.py
+index 9e36df8fa..a74f80b45 100644
+--- a/site_scons/prereq_tools/base.py
++++ b/site_scons/prereq_tools/base.py
+@@ -33,20 +33,17 @@ import shutil
+ import subprocess  # nosec
+ import tarfile
+ import configparser
+-from SCons.Variables import PathVariable
++from SCons.Variables import BoolVariable
+ from SCons.Variables import EnumVariable
+ from SCons.Variables import ListVariable
+-from SCons.Variables import BoolVariable
++from SCons.Variables import PathVariable
+ from SCons.Script import Dir
++from SCons.Script import Exit
+ from SCons.Script import GetOption
+ from SCons.Script import SetOption
+-from SCons.Script import Configure
+-from SCons.Script import AddOption
+ from SCons.Script import WhereIs
+-from SCons.Script import SConscript
+ from SCons.Script import BUILD_TARGETS
+ from SCons.Errors import InternalError
+-from SCons.Errors import UserError
+ 
+ OPTIONAL_COMPS = ['psm2']
+ 
+@@ -310,7 +307,7 @@ class GitRepoRetriever():
+         self.commit_sha = None
+ 
+     def checkout_commit(self, subdir):
+-        """checkout a certain commit SHA or branch"""
++        """Checkout a certain commit SHA or branch"""
+         if self.commit_sha is not None:
+             commands = [['git', 'checkout', self.commit_sha]]
+             if not RUNNER.run_commands(commands, subdir=subdir):
+@@ -329,7 +326,7 @@ class GitRepoRetriever():
+                     raise DownloadFailure(self.url, subdir)
+ 
+     def _update_submodules(self, subdir):
+-        """update the git submodules"""
++        """Update the git submodules"""
+         if self.has_submodules:
+             commands = [['git', 'submodule', 'init'], ['git', 'submodule', 'update']]
+             if not RUNNER.run_commands(commands, subdir=subdir):
+@@ -501,7 +498,7 @@ class BuildInfo():
+         self.info = {}
+ 
+     def update(self, var, value):
+-        """save a variable in the build info"""
++        """Save a variable in the build info"""
+         self.info[var] = value
+ 
+     def save(self, filename):
+@@ -569,123 +566,101 @@ class PreReqComponent():
+     to allow compilation from from multiple systems in one source tree
+     """
+ 
+-    def __init__(self, env, variables, config_file=None):
++    def __init__(self, env, opts):
+         self.__defined = {}
+         self.__required = {}
+         self.__errors = {}
+         self.__env = env
+-        self.__opts = variables
+-        self._configs = None
+-
+-        real_env = self.__env['ENV']
+-
+-        for var in ["HOME", "TERM", "SSH_AUTH_SOCK",
+-                    "http_proxy", "https_proxy",
+-                    "PKG_CONFIG_PATH", "MODULEPATH",
+-                    "MODULESHOME", "MODULESLOADED",
+-                    "I_MPI_ROOT", "COVFILE"]:
+-            value = os.environ.get(var)
+-            if value:
+-                real_env[var] = value
+-
+         self.__dry_run = GetOption('no_exec')
+-        self._add_options()
+         self.__require_optional = GetOption('require_optional')
+         self._has_icx = False
+         self.download_deps = False
+         self.build_deps = False
+         self.__parse_build_deps()
+         self._replace_env(LIBTOOLIZE='libtoolize')
+-        self.__env.Replace(ENV=real_env)
+-        pre_path = GetOption('prepend_path')
+-        if pre_path:
+-            old_path = self.__env['ENV']['PATH']
+-            self.__env['ENV']['PATH'] = pre_path + os.pathsep + old_path
+-        locale_name = GetOption('locale_name')
+-        if locale_name:
+-            self.__env['ENV']['LC_ALL'] = locale_name
+         self.__check_only = GetOption('check_only')
+         if self.__check_only:
+             # This is mostly a no_exec request.
+             SetOption('no_exec', True)
+-        if config_file is None:
+-            config_file = GetOption('build_config')
+ 
+-        RUNNER.initialize(self.__env)
++        config_file = GetOption('build_config')
++        if not os.path.exists(config_file):
++            print(f'Config file "{config_file}" missing, cannot continue')
++            Exit(1)
+ 
+-        self.add_opts(('ALT_PREFIX',
+-                       f'Specifies {os.pathsep} separated list of alternative paths to add',
+-                       None))
++        self._configs = configparser.ConfigParser()
++        self._configs.read(config_file)
+ 
+         self.__top_dir = Dir('#').abspath
++        install_dir = os.path.join(self.__top_dir, 'install')
++
++        RUNNER.initialize(self.__env)
++
++        opts.Add(ListVariable('INCLUDE', "Optional components to build", 'none', OPTIONAL_COMPS))
++        opts.Add(PathVariable('PREFIX', 'Installation path', install_dir,
++                              PathVariable.PathIsDirCreate))
++        opts.Add('ALT_PREFIX', f'Specifies {os.pathsep} separated list of alternative paths to add',
++                 None)
++        opts.Add(PathVariable('BUILD_ROOT', 'Alternative build root directory', "build",
++                              PathVariable.PathIsDirCreate))
++        opts.Add('USE_INSTALLED', 'Comma separated list of preinstalled dependencies', 'none')
++        opts.Add(('MPI_PKG', 'Specifies name of pkg-config to load for MPI', None))
++        opts.Add(BoolVariable('FIRMWARE_MGMT', 'Build in device firmware management.', 0))
++        opts.Add(BoolVariable('STACK_MMAP', 'Allocate ABT ULTs stacks with mmap()', 0))
++        opts.Add(EnumVariable('BUILD_TYPE', "Set the build type", 'release',
++                              ['dev', 'debug', 'release'], ignorecase=1))
++        opts.Add(EnumVariable('TARGET_TYPE', "Set the prerequisite type", 'default',
++                              ['default', 'dev', 'debug', 'release'], ignorecase=1))
++        opts.Add(EnumVariable('COMPILER', "Set the compiler family to use", 'gcc',
++                              ['gcc', 'covc', 'clang', 'icc'], ignorecase=2))
++        opts.Add(EnumVariable('WARNING_LEVEL', "Set default warning level", 'error',
++                              ['warning', 'warn', 'error'], ignorecase=2))
++
++        opts.Update(self.__env)
++
+         self._setup_compiler()
+-        self.add_opts(PathVariable('BUILD_ROOT',
+-                                   'Alternative build root dierctory', "build",
+-                                   PathVariable.PathIsDirCreate))
+ 
+         bdir = self._setup_build_type()
+-        self.target_type = self.__env.get("TTYPE_REAL")
+-        self.__env["BUILD_DIR"] = bdir
++        self.target_type = self.__env['TTYPE_REAL']
++        self.__env['BUILD_DIR'] = bdir
+         ensure_dir_exists(bdir, self.__dry_run)
+         self._setup_path_var('BUILD_DIR')
+         self.__build_info = BuildInfo()
+         self.__build_info.update("BUILD_DIR", self.__env.subst("$BUILD_DIR"))
+ 
+         # Build prerequisites in sub-dir based on selected build type
+-        build_dir_name = os.path.join(self.__env.get("BUILD_ROOT"),
+-                                      'external',
+-                                      self.__env.subst("$TTYPE_REAL"))
+-        install_dir = os.path.join(self.__top_dir, 'install')
+-
+-        self.add_opts(PathVariable('ENV_SCRIPT',
+-                                   "Location of environment script",
+-                                   os.path.expanduser('~/.scons_localrc'),
+-                                   PathVariable.PathAccept))
+-
+-        env_script = self.__env.get("ENV_SCRIPT")
+-        if os.path.exists(env_script):
+-            SConscript(env_script, exports=['env'])
++        build_dir_name = self.__env.subst('$BUILD_ROOT/external/$TTYPE_REAL')
+ 
+         self.system_env = env.Clone()
+ 
+         self.__build_dir = self._sub_path(build_dir_name)
++
++        opts.Add(PathVariable('GOPATH', 'Location of your GOPATH for the build',
++                              f'{self.__build_dir}/go', PathVariable.PathIsDirCreate))
++
++        opts.Update(env)
++
+         ensure_dir_exists(self.__build_dir, self.__dry_run)
+ 
+         self.__prebuilt_path = {}
+         self.__src_path = {}
+ 
+-        self.__opts.Add('USE_INSTALLED',
+-                        'Comma separated list of preinstalled dependencies',
+-                        'none')
+-        self.add_opts(ListVariable('INCLUDE', "Optional components to build",
+-                                   'none', OPTIONAL_COMPS))
+-        self.add_opts(('MPI_PKG',
+-                       'Specifies name of pkg-config to load for MPI', None))
+-        self.add_opts(BoolVariable('FIRMWARE_MGMT',
+-                                   'Build in device firmware management.', 0))
+-        self.add_opts(BoolVariable('STACK_MMAP',
+-                                   'Allocate ABT ULTs stacks with mmap()', 0))
+-        self.add_opts(PathVariable('PREFIX', 'Installation path', install_dir,
+-                                   PathVariable.PathIsDirCreate),
+-                      PathVariable('GOPATH',
+-                                   'Location of your GOPATH for the build',
+-                                   f'{self.__build_dir}/go',
+-                                   PathVariable.PathIsDirCreate))
+         self._setup_path_var('PREFIX')
+         self._setup_path_var('GOPATH')
+         self.__build_info.update("PREFIX", self.__env.subst("$PREFIX"))
+         self.prereq_prefix = self.__env.subst("$PREFIX/prereq/$TTYPE_REAL")
+-        self._setup_parallel_build()
+ 
+         if config_file is not None:
+             self._configs = configparser.ConfigParser()
+             self._configs.read(config_file)
++        else:
++            self._configs = None
+ 
+         self.installed = env.subst("$USE_INSTALLED").split(",")
+         self.include = env.subst("$INCLUDE").split(" ")
+         self._build_targets = []
+ 
+-        build_dir = self.__env.get('BUILD_DIR')
++        build_dir = self.__env['BUILD_DIR']
+         targets = ['test', 'server', 'client']
+         self.__env.Alias('client', build_dir)
+         self.__env.Alias('server', build_dir)
+@@ -701,6 +676,8 @@ class PreReqComponent():
+                 self._build_targets.append('server')
+         BUILD_TARGETS.append(build_dir)
+ 
++    def run_build(self, opts):
++        """Build and dependencies"""
+         # argobots is not really needed by client but it's difficult to separate
+         common_reqs = ['argobots', 'ucx', 'ofi', 'hwloc', 'mercury', 'boost', 'uuid',
+                        'crypto', 'protobufc', 'lz4', 'isal', 'isal_crypto']
+@@ -709,8 +686,6 @@ class PreReqComponent():
+         test_reqs = ['cmocka']
+ 
+         reqs = []
+-        if not self._build_targets:
+-            raise ValueError("Call init_build_targets before load_defaults")
+         reqs = common_reqs
+         if self.test_requested():
+             reqs.extend(test_reqs)
+@@ -718,8 +693,8 @@ class PreReqComponent():
+             reqs.extend(server_reqs)
+         if self.client_requested():
+             reqs.extend(client_reqs)
+-        self.add_opts(ListVariable('DEPS', "Dependencies to build by default",
+-                                   'all', reqs))
++        opts.Add(ListVariable('DEPS', "Dependencies to build by default", 'all', reqs))
++        opts.Update(self.__env)
+         if GetOption('build_deps') == 'only':
+             # Optionally, limit the deps we build in this pass
+             reqs = self.__env.get('DEPS')
+@@ -738,14 +713,7 @@ class PreReqComponent():
+             self.require(env, comp)
+ 
+     def _setup_build_type(self):
+-        """set build type"""
+-        self.add_opts(EnumVariable('BUILD_TYPE', "Set the build type",
+-                                   'release', ['dev', 'debug', 'release'],
+-                                   ignorecase=1))
+-        self.add_opts(EnumVariable('TARGET_TYPE', "Set the prerequisite type",
+-                                   'default',
+-                                   ['default', 'dev', 'debug', 'release'],
+-                                   ignorecase=1))
++        """Set build type"""
+         ttype = self.__env["TARGET_TYPE"]
+         if ttype == "default":
+             ttype = self.__env["BUILD_TYPE"]
+@@ -788,18 +756,15 @@ class PreReqComponent():
+                                  'CVS': '/opt/BullseyeCoverage/bin/covselect',
+                                  'COV01': '/opt/BullseyeCoverage/bin/cov01'},
+                         'clang': {'CC': 'clang', 'CXX': 'clang++'}}
+-        self.add_opts(EnumVariable('COMPILER', "Set the compiler family to use",
+-                                   'gcc', ['gcc', 'covc', 'clang', 'icc'],
+-                                   ignorecase=1))
+ 
+         if GetOption('clean') or GetOption('help'):
+             return
+ 
+-        compiler = self.__env.get('COMPILER').lower()
++        compiler = self.__env.get('COMPILER')
+         if compiler == 'icc':
+             compiler_map['icc'] = self._setup_intelc()
+ 
+-        if self.__env.subst("$WARNING_LEVEL") == 'error':
++        if self.__env.get('WARNING_LEVEL') == 'error':
+             if compiler == 'icc' and not self._has_icx:
+                 warning_flag = '-Werror-all'
+             else:
+@@ -807,7 +772,7 @@ class PreReqComponent():
+             self.__env.AppendUnique(CCFLAGS=warning_flag)
+ 
+         env = self.__env.Clone()
+-        config = Configure(env)
++        config = env.Configure()
+ 
+         if self.__check_only:
+             # Have to temporarily turn off dry run to allow this check.
+@@ -864,68 +829,11 @@ class PreReqComponent():
+             # Restore the dry run state
+             env.SetOption('no_exec', True)
+ 
+-    def _setup_parallel_build(self):
+-        """Set the parallel options for builds"""
+-        # Multiple go jobs can be running at once via the -j option so limit each to 1 proc.
+-        # This allows for compilation to continue on systems with limited processor resources where
+-        # the number of go procs will be multiplied by jobs_opt.
+-        self.__env["ENV"]["GOMAXPROCS"] = "1"
+-
+     def save_build_info(self):
+         """Save build info to file for later use"""
+         self.__build_info.gen_script('.build_vars.sh')
+         self.__build_info.save('.build_vars.json')
+ 
+-    def _add_options(self):
+-        """Add common options to environment"""
+-        AddOption('--require-optional',
+-                  dest='require_optional',
+-                  action='store_true',
+-                  default=False,
+-                  help='Fail the build if check_component fails')
+-
+-        AddOption('--build-deps',
+-                  dest='build_deps',
+-                  type='choice',
+-                  choices=['yes', 'no', 'only', 'build-only'],
+-                  default='no',
+-                  help="Automatically download and build sources.  (yes|no|only|build-only) [no]")
+-
+-        # We want to be able to check what dependencies are needed without
+-        # doing a build, similar to --dry-run.  We can not use --dry-run
+-        # on the command line because it disables running the tests for the
+-        # the dependencies.  So we need a new option
+-        AddOption('--check-only',
+-                  dest='check_only',
+-                  action='store_true',
+-                  default=False,
+-                  help="Check dependencies only, do not download or build.")
+-
+-        # Need to be able to look for an alternate build.config file.
+-        AddOption('--build-config',
+-                  dest='build_config',
+-                  default=os.path.join(Dir('#').abspath, 'utils', 'build.config'),
+-                  help='build config file to use. [%default]')
+-
+-        # We need to sometimes use alternate tools for building and need
+-        # to add them to the PATH in the environment.
+-        AddOption('--prepend-path',
+-                  dest='prepend_path',
+-                  default=None,
+-                  help="String to prepend to PATH environment variable.")
+-
+-        # Allow specifying the locale to be used.  Default "en_US.UTF8"
+-        AddOption('--locale-name',
+-                  dest='locale_name',
+-                  default='en_US.UTF8',
+-                  help='locale to use for building. [%default]')
+-
+-        SetOption("implicit_cache", True)
+-
+-        self.add_opts(EnumVariable('WARNING_LEVEL', "Set default warning level",
+-                                   'error', ['warning', 'warn', 'error'],
+-                                   ignorecase=1))
+-
+     def __parse_build_deps(self):
+         """Parse the build dependances command line flag"""
+         build_deps = GetOption('build_deps')
+@@ -945,19 +853,6 @@ class PreReqComponent():
+         if tmp:
+             value = self._sub_path(tmp)
+             self.__env[var] = value
+-            self.__opts.args[var] = value
+-
+-    def add_opts(self, *variables):
+-        """Add options to the command line"""
+-        for var in variables:
+-            self.__opts.Add(var)
+-        try:
+-            self.__opts.Update(self.__env)
+-        except UserError:
+-            if self.__dry_run:
+-                print('except on add_opts, self.__opts.Update')
+-            else:
+-                raise
+ 
+     def define(self, name, **kw):
+         """Define an external prerequisite component
+@@ -989,15 +884,15 @@ class PreReqComponent():
+         self.__defined[name] = comp
+ 
+     def server_requested(self):
+-        """return True if server build is requested"""
++        """Return True if server build is requested"""
+         return "server" in self._build_targets
+ 
+     def client_requested(self):
+-        """return True if client build is requested"""
++        """Return True if client build is requested"""
+         return "client" in self._build_targets
+ 
+     def test_requested(self):
+-        """return True if test build is requested"""
++        """Return True if test build is requested"""
+         return "test" in self._build_targets
+ 
+     def _modify_prefix(self, comp_def):
+@@ -1185,20 +1080,10 @@ class PreReqComponent():
+             return None
+         if not self._configs.has_section(section):
+             return None
+-
+         if not self._configs.has_option(section, name):
+             return None
+         return self._configs.get(section, name)
+ 
+-    def load_config(self, comp, path):
+-        """If the component has a config file to load, load it"""
+-        config_path = self.get_config("configs", comp)
+-        if config_path is None:
+-            return
+-        full_path = os.path.join(path, config_path)
+-        print(f'Reading config file for {comp} from {full_path}')
+-        self._configs.read(full_path)
+-
+ 
+ class _Component():
+     """A class to define attributes of an external component
+@@ -1266,8 +1151,8 @@ class _Component():
+         self.out_of_src_build = kw.get("out_of_src_build", False)
+         self.patch_path = self.prereqs.get_build_dir()
+ 
+-    def resolve_patches(self):
+-        """parse the patches variable"""
++    def _resolve_patches(self):
++        """Parse the patches variable"""
+         patchnum = 1
+         patchstr = self.prereqs.get_config("patch_versions", self.name)
+         if patchstr is None:
+@@ -1311,7 +1196,7 @@ class _Component():
+             raise DownloadRequired(self.name)
+ 
+         print(f'Downloading source for {self.name}')
+-        patches = self.resolve_patches()
++        patches = self._resolve_patches()
+         self.retriever.get(self.src_path, commit_sha=commit_sha,
+                            patches=patches, branch=branch)
+ 
+@@ -1329,7 +1214,7 @@ class _Component():
+         if GetOption('help'):
+             return True
+ 
+-        config = Configure(env)
++        config = env.Configure()
+ 
+         for lib in self.required_libs:
+             if not config.CheckLib(lib):
+@@ -1350,7 +1235,7 @@ class _Component():
+             env.SetOption('no_exec', True)
+         return False
+ 
+-    def parse_config(self, env, opts):
++    def _parse_config(self, env, opts):
+         """Parse a pkg-config file"""
+         if self.pkgconfig is None:
+             return
+@@ -1376,10 +1261,9 @@ class _Component():
+ 
+         return
+ 
+-    # pylint: disable=too-many-branches
+-    # pylint: disable=too-many-return-statements
+     def has_missing_targets(self, env):
+         """Check for expected build targets (e.g. libraries or headers)"""
++        # pylint: disable=too-many-return-statements
+         if self.targets_found:
+             return False
+ 
+@@ -1393,19 +1277,21 @@ class _Component():
+             return True
+ 
+         # No need to fail here if we can't find the config, it may not always be generated
+-        self.parse_config(env, "--cflags")
++        self._parse_config(env, "--cflags")
+ 
+         if GetOption('help'):
++            print('help set')
+             return True
+ 
+         print(f"Checking targets for component '{self.name}'")
+ 
+-        config = Configure(env)
++        config = env.Configure()
+         if self.config_cb:
+             if not self.config_cb(config):
+                 config.Finish()
+                 if self.__check_only:
+                     env.SetOption('no_exec', True)
++                print('Custom check failed')
+                 return True
+ 
+         for prog in self.progs:
+@@ -1454,8 +1340,6 @@ class _Component():
+         if self.__check_only:
+             env.SetOption('no_exec', True)
+         return False
+-    # pylint: enable=too-many-branches
+-    # pylint: enable=too-many-return-statements
+ 
+     def is_installed(self, needed_libs):
+         """Check if the component is already installed"""
+@@ -1520,12 +1404,12 @@ class _Component():
+         for define in self.defines:
+             env.AppendUnique(CPPDEFINES=[define])
+ 
+-        self.parse_config(env, "--cflags")
++        self._parse_config(env, "--cflags")
+ 
+         if needed_libs is None:
+             return
+ 
+-        self.parse_config(env, "--libs")
++        self._parse_config(env, "--libs")
+         for path in lib_paths:
+             env.AppendUnique(LIBPATH=[path])
+         for lib in needed_libs:
+@@ -1546,7 +1430,7 @@ class _Component():
+             raise MissingTargets(self.name, self.package)
+ 
+     def _check_user_options(self, env, needed_libs):
+-        """check help and clean options"""
++        """Check help and clean options"""
+         if GetOption('help'):
+             if self.requires:
+                 self.prereqs.require(env, *self.requires)
+@@ -1558,14 +1442,14 @@ class _Component():
+         return False
+ 
+     def _rm_old_dir(self, path):
+-        """remove the old dir"""
++        """Remove the old dir"""
+         if self.__dry_run:
+             print(f'Would empty {path}')
+         else:
+             shutil.rmtree(path)
+             os.mkdir(path)
+ 
+-    def patch_rpaths(self):
++    def _patch_rpaths(self):
+         """Run patchelf binary to add relative rpaths"""
+         rpath = ["$$ORIGIN"]
+         norigin = []
+@@ -1659,8 +1543,6 @@ class _Component():
+ 
+             self.get()
+ 
+-            self.prereqs.load_config(self.name, self.src_path)
+-
+             if self.requires:
+                 changes = self.prereqs.require(envcopy, *self.requires, needed_libs=None)
+                 self.set_environment(envcopy, self.libs)
+@@ -1683,7 +1565,7 @@ class _Component():
+             self.prereqs.require(envcopy, *self.requires, needed_libs=None)
+         self.set_environment(envcopy, self.libs)
+         if changes:
+-            self.patch_rpaths()
++            self._patch_rpaths()
+         if self.has_missing_targets(envcopy) and not self.__dry_run:
+             raise MissingTargets(self.name, None)
+         return changes
+diff --git a/site_scons/site_tools/daos_builder.py b/site_scons/site_tools/daos_builder.py
+index f39fdf158..36676952f 100644
+--- a/site_scons/site_tools/daos_builder.py
++++ b/site_scons/site_tools/daos_builder.py
+@@ -126,7 +126,7 @@ def _run_command(env, target, sources, daos_libs, command):
+ 
+ 
+ def _static_library(env, *args, **kwargs):
+-    """build SharedLibrary with relative RPATH"""
++    """Build SharedLibrary with relative RPATH"""
+     libname = _get_libname(*args, **kwargs)
+     if 'hide_syms' in kwargs:
+         # Allow for auto-hiding of symbols, used for the Interception library.  There are multiple
+@@ -150,7 +150,7 @@ def _static_library(env, *args, **kwargs):
+ 
+ 
+ def _library(env, *args, **kwargs):
+-    """build SharedLibrary with relative RPATH"""
++    """Build SharedLibrary with relative RPATH"""
+     denv = env.Clone()
+     denv.Replace(RPATH=[])
+     _add_rpaths(denv, kwargs.get('install_off', '..'), False, False)
+@@ -164,7 +164,7 @@ def _library(env, *args, **kwargs):
+ 
+ 
+ def _program(env, *args, **kwargs):
+-    """build Program with relative RPATH"""
++    """Build Program with relative RPATH"""
+     denv = env.Clone()
+     denv.AppendUnique(LINKFLAGS=['-pie'])
+     denv.Replace(RPATH=[])
+@@ -177,7 +177,7 @@ def _program(env, *args, **kwargs):
+ 
+ 
+ def _test_program(env, *args, **kwargs):
+-    """build Program with fixed RPATH"""
++    """Build Program with fixed RPATH"""
+     denv = env.Clone()
+     denv.AppendUnique(LINKFLAGS=['-pie'])
+     denv.Replace(RPATH=[])
+@@ -190,7 +190,7 @@ def _test_program(env, *args, **kwargs):
+ 
+ 
+ def _find_mpicc(env):
+-    """find mpicc"""
++    """Find mpicc"""
+     mpicc = WhereIs('mpicc')
+     if not mpicc:
+         return False
+diff --git a/site_scons/site_tools/go_builder.py b/site_scons/site_tools/go_builder.py
+index 82b72c8aa..950411750 100644
+--- a/site_scons/site_tools/go_builder.py
++++ b/site_scons/site_tools/go_builder.py
+@@ -94,6 +94,15 @@ def generate(env):
+     if 'GOCACHE' in os.environ:
+         env['ENV']['GOCACHE'] = os.environ['GOCACHE']
+ 
++    # Multiple go jobs can be running at once in scons via the -j option, there is no way to reserve
++    # a number of scons job slots for a single command so if jobs is 1 then use that else use a
++    # small number to allow progress without overloading the system.
++    jobs = GetOption('num_jobs')
++    if jobs == 1:
++        env["ENV"]["GOMAXPROCS"] = '1'
++    else:
++        env["ENV"]["GOMAXPROCS"] = '5'
++
+     env.Append(SCANNERS=Scanner(function=_scan_go_file, skeys=['.go']))
+ 
+ 
+diff --git a/src/SConscript b/src/SConscript
+index 704d38cba..37d99176a 100644
+--- a/src/SConscript
++++ b/src/SConscript
+@@ -19,21 +19,6 @@ HEADERS_CART = ['api.h', 'iv.h', 'types.h', 'swim.h']
+ CART_VERSION = "4.9.0"
+ 
+ 
+-def generate_daos_version_header(env):
+-    """Generate daos_version.h from a template file"""
+-
+-    tmpl_hdr_in = os.path.join('include', 'daos_version.h.in')
+-    subst_dict = {'@TMPL_MAJOR@': env['API_VERSION_MAJOR'],
+-                  '@TMPL_MINOR@': env['API_VERSION_MINOR'],
+-                  '@TMPL_FIX@': env['API_VERSION_FIX'],
+-                  '@TMPL_PKG_MAJOR@': env['DAOS_VERSION_MAJOR'],
+-                  '@TMPL_PKG_MINOR@': env['DAOS_VERSION_MINOR'],
+-                  '@TMPL_PKG_FIX@': env['DAOS_VERSION_FIX'],
+-                  '@Template for @': ""}
+-    out = env.Substfile(tmpl_hdr_in, SUBST_DICT=subst_dict)
+-    print(f'generated daos version header file: {out[0].abspath}')
+-
+-
+ def check_install_header(env, header):
+     """Runs a builder to ensure the header can standalone compile and installs it"""
+     result = env.CheckHeader(header)
+@@ -59,11 +44,9 @@ def scons():
+     if base_env_mpi:
+         base_env_mpi.AppendUnique(CPPPATH=[Dir('include').srcnode()])
+         base_env_mpi.AppendUnique(CPPPATH=[Dir('include')])
+-    generate_daos_version_header(env)
+ 
+     if not env.GetOption('clean') and not env.GetOption('help'):
+-        config_env = env.Clone()
+-        conf = Configure(config_env)
++        conf = env.Clone().Configure()
+         # Detect if we have explicit_bzero
+         if not conf.CheckFunc('explicit_bzero'):
+             env.Append(CCFLAGS=['-DNEED_EXPLICIT_BZERO'])
+diff --git a/src/tests/SConscript b/src/tests/SConscript
+index 4b411aff6..25eedbfeb 100644
+--- a/src/tests/SConscript
++++ b/src/tests/SConscript
+@@ -70,6 +70,7 @@ def build_tests(prereqs, env):
+     # ftest
+     SConscript('ftest/SConscript')
+ 
++
+ def scons():
+     """Execute build"""
+     Import('env', 'base_env', 'base_env_mpi', 'prereqs', 'dc_credit')
+@@ -108,5 +109,6 @@ def scons():
+     denv.d_program('simple_obj', 'simple_obj.c', LIBS=libs_client)
+     denv.d_program('simple_dfs', 'simple_dfs.c', LIBS=libs_client)
+ 
++
+ if __name__ == "SCons.Script":
+     scons()
+diff --git a/src/tests/ftest/dfuse/daos_build.py b/src/tests/ftest/dfuse/daos_build.py
+index c4e1416a4..161441ef1 100644
+--- a/src/tests/ftest/dfuse/daos_build.py
++++ b/src/tests/ftest/dfuse/daos_build.py
+@@ -204,13 +204,16 @@ class DaosBuild(DfuseTestBase):
+ 
+         # Run the deps build in parallel for speed/coverage however the daos build itself does
+         # not yet work, so run this part in serial.  The VMs have 6 cores each.
++        # TODO: Remove the checkout.
+         cmds = ['python3 -m venv {}/venv'.format(mount_dir),
+                 'git clone https://github.com/daos-stack/daos.git {}'.format(build_dir),
++                'git -C {} checkout amd/scons-env'.format(build_dir),
+                 'git -C {} submodule init'.format(build_dir),
+                 'git -C {} submodule update'.format(build_dir),
+                 'python3 -m pip install pip --upgrade',
+                 'python3 -m pip install -r {}/requirements.txt'.format(build_dir),
+                 'scons -C {} --jobs {} --build-deps=only'.format(build_dir, build_jobs),
++                'cat {}/daos.conf'.format(build_dir),
+                 'scons -C {} --jobs {}'.format(build_dir, intercept_jobs)]
+         for cmd in cmds:
+             command = '{};{}'.format(preload_cmd, cmd)
+@@ -243,9 +246,14 @@ class DaosBuild(DfuseTestBase):
+ 
+             if cmd_ret['interrupted']:
+                 self.log.info('Command timed out')
++                general_utils.run_pcmd(self.hostlist_clients, 'ps auwx', timeout=30)
+                 fail_type = 'Timeout building'
+ 
+             self.log.error('BuildDaos Test Failed')
++
++            if cmd.startswith('scons'):
++                general_utils.run_pcmd(self.hostlist_clients, 'cat {}/config.log'.format(build_dir),
++                                       timeout=30)
+             if intercept:
+                 self.fail('{} over dfuse with il in mode {}.\n'.format(fail_type, cache_mode))
+             else:
+diff --git a/src/tests/ftest/launch.py b/src/tests/ftest/launch.py
+index e9bf97e29..5ce28fe27 100755
+--- a/src/tests/ftest/launch.py
++++ b/src/tests/ftest/launch.py
+@@ -52,7 +52,7 @@ DEFAULT_DAOS_TEST_SHARED_DIR = os.path.expanduser(os.path.join("~", "daos_test")
+ DEFAULT_LOGS_THRESHOLD = "2150M"    # 2.1G
+ FAILURE_TRIGGER = "00_trigger-launch-failure_00"
+ LOG_FILE_FORMAT = "%(asctime)s %(levelname)-5s %(funcName)30s: %(message)s"
+-TEST_EXPECT_CORE_FILES = ["./harness/core_files.py"]
++TEST_EXPECT_CORE_FILES = ["./harness/core_files.py", "./dfuse/daos_build.py"]
+ PROVIDER_KEYS = OrderedDict(
+     [
+         ("cxi", "ofi+cxi"),
+diff --git a/utils/sl/fake_scons/SCons/Script/__init__.py b/utils/sl/fake_scons/SCons/Script/__init__.py
+index 3d5174083..1db8b8518 100644
+--- a/utils/sl/fake_scons/SCons/Script/__init__.py
++++ b/utils/sl/fake_scons/SCons/Script/__init__.py
+@@ -32,14 +32,14 @@ class SConscript():
+     """Fake SConscript"""
+ 
+     def __init__(self, *_args, **_kw):
+-        """init function"""
++        """Init function"""
+ 
+ 
+ class DefaultEnvironment():
+     """Default environment"""
+ 
+     def __init__(self, *_args, **_kwargs):
+-        """constructor"""
++        """Constructor"""
+ 
+     def RunTests(self, *_args, **_kw):
+         """Fake tests builder (defined by prereq_tools)"""
+@@ -282,6 +282,10 @@ class DefaultEnvironment():
+         """Fake PrependENVPath"""
+         return
+ 
++    def Configure(self):
++        """Fake Configure"""
++        return Configure()
++
+     def d_add_build_rpath(self, pathin='.'):
+         """Fake d_add_build_rpath"""
+         return
+@@ -335,7 +339,7 @@ class Variables():
+     """Fake variables"""
+ 
+     def __init__(self, *_args, **_kw):
+-        """constructor"""
++        """Constructor"""
+ 
+     def Add(self, *_args, **_kw):
+         """Fake Add function"""
+@@ -358,7 +362,7 @@ class Configure():
+ 
+     def __init__(self, *_args, **_kw):
+         self.env = DefaultEnvironment()
+-        """constructor"""
++        """Constructor"""
+ 
+     def CheckHeader(self, *_args, **_kw):
+         """Fake CheckHeader"""
+@@ -408,7 +412,7 @@ class Literal():
+     """Fake Literal"""
+ 
+     def __init__(self, *_args, **_kw):
+-        """constructor"""
++        """Constructor"""
+ 
+ 
+ class Dir():
+@@ -454,7 +458,7 @@ class Help():
+     """Fake Help"""
+ 
+     def __init__(self, *_args, **_kw):
+-        """constructor"""
++        """Constructor"""
+ 
+ 
+ def Glob(*_args):

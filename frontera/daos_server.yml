@@ -30,13 +30,13 @@ engines:
   - SWIM_PROTOCOL_PERIOD_LEN=2000
   - SWIM_SUSPECT_TIMEOUT=19000
   - SWIM_PING_TIMEOUT=1900
-#  env_pass_through:
-#  - LD_LIBRARY_PATH
   # For tcp
   #- FI_OFI_RXM_DEF_TCP_WAIT_OBJ=pollfd
   # For sockets
   #- FI_SOCKETS_MAX_CONN_RETRY=1
   #- FI_SOCKETS_CONN_TIMEOUT=2000
+#  env_pass_through:
+#  - LD_LIBRARY_PATH
   fabric_iface: ib0
   fabric_iface_port: 31416
   first_core: 0

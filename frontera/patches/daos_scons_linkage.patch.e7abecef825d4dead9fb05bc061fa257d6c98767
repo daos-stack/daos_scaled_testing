@@ -1,0 +1,53 @@
+diff --git a/site_scons/site_tools/compiler_setup.py b/site_scons/site_tools/compiler_setup.py
+index 163acf2c4..f79ba561a 100644
+--- a/site_scons/site_tools/compiler_setup.py
++++ b/site_scons/site_tools/compiler_setup.py
+@@ -54,6 +54,9 @@ def _base_setup(env):
+                         '-fpic'])
+ 
+     env.AppendIfSupported(CCFLAGS=DESIRED_FLAGS)
++    env.AppendIfSupported(LINKFLAGS=DESIRED_FLAGS)
++    if '-fstack-protector-strong' in env["CCFLAGS"]:
++        env.AppendENVPath("CGO_LDFLAGS", "-fstack-protector-strong", sep=" ")
+ 
+     if build_type == 'debug':
+         if compiler == 'gcc':
+diff --git a/src/gurt/tests/SConscript b/src/gurt/tests/SConscript
+index fbe8d52cb..c5fcb8141 100644
+--- a/src/gurt/tests/SConscript
++++ b/src/gurt/tests/SConscript
+@@ -23,13 +23,11 @@ def scons():
+     tests = []
+ 
+     for test in TEST_SRC:
+-        flags = []
+         testobj = test_env.Object(test)
+         testname = os.path.splitext(test)[0]
+         testprog = test_env.d_test_program(target=testname,
+                                            source=testobj + gurt_targets,
+-                                           LIBS=test_env["LIBS"] + ['yaml'],
+-                                           LINKFLAGS=flags)
++                                           LIBS=test_env["LIBS"] + ['yaml'])
+         tests.append(testprog)
+ 
+     Default(tests)
+diff --git a/src/tests/ftest/cart/utest/SConscript b/src/tests/ftest/cart/utest/SConscript
+index 1a950de86..1b4da9c0a 100644
+--- a/src/tests/ftest/cart/utest/SConscript
++++ b/src/tests/ftest/cart/utest/SConscript
+@@ -25,14 +25,12 @@ def scons():
+     test_env.AppendUnique(RPATH_FULL=LIBPATH)
+ 
+     for test in TEST_SRC:
+-        flags = []
+         testobj = test_env.Object(test)
+         testname = os.path.splitext(test)[0]
+         testprog = test_env.d_test_program(target=testname,
+                                            source=[testobj, cart_targets, swim_targets,
+                                                    gurt_targets],
+-                                           LIBS=test_env["LIBS"] + ['yaml'],
+-                                           LINKFLAGS=flags)
++                                           LIBS=test_env["LIBS"] + ['yaml'])
+         Default(testprog)
+ 
+ 
