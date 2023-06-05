@@ -170,7 +170,7 @@ if [[ "$IL" == "1" ]]; then
         if [ -z ${LD_PRELOAD_ENV:+x} ]; then
                 LD_PRELOAD_ENV="-env LD_PRELOAD ${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so"
         else
-                LD_PRELOAD_ENV="${LD_PRELOAD_ENV}:${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so"
+                LD_PRELOAD_ENV="${LD_PRELOAD_ENV}:${DAOS_INSTALL}/lib64/libioil.so"
         fi
 
         IL_ENV="-env D_IL_REPORT=5 -env D_LOG_MASK=DEBUG -env DD_MASK=\"trace,io\""

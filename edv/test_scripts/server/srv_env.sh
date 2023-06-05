@@ -7,7 +7,7 @@ export SWIM_SUSPECT_TIMEOUT=19000
 export SWIM_PING_TIMEOUT=1900
 
 # Path to current DAOS installation
-export DAOS_INSTALL=/panfs/users/rpadma2/builds/$TB/SERVER/install
+export DAOS_INSTALL=/panfs/users/${USER}/builds/$TB/install
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/ofed/CURRENT/lib64/libibverbs
 
