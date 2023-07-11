@@ -61,7 +61,7 @@ parseAndSetParameters()
   [ -z $TB ] && echo "Test Build Argument Missing (eg: daos_xxx)" && exit 1
   [ -z $RF ] && echo "DAOS Redundancy Argument Missing (eg: rf=0,1,..)" && exit 1
   [ -z $IL ] && echo "Intersection Library Argument Missing (eg: il=0,1)" && exit 1
-  [ -z $mptype ] && echo "MPI Type Argument Missing (eg: mptype=fpp,mpiio,mpiiodfs)" & exit 1
+  [ -z $mptype ] && echo "MPI Type Argument Missing (eg: mptype=fpp,mpiio,mpiiodfs)" && exit 1
 
   # Export all variables. Individual scripts can over ride these varaibles
   export IL=$IL
