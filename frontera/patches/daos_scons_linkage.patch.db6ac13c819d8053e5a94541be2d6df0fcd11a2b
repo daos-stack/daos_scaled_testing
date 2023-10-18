@@ -6,7 +6,7 @@ index 8c91ff2f5..f2cc763dd 100644
      env.Append(CCFLAGS=['-g', '-Wextra', '-Wshadow', '-Wall', '-fpic'])
  
      env.AppendIfSupported(CCFLAGS=DESIRED_FLAGS)
-+    env.AppendIfSupported(LINKFLAGS=DESIRED_FLAGS)
++    env.AppendIfSupported(LINKFLAGS=["-fstack-protector-strong"])
 +    if '-fstack-protector-strong' in env["CCFLAGS"]:
 +        env.AppendENVPath("CGO_LDFLAGS", "-fstack-protector-strong", sep=" ")
  
