@@ -3,9 +3,6 @@
 # Build DAOS locally.
 #
 
-# Version of this script to use
-_SCRIPT_VER=2
-
 # Default params
 BUILD_DIR="${WORK}/BUILDS/master"
 TIMESTAMP=$(date +%Y%m%d)
@@ -147,46 +144,9 @@ function merge_extra_daos_branches() {
     hack_branch="origin/dbohning/io500-base-5c330f9"
   elif [ $(git_has_commit "e23c00c") = true ]; then
     hack_branch="origin/dbohning-io500-base-cdc3cd0"
-  elif [ $(git_has_commit "5b24460") = true ]; then
-    hack_branch="origin/dbohning-io500-base-5b24460-2.2"
-  elif [ $(git_has_commit "e23c00c") = true ]; then
-    hack_branch="origin/dbohning-io500-base-e23c00c"
-  elif [ $(git_has_commit "56baf9b") = true ]; then
-    hack_branch="origin/dbohning-io500-base-56baf9b-2.2"
-  elif [ $(git_has_commit "e41ad8a") = true ]; then
-    hack_branch="origin/dbohning-io500-base-e41ad8a-2.2"
-  elif [ $(git_has_commit "c180955") = true ]; then
-    hack_branch="origin/dbohning-io500-base-c180955"
-  elif [ $(git_has_commit "8c3bf03") = true ]; then
-    hack_branch="origin/dbohning-io500-base-8c3bf03"
-  elif [ $(git_has_commit "6373e4f") = true ]; then
-    hack_branch="origin/dbohning-io500-base-6373e4f-2.2"
-  elif [ $(git_has_commit "59bdf06") = true ]; then
-    hack_branch="origin/dbohning-io500-base-59bdf06"
-  elif [ $(git_has_commit "b1933c3") = true ]; then
-    hack_branch="origin/dbohning-io500-base-b1933c3"
-  elif [ $(git_has_commit "ec8f3d7") = true ]; then
-    hack_branch="origin/dbohning-io500-base-ec8f3d7"
-  elif [ $(git_has_commit "0fd0d78") = true ]; then
-    hack_branch="origin/dbohning-io500-base-0fd0d78"
-  elif [ $(git_has_commit "1c9fbac") = true ]; then
-    hack_branch="origin/dbohning-io500-base-1c9fbac"
-  elif [ $(git_has_commit "1650544") = true ]; then
-    hack_branch="origin/dbohning-io500-base-1650544-2.0"
-  elif [ $(git_has_commit "f15d6c9") = true ]; then
-    hack_branch="origin/dbohning-io500-base-f15d6c9"
-  elif [ $(git_has_commit "b7a8e51") = true ]; then
-    hack_branch="origin/dbohning-io500-base-b7a8e51-2.0"
-  elif [ $(git_has_commit "3e37280") = true ]; then
-    hack_branch="origin/dbohning-io500-base-3e37280"
-  elif [ $(git_has_commit "af19e7f") = true ]; then
-    hack_branch="origin/dbohning-io500-base-af19e7f"
-  elif [ $(git_has_commit "40f8636") = true ]; then
-    hack_branch="origin/dbohning-io500-base-40f8636"
-  elif [ $(git_has_commit "daaf038") = true ]; then
-    hack_branch="origin/dbohning-io500-base-daaf038"
   else
-    hack_branch="origin/mjmac/io500-frontera"
+    echo "Failed to determine hack branch!"
+    exit 1
   fi;
 
   # Add the hack branch to the user-specified branches
@@ -239,33 +199,21 @@ function install_python_deps() {
     cmd="python3 -m pip install --user --ignore-installed distro scons"
     echo ${cmd}
     eval ${cmd} || return
-
-    # Hack because scons doesn't propagate the environment
-    if [ $_SCRIPT_VER -lt 2 ]; then
-      cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
-      echo ${cmd}
-      eval ${cmd} || return
-      cmd="/usr/bin/python3 -m pip install --user --ignore-installed pyelftools"
-      echo ${cmd}
-      eval ${cmd} || return
-    fi
 }
 
 function install_daos_deps() {
     local rc=0
-    if [ $_SCRIPT_VER -ge 2 ]; then
-        "${CURRENT_DIR}/utils/check_for_lib" "lmdb"
-        rc=$?
-        if [ $rc -ne 0 ]; then
-            "${CURRENT_DIR}/utils/build_install_lmdb" "${WORK}/daos_deps" || return
-            "${CURRENT_DIR}/utils/check_for_lib" "lmdb" || return
-        fi
-        "${CURRENT_DIR}/utils/check_for_lib" "capstone"
-        rc=$?
-        if [ $rc -ne 0 ]; then
-            "${CURRENT_DIR}/utils/build_install_capstone" "${WORK}/daos_deps" || return
-            "${CURRENT_DIR}/utils/check_for_lib" "capstone" || return
-        fi
+    "${CURRENT_DIR}/utils/check_for_lib" "lmdb"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_lmdb" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "lmdb" || return
+    fi
+    "${CURRENT_DIR}/utils/check_for_lib" "capstone"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_capstone" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "capstone" || return
     fi
 }
 
@@ -313,63 +261,36 @@ function build_daos() {
         's/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/master\/na_ucx_changes.patch/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/d993cda60d9346d1bd3451f334340d3b08e5aa42\/na_ucx_changes.patch/' \
         "$config"
 
-    if [ $_SCRIPT_VER -ge 2 ]; then
-        # Newer build process uses SCONS_ENV=full to use the current environment
-
-        # SCONS_ENV option
-        if [ $(git_has_commit "0f55c8157ef30d2d44573502d40fe6dab3486f27") = true ]; then
-            git_cherry_pick_cond "32aaa88543ec721471b5902364ac668ac67b4bc9" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-        else
-            copy_and_apply_patch amd_scons_env.patch.df1f8034e516b5887a37ae4733d39cbd669612ea |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-            #if [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
-            #    copy_and_apply_patch daos_scons_env_option.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
-            #else
-            #    copy_and_apply_patch daos_scons_env_option.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-            #fi
-        fi
-
-        # Patch for os.environ.copy()
-        if [ $(git_has_commit "efe7889c02e2a0781c3661a652785404bcdc25a2") = true ]; then
-            git_cherry_pick_cond "de10c18c46ac054b2ada4e4b2a7245988e78cd2b" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-        fi
-
-        # Build flags fixes
-        if [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
-            copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
-        elif [ $(git_has_commit "e7abecef825d4dead9fb05bc061fa257d6c98767") = true ]; then
-            copy_and_apply_patch daos_scons_linkage.patch.e7abecef825d4dead9fb05bc061fa257d6c98767
-        elif [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
-            copy_and_apply_patch daos_scons_linkage.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
-        else
-            copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-        fi
-
-        scons MPI_PKG=any \
-              --build-deps=${SCONS_BUILD_DEPS} \
-              --config=force \
-              BUILD_TYPE=${DAOS_BUILD_TYPE} \
-              SCONS_ENV=full \
-              COMPILER=gcc \
-              install ${SCONS_EXTRA_ARGS}
-
+    # SCONS_ENV option
+    if [ $(git_has_commit "0f55c8157ef30d2d44573502d40fe6dab3486f27") = true ]; then
+        git_cherry_pick_cond "32aaa88543ec721471b5902364ac668ac67b4bc9" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     else
-        # Older build process does not use SCONS_ENV
-
-        # Revert stdatomic.h stuff
-        if [ $(git_has_commit "c992d41942f472991fd7ac06dd9a0e581b51898a") = true ]; then
-          git revert --no-edit c992d41942f472991fd7ac06dd9a0e581b51898a |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-        fi
-        if [ $(git_has_commit "67d35d458a3f14217a8bfd21c296195a0d0ebfe8") = true ]; then
-          git revert --no-edit 67d35d458a3f14217a8bfd21c296195a0d0ebfe8 |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-        fi
-
-        scons MPI_PKG=any \
-              --build-deps=${SCONS_BUILD_DEPS} \
-              --config=force \
-              --prepend-path="$(dirname $(which cmake))" \
-              BUILD_TYPE=${DAOS_BUILD_TYPE} \
-              install ${SCONS_EXTRA_ARGS}
+        copy_and_apply_patch amd_scons_env.patch.df1f8034e516b5887a37ae4733d39cbd669612ea |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
+
+    # Patch for os.environ.copy()
+    if [ $(git_has_commit "efe7889c02e2a0781c3661a652785404bcdc25a2") = true ]; then
+        git_cherry_pick_cond "de10c18c46ac054b2ada4e4b2a7245988e78cd2b" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    # Build flags fixes
+    if [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
+    elif [ $(git_has_commit "e7abecef825d4dead9fb05bc061fa257d6c98767") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.e7abecef825d4dead9fb05bc061fa257d6c98767
+    elif [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
+    else
+        copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    scons MPI_PKG=any \
+          --build-deps=${SCONS_BUILD_DEPS} \
+          --config=force \
+          BUILD_TYPE=${DAOS_BUILD_TYPE} \
+          SCONS_ENV=full \
+          COMPILER=gcc \
+          install ${SCONS_EXTRA_ARGS}
 
     popd
 }
