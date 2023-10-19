@@ -53,4 +53,9 @@ case ${MPI_TARGET} in
     ;;
   *)
     echo "Error unknown target \"${MPI_TARGET}\": mvapich2, openmpi, or mpich"
+    exit 1
 esac
+
+# Make sure the module-loaded python is in PKG_CONFIG_PATH
+export PKG_CONFIG_PATH="$(realpath "$(dirname $(which python3))/../lib/pkgconfig/"):$PKG_CONFIG_PATH"
+

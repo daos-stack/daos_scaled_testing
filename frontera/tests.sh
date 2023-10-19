@@ -801,7 +801,13 @@ function dfuse_unmount(){
 #Start daos servers
 function start_server(){
     pmsg "Starting server..."
-    local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
+    local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML"
+    run_daos_cmd "daos_server start --help | grep -- '--auto-format'"
+    if [ $? -eq 0 ]; then
+        daos_cmd+=" --auto-format"
+    else
+        daos_cmd+=" --recreate-superblocks"
+    fi
     local cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
         -f $SLURM_JOB_NUM_NODES \"
         pushd ${DUMP_DIR}/server > /dev/null;
