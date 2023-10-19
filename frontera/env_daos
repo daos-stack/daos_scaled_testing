@@ -88,3 +88,7 @@ LIBRARY_PATH="${WORK}/daos_deps/lib:$LIBRARY_PATH"
 CPATH="${WORK}/daos_deps/include:$CPATH"
 
 export PATH LD_LIBRARY_PATH LIBRARY_PATH CPATH PYTHONPATH
+
+# Make sure the module-loaded python is in PKG_CONFIG_PATH
+export PKG_CONFIG_PATH="$(realpath "$(dirname $(which python3))/../lib/pkgconfig/"):$PKG_CONFIG_PATH"
+
