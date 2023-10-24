@@ -3,7 +3,7 @@ control_log_file: /tmp/daos_logs/daos_control.log
 control_log_mask: INFO
 helper_log_file: /tmp/daos_logs/daos_admin.log
 name: daos_server
-nr_hugepages: 4096
+disable_hugepages: true
 port: 10001
 provider: ofi+verbs;ofi_rxm
 #provider: ofi+tcp;ofi_rxm
