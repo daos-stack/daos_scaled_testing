@@ -142,8 +142,6 @@ function merge_extra_daos_branches() {
     hack_branch="origin/dbohning/io500-base-1185938"
   elif [ $(git_has_commit "5c330f9") = true ]; then
     hack_branch="origin/dbohning/io500-base-5c330f9"
-  elif [ $(git_has_commit "e23c00c") = true ]; then
-    hack_branch="origin/dbohning-io500-base-cdc3cd0"
   else
     echo "Failed to determine hack branch!"
     exit 1
