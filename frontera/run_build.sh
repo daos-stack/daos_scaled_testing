@@ -10,6 +10,8 @@ DAOS_BRANCH="master"
 DAOS_COMMIT=""
 EXTRA_DAOS_BRANCHES=()
 EXTRA_DAOS_CHERRY=()
+# temporarily needed for 2.4
+#EXTRA_DAOS_CHERRY=(527b38a8c8a2890e8741543fda12638cc130d0ac)
 DAOS_BUILD_TYPE="release"
 MPI_TARGET="mvapich2"
 IOR_COMMIT=""
@@ -132,6 +134,8 @@ function merge_extra_daos_branches() {
   local hack_branch=""
   if [ $(git_has_commit "527b38a") = true ]; then
     hack_branch="origin/dbohning/io500-base-527b38a"
+  elif [ $(git_has_commit "cc7c11c") = true ]; then
+     hack_branch="origin/dbohning/io500-base-cc7c11c"
   elif [ $(git_has_commit "e64dd3b") = true ]; then
     hack_branch="origin/dbohning/io500-base-e64dd3b"
   elif [ $(git_has_commit "ec18c59") = true ]; then
@@ -272,7 +276,9 @@ function build_daos() {
     fi
 
     # Build flags fixes
-    if [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
+    if [ $(git_has_commit "99e41bc1b70e7431cdda907479e2bccdaaac48f6") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.99e41bc1b70e7431cdda907479e2bccdaaac48f6
+    elif [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
         copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
     elif [ $(git_has_commit "e7abecef825d4dead9fb05bc061fa257d6c98767") = true ]; then
         copy_and_apply_patch daos_scons_linkage.patch.e7abecef825d4dead9fb05bc061fa257d6c98767
