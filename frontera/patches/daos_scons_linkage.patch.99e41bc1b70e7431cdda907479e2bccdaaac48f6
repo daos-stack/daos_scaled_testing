@@ -1,0 +1,14 @@
+diff --git a/site_scons/site_tools/compiler_setup.py b/site_scons/site_tools/compiler_setup.py
+index 163acf2c4..f79ba561a 100644
+--- a/site_scons/site_tools/compiler_setup.py
++++ b/site_scons/site_tools/compiler_setup.py
+@@ -54,6 +54,9 @@ def _base_setup(env):
+                         '-fpic'])
+ 
+     env.AppendIfSupported(CCFLAGS=DESIRED_FLAGS)
++    env.AppendIfSupported(LINKFLAGS=DESIRED_FLAGS)
++    if '-fstack-protector-strong' in env["CCFLAGS"]:
++        env.AppendENVPath("CGO_LDFLAGS", "-fstack-protector-strong", sep=" ")
+ 
+     if build_type == 'debug':
+         if compiler == 'gcc':
