@@ -1,5 +1,5 @@
 diff --git a/src/ior.c b/src/ior.c
-index f97e19f..ae429a5 100755
+index 6fe10a1..4cd75d6 100755
 --- a/src/ior.c
 +++ b/src/ior.c
 @@ -1229,7 +1229,7 @@ static void TestIoSys(IOR_test_t *test)
@@ -11,24 +11,25 @@ index f97e19f..ae429a5 100755
  
                  /* use repetition count for number of multiple files */
                  if (params->multiFile)
-@@ -1650,7 +1650,7 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
+@@ -1654,7 +1654,7 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
    if (access == WRITE) {
            /* fills each transfer with a unique pattern
             * containing the offset into the file */
 -          update_write_memory_pattern(offset, ioBuffers->buffer, transfer, test->setTimeStampSignature, pretendRank, test->dataPacketType, test->gpuMemoryFlags);
 +          update_write_memory_pattern(offset, ioBuffers->buffer, transfer, test->setTimeStampSignature, 0, test->dataPacketType, test->gpuMemoryFlags);
+           double start = GetTimeStamp();
            amtXferred = backend->xfer(access, fd, buffer, transfer, offset, test->backend_options);
-           if (amtXferred != transfer)
-                   ERR("cannot write to file");
-@@ -1673,14 +1673,14 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
-           amtXferred = backend->xfer(access, fd, buffer, transfer, offset, test->backend_options);
+           if(ot) OpTimerValue(ot, start - startTime, GetTimeStamp() - start);
+@@ -1683,7 +1683,7 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
+           if(ot) OpTimerValue(ot, start - startTime, GetTimeStamp() - start);
            if (amtXferred != transfer)
                    ERR("cannot read from file write check");
 -          *errors += CompareData(buffer, transfer, test, offset, pretendRank, WRITECHECK);
 +          *errors += CompareData(buffer, transfer, test, offset, 0, WRITECHECK);
    } else if (access == READCHECK) {
            invalidate_buffer_pattern(buffer, transfer, test->gpuMemoryFlags);          
-           amtXferred = backend->xfer(access, fd, buffer, transfer, offset, test->backend_options);
+           double start = GetTimeStamp();
+@@ -1692,7 +1692,7 @@ static IOR_offset_t WriteOrReadSingle(IOR_offset_t offset, int pretendRank, IOR_
            if (amtXferred != transfer){
              ERR("cannot read from file");
            }
