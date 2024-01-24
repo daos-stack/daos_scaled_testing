@@ -276,7 +276,9 @@ function build_daos() {
     fi
 
     # Build flags fixes
-    if [ $(git_has_commit "99e41bc1b70e7431cdda907479e2bccdaaac48f6") = true ]; then
+    if [ $(git_has_commit "f135357ac070a38cb574f8404f9cbf7a7822f791") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.f135357ac070a38cb574f8404f9cbf7a7822f791
+    elif [ $(git_has_commit "99e41bc1b70e7431cdda907479e2bccdaaac48f6") = true ]; then
         copy_and_apply_patch daos_scons_linkage.patch.99e41bc1b70e7431cdda907479e2bccdaaac48f6
     elif [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
         copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
