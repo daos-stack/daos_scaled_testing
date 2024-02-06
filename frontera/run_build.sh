@@ -201,6 +201,14 @@ function install_python_deps() {
     cmd="python3 -m pip install --user --ignore-installed distro scons"
     echo ${cmd}
     eval ${cmd} || return
+
+    # Hack because scons doesn't propagate the environment
+    cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
+    echo ${cmd}
+    eval ${cmd} || return
+    cmd="/usr/bin/python3 -m pip install --user --ignore-installed pyelftools"
+    echo ${cmd}
+    eval ${cmd} || return
 }
 
 function install_daos_deps() {
