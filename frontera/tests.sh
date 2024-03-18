@@ -906,9 +906,9 @@ function run_ior_write(){
     export LD_PRELOAD="$IOR_LD_PRELOAD"
     echo "LD_PRELOAD=${LD_PRELOAD}"
     eval ${wr_cmd}
+    local ior_rc=$?
     export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
 
-    local ior_rc=$?
     popd > /dev/null
 
     daos_cont_query
@@ -964,9 +964,9 @@ function run_ior_read(){
     export LD_PRELOAD="$IOR_LD_PRELOAD"
     echo "LD_PRELOAD=${LD_PRELOAD}"
     eval ${rd_cmd}
+    local ior_rc=$?
     export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
 
-    local ior_rc=$?
     popd > /dev/null
 
     daos_cont_query
@@ -1136,9 +1136,9 @@ function run_mdtest(){
     export LD_PRELOAD="$MDTEST_LD_PRELOAD"
     echo "LD_PRELOAD=${LD_PRELOAD}"
     eval $cmd
+    local mdtest_rc=$?
     export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
 
-    local mdtest_rc=$?
     popd > /dev/null
 
     daos_cont_query
