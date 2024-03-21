@@ -52,7 +52,7 @@ case "$PROVIDER" in
         export CRT_PHY_ADDR_STR="ucx+dc_x"
         export D_PROVIDER="ucx+dc_x"
         export OFI_DOMAIN="mlx5_0:1"
-        exportD_DOMAIN="mlx5_0:1"
+        export D_DOMAIN="mlx5_0:1"
         ;;
     *)
         echo "Invalid provider: $PROVIDER"
