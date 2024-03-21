@@ -298,6 +298,19 @@ function build_daos() {
         copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
 
+    # libfuse build fixes
+    if [ $(git_has_commit "0268945f7aa8adf3f83d87a1d73519f614d6c3a4") = true ]; then
+        git_cherry_pick_cond "e2e49e42fbdc085ace2c277dd73ef2eb21d0161e" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        # Not clear whether this one is related, but the problem was introduced around the same time
+        git_cherry_pick_cond "d25203738b2144c77e326741539cfeb39a0d1e29" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    # pil4dfs strncmp fix
+    if [ $(git_has_commit "912c9a4c776e7755e4b2d3530dd29fcd30eb4d39") = true ]; then
+        # This commit will need to be updated after https://github.com/daos-stack/daos/pull/14041 is merged
+        git_cherry_pick_cond "4224f58a49ee83d96731b2ae2edd51a583608425" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
     scons MPI_PKG=any \
           --build-deps=${SCONS_BUILD_DEPS} \
           --config=force \

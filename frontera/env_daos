@@ -13,6 +13,10 @@ if [ ! -d $daospath ]; then
     return 1
 fi
 
+# Older envs CRT_PHY_ADDR_STR, OFI_INTERFACE, OFI_DOMAIN will be replaced with
+# D_PROVIDER, D_INTERFACE, D_DOMAIN
+# Specify both for backwards compatibility
+
 export FI_UNIVERSE_SIZE=16383
 export FI_OFI_RXM_USE_SRX=1
 export FI_MR_CACHE_MONITOR=disabled
@@ -21,25 +25,34 @@ export D_LOG_MASK=ERR
 export DAOS_AGENT_DRPC_DIR=/tmp/daos_agent
 export DAOS_DISABLE_REQ_FWD=1
 export OFI_INTERFACE=ib0
+export D_INTERFACE=ib0
 
 # Provider-specific exports
 case "$PROVIDER" in
     verbs)
         export CRT_PHY_ADDR_STR="ofi+verbs;ofi_rxm"
+        export D_PROVIDER="ofi+verbs;ofi_rxm"
         export OFI_DOMAIN=mlx5_0
+        export D_DOMAIN=mlx5_0
         ;;
     tcp)
         export CRT_PHY_ADDR_STR="ofi+tcp;ofi_rxm"
+        export D_PROVIDER="ofi+tcp;ofi_rxm"
         export OFI_DOMAIN=ib0
+        export D_DOMAIN=ib0
         export FI_OFI_RXM_DEF_TCP_WAIT_OBJ=pollfd
         ;;
     sockets)
         export CRT_PHY_ADDR_STR="ofi+sockets"
+        export D_PROVIDER="ofi+sockets"
         export OFI_DOMAIN=ib0
+        export D_DOMAIN=ib0
         ;;
     ucx)
         export CRT_PHY_ADDR_STR="ucx+dc_x"
+        export D_PROVIDER="ucx+dc_x"
         export OFI_DOMAIN="mlx5_0:1"
+        exportD_DOMAIN="mlx5_0:1"
         ;;
     *)
         echo "Invalid provider: $PROVIDER"
