@@ -302,7 +302,7 @@ function build_daos() {
     if [ $(git_has_commit "0268945f7aa8adf3f83d87a1d73519f614d6c3a4") = true ]; then
         git_cherry_pick_cond "e2e49e42fbdc085ace2c277dd73ef2eb21d0161e" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
         # Not clear whether this one is related, but the problem was introduced around the same time
-        git_cherry_pick_cond "d25203738b2144c77e326741539cfeb39a0d1e29" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        git_cherry_pick_cond "0bb652d838c8030ae1d57f55b6be08ceaa5da59c" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
 
     # pil4dfs strncmp fix
