@@ -17,6 +17,7 @@ MPI_TARGET="mvapich2"
 IOR_COMMIT=""
 SCONS_BUILD_DEPS="yes"
 SCONS_EXTRA_ARGS=""
+CLUSTER_NAME=""
 export MPICH_DIR="${WORK}/TOOLS/mpich"
 export OPENMPI_DIR="${WORK}/TOOLS/openmpi"
 
@@ -64,6 +65,9 @@ while [ $# -gt 0 ]; do
       echo ""
       echo "  --scons-extra-args=${SCONS_EXTRA_ARGS}"
       echo "    Optional args to pass to DAOS scons"
+      echo ""
+      echo "  --cluster=${CLUSTER_NAME}"
+      echo "    Cluster name running build process"
       exit 0
       ;;
     --build-dir*|-d*) if [[ "$1" != *=* ]]; then shift; fi
@@ -88,6 +92,8 @@ while [ $# -gt 0 ]; do
       export OPENMPI_DIR="${1#*=}";;
     --scons-extra-args*) if [[ "$1" != *=* ]]; then shift; fi
       SCONS_EXTRA_ARGS="${1#*=}";;
+    --cluster*) if [[ "$1" != *=* ]]; then shift; fi
+      CLUSTER_NAME="${1#*=}";;
     *)
       >&2 printf "Invalid argument: $1\n"
       exit 1
@@ -106,6 +112,30 @@ fi
 
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
+
+# Get the cluster name
+function get_cluster_name() {
+
+  # Auto-detect cluster name if not provided
+  if [ -z "$CLUSTER_NAME" ]; then
+    local host=$(hostname)
+
+    if [[ $host == "ebuild"* ]] || [[ $host == "edaos"* ]]; then
+            CLUSTER_NAME="endeavour"
+    elif [[ $host == *"frontera"* ]]; then
+            CLUSTER_NAME="frontera"
+    fi
+
+  else
+    CLUSTER_NAME=$(echo "$CLUSTER_NAME" | tr '[:upper:]' '[:lower:]' )
+  fi
+
+  if [ ! "$CLUSTER_NAME" == "endeavour" ] && [ ! "$CLUSTER_NAME" == "frontera" ]; then
+    echo "Endeavour or Frontera are the only supported clusters"
+    return
+  fi
+
+}
 
 # Setup the environment
 function setup_env() {
@@ -407,6 +437,7 @@ function main() {
   set -e
   set -o pipefail
 
+  get_cluster_name || exit
   setup_env || exit
   install_python_deps || exit
   install_daos_deps || exit
