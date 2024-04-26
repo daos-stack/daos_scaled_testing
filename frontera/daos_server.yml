@@ -10,7 +10,6 @@ provider: ofi+verbs;ofi_rxm
 #provider: ofi+sockets
 #provider: ucx+dc_x
 crt_timeout: 180
-crt_ctx_share_addr: 0
 engines:
 - env_vars:
   - ABT_ENV_MAX_NUM_XSTREAMS=100
