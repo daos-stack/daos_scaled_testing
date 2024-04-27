@@ -17,6 +17,7 @@ MPI_TARGET="mvapich2"
 IOR_COMMIT=""
 SCONS_BUILD_DEPS="yes"
 SCONS_EXTRA_ARGS=""
+SYSTEM_NAME=""
 export MPICH_DIR="${WORK}/TOOLS/mpich"
 export OPENMPI_DIR="${WORK}/TOOLS/openmpi"
 
@@ -64,6 +65,9 @@ while [ $# -gt 0 ]; do
       echo ""
       echo "  --scons-extra-args=${SCONS_EXTRA_ARGS}"
       echo "    Optional args to pass to DAOS scons"
+      echo ""
+      echo "  --system=${SYSTEM_NAME}"
+      echo "    System name running build process"
       exit 0
       ;;
     --build-dir*|-d*) if [[ "$1" != *=* ]]; then shift; fi
@@ -88,6 +92,8 @@ while [ $# -gt 0 ]; do
       export OPENMPI_DIR="${1#*=}";;
     --scons-extra-args*) if [[ "$1" != *=* ]]; then shift; fi
       SCONS_EXTRA_ARGS="${1#*=}";;
+    --system*) if [[ "$1" != *=* ]]; then shift; fi
+      SYSTEM_NAME="${1#*=}";;
     *)
       >&2 printf "Invalid argument: $1\n"
       exit 1
@@ -106,6 +112,30 @@ fi
 
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
+
+# Get the system name
+function get_system_name() {
+
+  # Auto-detect system name if not provided
+  if [ -z "$SYSTEM_NAME" ]; then
+    local host=$(hostname)
+
+    if [[ $host == "ebuild"* ]] || [[ $host == "edaos"* ]]; then
+            SYSTEM_NAME="endeavour"
+    elif [[ $host == *"frontera"* ]]; then
+            SYSTEM_NAME="frontera"
+    fi
+
+  else
+    SYSTEM_NAME=$(echo "$SYSTEM_NAME" | tr '[:upper:]' '[:lower:]' )
+  fi
+
+  if [ ! "$SYSTEM_NAME" == "endeavour" ] && [ ! "$SYSTEM_NAME" == "frontera" ]; then
+    echo "Endeavour or Frontera are the only supported systems"
+    return 1
+  fi
+
+}
 
 # Setup the environment
 function setup_env() {
@@ -410,6 +440,7 @@ function main() {
   set -e
   set -o pipefail
 
+  get_system_name || exit
   setup_env || exit
   install_python_deps || exit
   install_daos_deps || exit
