@@ -72,6 +72,8 @@ while [ $# -gt 0 ]; do
       ;;
     --build-dir*|-d*) if [[ "$1" != *=* ]]; then shift; fi
       BUILD_DIR="${1#*=}";;
+    --timestamp*) if [[ "$1" != *=* ]]; then shift; fi
+      TIMESTAMP="${1#*=}";;
     --daos-branch*|-b*) if [[ "$1" != *=* ]]; then shift; fi
       DAOS_BRANCH="${1#*=}";;
     --daos-commit*) if [[ "$1" != *=* ]]; then shift; fi
