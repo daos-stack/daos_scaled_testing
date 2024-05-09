@@ -165,12 +165,12 @@ if [ "$DARSHAN" == "1" ]; then
 fi
 
 # Set variables to run with the DAOS Interception Library
-if [[ "$IL" == "1" ]]; then
-        # If we've already set the LD_PRELOAD varaible, append to it
+if [[ ! -z "$IL" ]]; then
+        # If we've already set the LD_PRELOAD variable, append to it
         if [ -z ${LD_PRELOAD_ENV:+x} ]; then
-                LD_PRELOAD_ENV="-env LD_PRELOAD ${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so"
+                LD_PRELOAD_ENV="-env LD_PRELOAD ${DAOS_INSTALL}/lib64/lib${IL}.so"
         else
-                LD_PRELOAD_ENV="${LD_PRELOAD_ENV}:${DAOS_INSTALL}/lib64/libioil.so"
+                LD_PRELOAD_ENV="${LD_PRELOAD_ENV}:${DAOS_INSTALL}/lib64/lib${IL}.so"
         fi
 
         IL_ENV="-env D_IL_REPORT=5 -env D_LOG_MASK=DEBUG -env DD_MASK=\"trace,io\""

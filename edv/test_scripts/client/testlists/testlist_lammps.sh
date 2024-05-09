@@ -7,7 +7,7 @@ source ${RUNDIR}/testlists/testlist_common.sh
 source ${RUNDIR}/scripts/client_env.sh
 
 # Parse the command line
-parseAndSetParameters $@
+parseAndSetParameters $@ || exit
 
 export SCM="700G" #700G
 export NVME="30T" #1T
@@ -34,7 +34,7 @@ export TESTCMD="${APPSRC}/src/lmp_mpi -i ${APPINFILE}"
 
 if [[ "$TYPE" =~ "mpiiodfs" ]]; then
   export DFUSECACHE="--enable-caching" #FOR DFS
-  export IL=0 #FOR DFS
+  export IL='' #FOR DFS
   export ROMIO_FSTYPE_FORCE="daos:" #FOR DFS
 else
   export DFUSECACHE="--disable-caching"
