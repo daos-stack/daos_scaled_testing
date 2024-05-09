@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#
+# Install boost source
+#
+# Instructions: https://www.linuxfromscratch.org/blfs/view/svn/general/boost.html
+#
+
+function usage() {
+    echo "Usage: $(basename $0) <install_dir>"
+}
+
+function _install_here() {
+    local install_dir="$1"
+    local make_jobs="1"
+
+    # Auto-detect running in a slurm job and use multiple processes to build
+    if [ -z $SCONS_EXTRA_ARGS ] && [ ! -z $SLURM_JOB_NUM_NODES  ]; then
+        make_jobs=$(scontrol show node $(hostname | cut -d "." -f 1) | grep -o "CPUAlloc=[0-9]\+" | grep -o "[0-9]\+")
+        make_jobs=$(( $build_cores - 4 ))
+        echo "Detecting running in slurm. Building with MAKE_JOBS=${make_jobs}"
+    fi
+
+    wget https://github.com/boostorg/boost/releases/download/boost-1.85.0/boost-1.85.0-b2-nodocs.tar.xz
+    tar xvf boost-1.85.0-b2-nodocs.tar.xz || return
+    pushd boost-1.85.0
+      mkdir -p "$install_dir" || return
+      ./bootstrap.sh --prefix="$install_dir" --with-python=python3 || return
+      ./b2 stage -j"$make_jobs" threading=multi link=shared
+      ./b2 install threading=multi link=shared
+    popd
+}
+
+function install() {
+    local install_dir="$1"
+    local rc=0
+
+    echo "Installing boost in $install_dir"
+    tmp_dir="$(mktemp -d 2>/dev/null)"
+    pushd "$tmp_dir"
+        _install_here "$install_dir"
+        rc=$?
+    popd
+    rm -r "$tmp_dir"
+    if [ $rc == 0 ]; then
+        echo "Success!"
+    fi
+    exit $rc
+}
+
+if [ -z "$1" ]; then
+    usage
+    exit 1
+fi
+
+install "$1"
+
+

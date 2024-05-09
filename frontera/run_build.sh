@@ -147,6 +147,13 @@ function setup_env() {
   export LIBRARY_PATH="${WORK}/daos_deps/lib:$LIBRARY_PATH"
   export CPATH="${WORK}/daos_deps/include:$CPATH"
   export PYTHONPATH=$PYTHONPATH:~/.local/lib
+
+  if [ "$SYSTEM_NAME" == "endeavour" ]; then
+    local ofed_path="/usr/local/ofed/mlnx-5.6-2.0.9.0_372.16.1.1_2.12.9"
+    export LD_LIBRARY_PATH=${ofed_path}/lib64:${ofed_path}/lib64/libibverbs:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=${ofed_path}/lib64:${ofed_path}/lib64/libibverbs:$LIBRARY_PATH
+  fi
+
   source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET} || return
   module list || return
 }
@@ -237,6 +244,11 @@ function install_python_deps() {
     echo ${cmd}
     eval ${cmd} || return
 
+    if [ "$SYSTEM_NAME" == "endeavour" ]; then
+      cmd="python3 -m pip install --user patchelf"
+      echo ${cmd}
+      eval ${cmd} || return
+    fi
     # Hack because scons doesn't propagate the environment
     cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
     echo ${cmd}
@@ -259,6 +271,27 @@ function install_daos_deps() {
     if [ $rc -ne 0 ]; then
         "${CURRENT_DIR}/utils/build_install_capstone" "${WORK}/daos_deps" || return
         "${CURRENT_DIR}/utils/check_for_lib" "capstone" || return
+    fi
+
+    "${CURRENT_DIR}/utils/check_for_lib" "hwloc"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_hwloc" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "hwloc" || return
+    fi
+
+    "${CURRENT_DIR}/utils/check_for_lib" "boost/boost_math_c99"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+      "${CURRENT_DIR}/utils/build_install_boost" "${WORK}/daos_deps" || return
+      "${CURRENT_DIR}/utils/check_for_lib" "boost/boost_math_c99" || return
+    fi
+
+    "${CURRENT_DIR}/utils/check_for_lib" "cmocka"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_cmocka" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "cmocka" || return
     fi
 }
 
@@ -290,7 +323,9 @@ function clone_daos() {
     git submodule init
     git submodule update
     print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-    merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    if [ "$SYSTEM_NAME" == "frontera" ]; then
+      merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
     cherry_pick_daos_commits |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     popd
     popd
@@ -318,26 +353,31 @@ function build_daos() {
         git_cherry_pick_cond "de10c18c46ac054b2ada4e4b2a7245988e78cd2b" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
 
-    # Build flags fixes
-    if [ $(git_has_commit "f135357ac070a38cb574f8404f9cbf7a7822f791") = true ]; then
-        copy_and_apply_patch daos_scons_linkage.patch.f135357ac070a38cb574f8404f9cbf7a7822f791
-    elif [ $(git_has_commit "99e41bc1b70e7431cdda907479e2bccdaaac48f6") = true ]; then
-        copy_and_apply_patch daos_scons_linkage.patch.99e41bc1b70e7431cdda907479e2bccdaaac48f6
-    elif [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
-        copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
-    elif [ $(git_has_commit "e7abecef825d4dead9fb05bc061fa257d6c98767") = true ]; then
-        copy_and_apply_patch daos_scons_linkage.patch.e7abecef825d4dead9fb05bc061fa257d6c98767
-    elif [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
-        copy_and_apply_patch daos_scons_linkage.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
-    else
-        copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-    fi
+    if [ "$SYSTEM_NAME" == "frontera" ]; then
+      # Build flags fixes
+      if [ $(git_has_commit "f135357ac070a38cb574f8404f9cbf7a7822f791") = true ]; then
+          copy_and_apply_patch daos_scons_linkage.patch.f135357ac070a38cb574f8404f9cbf7a7822f791
+      elif [ $(git_has_commit "99e41bc1b70e7431cdda907479e2bccdaaac48f6") = true ]; then
+          copy_and_apply_patch daos_scons_linkage.patch.99e41bc1b70e7431cdda907479e2bccdaaac48f6
+      elif [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
+          copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
+      elif [ $(git_has_commit "e7abecef825d4dead9fb05bc061fa257d6c98767") = true ]; then
+          copy_and_apply_patch daos_scons_linkage.patch.e7abecef825d4dead9fb05bc061fa257d6c98767
+      elif [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
+          copy_and_apply_patch daos_scons_linkage.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
+      else
+          copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+      fi
 
-    # libfuse build fixes
-    if [ $(git_has_commit "0268945f7aa8adf3f83d87a1d73519f614d6c3a4") = true ]; then
-        git_cherry_pick_cond "e2e49e42fbdc085ace2c277dd73ef2eb21d0161e" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-        # Not clear whether this one is related, but the problem was introduced around the same time
-        git_cherry_pick_cond "0bb652d838c8030ae1d57f55b6be08ceaa5da59c" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+      # libfuse build fixes
+      if [ $(git_has_commit "0268945f7aa8adf3f83d87a1d73519f614d6c3a4") = true ]; then
+          git_cherry_pick_cond "e2e49e42fbdc085ace2c277dd73ef2eb21d0161e" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+          # Not clear whether this one is related, but the problem was introduced around the same time
+          git_cherry_pick_cond "0bb652d838c8030ae1d57f55b6be08ceaa5da59c" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+      fi
+    elif [ "$SYSTEM_NAME" == "endeavour" ]; then
+      # Endeavour patch to add daos_ssd utility
+      git_cherry_pick_cond "68a85d52a55d6933b03f77830af8dd0fa81555d3" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
 
     # pil4dfs strncmp fix
@@ -346,14 +386,22 @@ function build_daos() {
         git_cherry_pick_cond "4224f58a49ee83d96731b2ae2edd51a583608425" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
 
-    scons MPI_PKG=any \
-          --build-deps=${SCONS_BUILD_DEPS} \
-          --config=force \
-          BUILD_TYPE=${DAOS_BUILD_TYPE} \
-          SCONS_ENV=full \
-          COMPILER=gcc \
-          install ${SCONS_EXTRA_ARGS}
-
+    if [ "$SYSTEM_NAME" == "frontera" ]; then
+      scons MPI_PKG=any \
+            --build-deps=${SCONS_BUILD_DEPS} \
+            --config=force \
+            BUILD_TYPE=${DAOS_BUILD_TYPE} \
+            SCONS_ENV=full \
+            COMPILER=gcc \
+            install ${SCONS_EXTRA_ARGS}
+    elif [ "$SYSTEM_NAME" == "endeavour" ]; then
+      scons --build-deps=${SCONS_BUILD_DEPS} \
+            --config=force \
+            BUILD_TYPE=${DAOS_BUILD_TYPE} \
+            SCONS_ENV=full \
+            COMPILER=gcc \
+            install ${SCONS_EXTRA_ARGS}
+    fi
     popd
 }
 

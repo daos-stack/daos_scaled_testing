@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Build and install hwloc from scratch
+#
+# Source: https://www-lb.open-mpi.org/projects/hwloc/doc/v2.10.0/a00334.php
+#
+
+function usage() {
+    echo "Usage: $(basename $0) <install_dir>"
+}
+
+function _install_here() {
+    local install_dir="$1"
+
+    wget https://download.open-mpi.org/release/hwloc/v2.10/hwloc-2.10.0.tar.gz || return
+    tar xzvf hwloc-2.10.0.tar.gz
+    pushd hwloc-2.10.0/
+    ./configure --prefix="$install_dir" || return
+    make || return
+    make install || return
+    popd
+}
+
+function install() {
+    local install_dir="$1"
+    local rc=0
+
+    echo "Installing hwloc in $install_dir"
+    tmp_dir="$(mktemp -d 2>/dev/null)"
+    pushd "$tmp_dir"
+        _install_here "$install_dir"
+        rc=$?
+    popd
+    rm -r "$tmp_dir"
+    if [ $rc == 0 ]; then
+        echo "Success!"
+    fi
+    exit $rc
+}
+
+if [ -z "$1" ]; then
+    usage
+    exit 1
+fi
+
+install "$1"
+
