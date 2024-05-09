@@ -12,7 +12,7 @@ helpFunction()
    echo -e "\t-m Type of MPI to use (MPI, IMPI)"
    echo -e "\t-b DAOS Test Build to use (eg: daos_xxx)"
    echo -e "\t-r DAOS Redundancy Factor(eg: rf=0,1,..)"
-   echo -e "\t-i DAOS Interception library(eg: il=0,1)"
+   echo -e "\t-i DAOS Interception library (eg: 'ioil' or 'pil4dfs')"
    echo -e "\t-e DAOS container property: cell size in bytes (eg: 1048576 for 1MB)"
    echo -e "\t-k DAOS container property: chunk size (eg: 4MB)"
    echo -e "\t-o DAOS container property: object class (oclass) (eg EC_4P2GX, EC_8P2GX)"
@@ -20,6 +20,17 @@ helpFunction()
    echo -e "\t-z Setup DAOS servers and clients (start_server, start_client), run application (app), or clean up (stop_client, stop_server)"
 
    exit 1 # Exit script after printing help
+}
+
+function check_il(){
+  local il=$1
+
+  [ -z $il ] && return 0
+
+  if [ "$il" != "ioil" ] && [ "$il" != "pil4dfs" ]; then
+          echo "Unknown Interception Library entered '$il'. Valid 'ioil' or 'pil4dfs'"
+          return 1
+  fi
 }
 
 # Parse and set all common application environment variables
@@ -32,6 +43,7 @@ parseAndSetParameters()
   CHUNK_SIZE=''
   OCLASS=''
   RUNTYPE="all"
+  IL=''
 
   # Parse the command line
   while getopts ds:c:p:m:b:i:r:t:e:k:o:z: opt
@@ -60,8 +72,11 @@ parseAndSetParameters()
   [ -z $MPI ] && echo "MPI Argument Missing (MPI or IMPI)" && exit 1
   [ -z $TB ] && echo "Test Build Argument Missing (eg: daos_xxx)" && exit 1
   [ -z $RF ] && echo "DAOS Redundancy Argument Missing (eg: rf=0,1,..)" && exit 1
-  [ -z $IL ] && echo "Intersection Library Argument Missing (eg: il=0,1)" && exit 1
   [ -z $mptype ] && echo "MPI Type Argument Missing (eg: mptype=fpp,mpiio,mpiiodfs)" && exit 1
+
+  # Check values of input varibles
+  check_il $IL || return 1
+
 
   # Export all variables. Individual scripts can over ride these varaibles
   export IL=$IL
