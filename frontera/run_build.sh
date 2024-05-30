@@ -342,8 +342,7 @@ function build_daos() {
 
     # pil4dfs strncmp fix
     if [ $(git_has_commit "912c9a4c776e7755e4b2d3530dd29fcd30eb4d39") = true ]; then
-        # This commit will need to be updated after https://github.com/daos-stack/daos/pull/14041 is merged
-        git_cherry_pick_cond "4224f58a49ee83d96731b2ae2edd51a583608425" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        git_cherry_pick_cond "e28415f1e4f0704ae980299facef4e7e76d61054" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
     fi
 
     scons MPI_PKG=any \
