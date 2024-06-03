@@ -342,7 +342,12 @@ function build_daos() {
 
     # pil4dfs strncmp fix
     if [ $(git_has_commit "912c9a4c776e7755e4b2d3530dd29fcd30eb4d39") = true ]; then
-        git_cherry_pick_cond "e28415f1e4f0704ae980299facef4e7e76d61054" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        if [ $(git_has_commit "3c32e1b5d2480de7e7783f8d68ac7edd77e2d7f1") = true ]; then
+            # release/2.6 branch
+            git_cherry_pick_cond "abe2df0b3c465597be301b956c16dcb939775851" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        else
+            git_cherry_pick_cond "e28415f1e4f0704ae980299facef4e7e76d61054" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        fi
     fi
 
     scons MPI_PKG=any \
