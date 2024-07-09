@@ -1,5 +1,18 @@
 # Storing and retrieving results in the database
 
+## DB install
+```
+sudo mkdir /mnt/mariadb/
+sudo mount -t tmpfs -o size=10g mariadb /mnt/mariadb
+sudo mkdir /mnt/mariadb/lib
+sudo mkdir /mnt/mariadb/log
+sudo chown mysql:mysql /mnt/mariadb/
+sudo chown mysql:mysql /mnt/mariadb/lib/
+sudo chown mysql:mysql /mnt/mariadb/log/
+sudo systemctl start mariadb
+mysql_secure_installation --socket=/mnt/mariadb/lib/mysql.sock
+```
+
 ## Initial Setup
 ### Schema
 The initial schema is contained in [./src/sql](./src/sql).

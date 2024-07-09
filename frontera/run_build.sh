@@ -4,17 +4,20 @@
 #
 
 # Default params
-BUILD_DIR="${WORK}/BUILDS/"
+BUILD_DIR="${WORK}/BUILDS/master"
 TIMESTAMP=$(date +%Y%m%d)
 DAOS_BRANCH="master"
 DAOS_COMMIT=""
 EXTRA_DAOS_BRANCHES=()
 EXTRA_DAOS_CHERRY=()
+# temporarily needed for 2.4
+#EXTRA_DAOS_CHERRY=(527b38a8c8a2890e8741543fda12638cc130d0ac)
 DAOS_BUILD_TYPE="release"
 MPI_TARGET="mvapich2"
 IOR_COMMIT=""
 SCONS_BUILD_DEPS="yes"
 SCONS_EXTRA_ARGS=""
+SYSTEM_NAME=""
 export MPICH_DIR="${WORK}/TOOLS/mpich"
 export OPENMPI_DIR="${WORK}/TOOLS/openmpi"
 
@@ -62,10 +65,15 @@ while [ $# -gt 0 ]; do
       echo ""
       echo "  --scons-extra-args=${SCONS_EXTRA_ARGS}"
       echo "    Optional args to pass to DAOS scons"
+      echo ""
+      echo "  --system=${SYSTEM_NAME}"
+      echo "    System name running build process"
       exit 0
       ;;
     --build-dir*|-d*) if [[ "$1" != *=* ]]; then shift; fi
       BUILD_DIR="${1#*=}";;
+    --timestamp*) if [[ "$1" != *=* ]]; then shift; fi
+      TIMESTAMP="${1#*=}";;
     --daos-branch*|-b*) if [[ "$1" != *=* ]]; then shift; fi
       DAOS_BRANCH="${1#*=}";;
     --daos-commit*) if [[ "$1" != *=* ]]; then shift; fi
@@ -86,6 +94,8 @@ while [ $# -gt 0 ]; do
       export OPENMPI_DIR="${1#*=}";;
     --scons-extra-args*) if [[ "$1" != *=* ]]; then shift; fi
       SCONS_EXTRA_ARGS="${1#*=}";;
+    --system*) if [[ "$1" != *=* ]]; then shift; fi
+      SYSTEM_NAME="${1#*=}";;
     *)
       >&2 printf "Invalid argument: $1\n"
       exit 1
@@ -97,7 +107,7 @@ done
 # Auto-detect running in a slurm job and use multiple processes to build
 if [ -z $SCONS_EXTRA_ARGS ] && [ ! -z $SLURM_JOB_NUM_NODES  ]; then
     build_cores=$(scontrol show node $(hostname | cut -d "." -f 1) | grep -o "CPUAlloc=[0-9]\+" | grep -o "[0-9]\+")
-    build_cores=$(( $build_cores / 2 ))
+    build_cores=$(( $build_cores - 4 ))
     SCONS_EXTRA_ARGS="-j$build_cores"
     echo "Detecting running in slurm. Building with ${SCONS_EXTRA_ARGS}"
 fi
@@ -105,10 +115,37 @@ fi
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LATEST_DAOS=${BUILD_DIR}/${TIMESTAMP}/daos/install
 
+# Get the system name
+function get_system_name() {
+
+  # Auto-detect system name if not provided
+  if [ -z "$SYSTEM_NAME" ]; then
+    local host=$(hostname)
+
+    if [[ $host == "ebuild"* ]] || [[ $host == "edaos"* ]]; then
+            SYSTEM_NAME="endeavour"
+    elif [[ $host == *"frontera"* ]]; then
+            SYSTEM_NAME="frontera"
+    fi
+
+  else
+    SYSTEM_NAME=$(echo "$SYSTEM_NAME" | tr '[:upper:]' '[:lower:]' )
+  fi
+
+  if [ ! "$SYSTEM_NAME" == "endeavour" ] && [ ! "$SYSTEM_NAME" == "frontera" ]; then
+    echo "Endeavour or Frontera are the only supported systems"
+    return 1
+  fi
+
+}
+
 # Setup the environment
 function setup_env() {
-  module unload impi pmix hwloc || return
   export PATH=~/.local/bin:$PATH
+  export PATH="${WORK}/daos_deps/bin:$PATH"
+  export LD_LIBRARY_PATH="${WORK}/daos_deps/lib:$LD_LIBRARY_PATH"
+  export LIBRARY_PATH="${WORK}/daos_deps/lib:$LIBRARY_PATH"
+  export CPATH="${WORK}/daos_deps/include:$CPATH"
   export PYTHONPATH=$PYTHONPATH:~/.local/lib
   source ${CURRENT_DIR}/build_env.sh ${MPI_TARGET} || return
   module list || return
@@ -127,46 +164,26 @@ function git_has_commit() {
 # Merge a "hack" branch and user-specified branches
 function merge_extra_daos_branches() {
   local hack_branch=""
-  if $(git_has_commit "5b24460") = true; then
-    hack_branch="origin/dbohning-io500-base-5b24460-2.2"
-  elif $(git_has_commit "e23c00c") = true; then
-    hack_branch="origin/dbohning-io500-base-e23c00c"
-  elif $(git_has_commit "56baf9b") = true; then
-    hack_branch="origin/dbohning-io500-base-56baf9b-2.2"
-  elif $(git_has_commit "e41ad8a") = true; then
-    hack_branch="origin/dbohning-io500-base-e41ad8a-2.2"
-  elif $(git_has_commit "c180955") = true; then
-    hack_branch="origin/dbohning-io500-base-c180955"
-  elif $(git_has_commit "8c3bf03") = true; then
-    hack_branch="origin/dbohning-io500-base-8c3bf03"
-  elif $(git_has_commit "6373e4f") = true; then
-    hack_branch="origin/dbohning-io500-base-6373e4f-2.2"
-  elif $(git_has_commit "59bdf06") = true; then
-    hack_branch="origin/dbohning-io500-base-59bdf06"
-  elif $(git_has_commit "b1933c3") = true; then
-    hack_branch="origin/dbohning-io500-base-b1933c3"
-  elif $(git_has_commit "ec8f3d7") = true; then
-    hack_branch="origin/dbohning-io500-base-ec8f3d7"
-  elif $(git_has_commit "0fd0d78") = true; then
-    hack_branch="origin/dbohning-io500-base-0fd0d78"
-  elif $(git_has_commit "1c9fbac") = true; then
-    hack_branch="origin/dbohning-io500-base-1c9fbac"
-  elif $(git_has_commit "1650544") = true; then
-    hack_branch="origin/dbohning-io500-base-1650544-2.0"
-  elif $(git_has_commit "f15d6c9") = true; then
-    hack_branch="origin/dbohning-io500-base-f15d6c9"
-  elif $(git_has_commit "b7a8e51") = true; then
-    hack_branch="origin/dbohning-io500-base-b7a8e51-2.0"
-  elif $(git_has_commit "3e37280") = true; then
-    hack_branch="origin/dbohning-io500-base-3e37280"
-  elif $(git_has_commit "af19e7f") = true; then
-    hack_branch="origin/dbohning-io500-base-af19e7f"
-  elif $(git_has_commit "40f8636") = true; then
-    hack_branch="origin/dbohning-io500-base-40f8636"
-  elif $(git_has_commit "daaf038") = true; then
-    hack_branch="origin/dbohning-io500-base-daaf038"
+
+  if [ $(git_has_commit "874e439") = true ]; then
+    hack_branch="origin/dbohning/io500-base-874e439"
+  elif [ $(git_has_commit "527b38a") = true ]; then
+    hack_branch="origin/dbohning/io500-base-527b38a"
+  elif [ $(git_has_commit "cc7c11c") = true ]; then
+     hack_branch="origin/dbohning/io500-base-cc7c11c"
+  elif [ $(git_has_commit "e64dd3b") = true ]; then
+    hack_branch="origin/dbohning/io500-base-e64dd3b"
+  elif [ $(git_has_commit "ec18c59") = true ]; then
+    hack_branch="origin/dbohning/io500-base-ec18c59"
+  elif [ $(git_has_commit "e2a10d7") = true ]; then
+    hack_branch="origin/dbohning/io500-base-e2a10d7"
+  elif [ $(git_has_commit "1185938") = true ]; then
+    hack_branch="origin/dbohning/io500-base-1185938"
+  elif [ $(git_has_commit "5c330f9") = true ]; then
+    hack_branch="origin/dbohning/io500-base-5c330f9"
   else
-    hack_branch="origin/mjmac/io500-frontera"
+    echo "Failed to determine hack branch!"
+    exit 1
   fi;
 
   # Add the hack branch to the user-specified branches
@@ -181,22 +198,34 @@ function merge_extra_daos_branches() {
   done
 }
 
+function git_cherry_pick() {
+    local commit="$1"
+    echo "Cherry-picking commit: ${commit}"
+    git log -n 1 --pretty=format:"commit %H%n" "${commit}" || return
+    git cherry-pick --no-edit ${commit} || return
+    echo ""
+}
+git_cherry_pick_cond() {
+    local commit="$1"
+
+    if [ ! $(git_has_commit "$1") = true ]; then
+        git_cherry_pick "$1"
+    fi
+}
+
 function cherry_pick_daos_commits() {
-  for COMMIT in "${EXTRA_DAOS_CHERRY[@]}"
-  do
-    echo "Cherry-picking commit: ${COMMIT}"
-    git log -n 1 --pretty=format:"commit %H%n" "${COMMIT}" || return
-    git cherry-pick --no-edit ${COMMIT} || return
-    echo
-  done
+    for COMMIT in "${EXTRA_DAOS_CHERRY[@]}"
+    do
+        git_cherry_pick "${COMMIT}"
+    done
 }
 
 function print_repo_info() {
-  REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
-  printf '%80s\n' | tr ' ' =
-  echo "Repo: ${REPO_NAME}"
-  git log -n 1 --pretty=format:"commit %H%n"
-  echo
+    REPO_NAME=$(git remote -v | head -n 1 | cut -d $'\t' -f 2 | cut -d " " -f 1)
+    printf '%80s\n' | tr ' ' =
+    echo "Repo: ${REPO_NAME}"
+    git log -n 1 --pretty=format:"commit %H%n"
+    echo
 }
 
 function install_python_deps() {
@@ -207,6 +236,7 @@ function install_python_deps() {
     cmd="python3 -m pip install --user --ignore-installed distro scons"
     echo ${cmd}
     eval ${cmd} || return
+
     # Hack because scons doesn't propagate the environment
     cmd="/usr/bin/python3 -m pip install --user --upgrade pip"
     echo ${cmd}
@@ -216,80 +246,160 @@ function install_python_deps() {
     eval ${cmd} || return
 }
 
+function install_daos_deps() {
+    local rc=0
+    "${CURRENT_DIR}/utils/check_for_lib" "lmdb"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_lmdb" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "lmdb" || return
+    fi
+    "${CURRENT_DIR}/utils/check_for_lib" "capstone"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_capstone" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "capstone" || return
+    fi
+}
+
 # Setup a new build directory, removing if it already exists
 function setup_build_dir() {
-  rm -rf ${BUILD_DIR}/${TIMESTAMP}
-  mkdir -p ${BUILD_DIR}/${TIMESTAMP}
-  rm -f ${BUILD_DIR}/latest
-  ln -s ${BUILD_DIR}/${TIMESTAMP} ${BUILD_DIR}/latest
+    rm -rf ${BUILD_DIR}/${TIMESTAMP}
+    mkdir -p ${BUILD_DIR}/${TIMESTAMP}
+    rm -f ${BUILD_DIR}/latest
+    ln -s ${BUILD_DIR}/${TIMESTAMP} ${BUILD_DIR}/latest
+}
+
+# Copy a patch from the script directory and apply it
+function copy_and_apply_patch() {
+    local patch="$1"
+    local patch_path="${CURRENT_DIR}/patches/$patch"
+    cp "$patch_path" .
+    echo "Applying patch $patch"
+    git apply "$patch_path"
 }
 
 # Clone, checkout, and merge DAOS branches
 function clone_daos() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}
-  git clone https://github.com/daos-stack/daos.git -b "${DAOS_BRANCH}"
-  pushd daos
-  if [ ! -z "${DAOS_COMMIT}" ]; then
-      git checkout -b "${DAOS_COMMIT}" "${DAOS_COMMIT}"
-  fi
-  git submodule init
-  git submodule update
-  print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  cherry_pick_daos_commits |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  popd
-  popd
+    pushd ${BUILD_DIR}/${TIMESTAMP}
+    git clone https://github.com/daos-stack/daos.git -b "${DAOS_BRANCH}"
+    pushd daos
+    if [ ! -z "${DAOS_COMMIT}" ]; then
+        git checkout -b "${DAOS_COMMIT}" "${DAOS_COMMIT}"
+    fi
+    git submodule init
+    git submodule update
+    print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    merge_extra_daos_branches |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    cherry_pick_daos_commits |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    popd
+    popd
 }
 
 # Build DAOS
 function build_daos() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}/daos
-  scons MPI_PKG=any \
-        --build-deps=${SCONS_BUILD_DEPS} \
-        --config=force \
-        BUILD_TYPE=${DAOS_BUILD_TYPE} \
-        install ${SCONS_EXTRA_ARGS}
-  popd
+    pushd ${BUILD_DIR}/${TIMESTAMP}/daos
+
+    # Point to removed mercury patch for old builds
+    local config="${BUILD_DIR}/${TIMESTAMP}/daos/utils/build.config"
+    sed -i \
+        's/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/master\/na_ucx_changes.patch/https:\/\/raw.githubusercontent.com\/daos-stack\/mercury\/d993cda60d9346d1bd3451f334340d3b08e5aa42\/na_ucx_changes.patch/' \
+        "$config"
+
+    # SCONS_ENV option
+    if [ $(git_has_commit "0f55c8157ef30d2d44573502d40fe6dab3486f27") = true ]; then
+        git_cherry_pick_cond "32aaa88543ec721471b5902364ac668ac67b4bc9" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    else
+        copy_and_apply_patch amd_scons_env.patch.df1f8034e516b5887a37ae4733d39cbd669612ea |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    # Patch for os.environ.copy()
+    if [ $(git_has_commit "efe7889c02e2a0781c3661a652785404bcdc25a2") = true ]; then
+        git_cherry_pick_cond "de10c18c46ac054b2ada4e4b2a7245988e78cd2b" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    # Build flags fixes
+    if [ $(git_has_commit "f135357ac070a38cb574f8404f9cbf7a7822f791") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.f135357ac070a38cb574f8404f9cbf7a7822f791
+    elif [ $(git_has_commit "99e41bc1b70e7431cdda907479e2bccdaaac48f6") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.99e41bc1b70e7431cdda907479e2bccdaaac48f6
+    elif [ $(git_has_commit "db6ac13c819d8053e5a94541be2d6df0fcd11a2b") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.db6ac13c819d8053e5a94541be2d6df0fcd11a2b
+    elif [ $(git_has_commit "e7abecef825d4dead9fb05bc061fa257d6c98767") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.e7abecef825d4dead9fb05bc061fa257d6c98767
+    elif [ $(git_has_commit "6a3c9910ea2a7b647f818bed9754bb3363b78770") = true ]; then
+        copy_and_apply_patch daos_scons_linkage.patch.6a3c9910ea2a7b647f818bed9754bb3363b78770
+    else
+        copy_and_apply_patch daos_scons_linkage.patch |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    # libfuse build fixes
+    if [ $(git_has_commit "0268945f7aa8adf3f83d87a1d73519f614d6c3a4") = true ]; then
+        git_cherry_pick_cond "e2e49e42fbdc085ace2c277dd73ef2eb21d0161e" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        # Not clear whether this one is related, but the problem was introduced around the same time
+        git_cherry_pick_cond "0bb652d838c8030ae1d57f55b6be08ceaa5da59c" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
+    # pil4dfs strncmp fix
+    if [ $(git_has_commit "912c9a4c776e7755e4b2d3530dd29fcd30eb4d39") = true ]; then
+        if [ $(git_has_commit "3c32e1b5d2480de7e7783f8d68ac7edd77e2d7f1") = true ]; then
+            # release/2.6 branch
+            git_cherry_pick_cond "abe2df0b3c465597be301b956c16dcb939775851" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        else
+            git_cherry_pick_cond "e28415f1e4f0704ae980299facef4e7e76d61054" |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+        fi
+    fi
+
+    scons MPI_PKG=any \
+          --build-deps=${SCONS_BUILD_DEPS} \
+          --config=force \
+          BUILD_TYPE=${DAOS_BUILD_TYPE} \
+          SCONS_ENV=full \
+          COMPILER=gcc \
+          install ${SCONS_EXTRA_ARGS}
+
+    popd
 }
 
 
 # Clone and checkout IOR and MDTest
 function clone_ior_mdtest() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}
-  git clone https://github.com/hpc/ior.git
-  pushd ${BUILD_DIR}/${TIMESTAMP}/ior
-  if [ ! -z "${IOR_COMMIT}" ]; then
-      git checkout -b "${IOR_COMMIT}" "${IOR_COMMIT}"
-  fi
+    pushd ${BUILD_DIR}/${TIMESTAMP}
+    git clone https://github.com/hpc/ior.git
+    pushd ${BUILD_DIR}/${TIMESTAMP}/ior
+    if [ ! -z "${IOR_COMMIT}" ]; then
+        git checkout -b "${IOR_COMMIT}" "${IOR_COMMIT}"
+    fi
 
-  # Apply patch to make all processes write the same data.
-  # This is needed to reduce pool space usage so a larger number of clients can be used.
-  cp ${CURRENT_DIR}/patches/ior_dedup_workaround.patch .
-  git apply ior_dedup_workaround.patch
+    # Apply patch to make all processes write the same data.
+    # This is needed to reduce pool space usage so a larger number of clients can be used.
+    copy_and_apply_patch ior_dedup_workaround.patch
 
-  print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
-  ./bootstrap
-  popd
-  popd
+    print_repo_info |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    ./bootstrap
+    popd
+    popd
 }
 
 # Build IOR and MDTest
 function build_ior_mdtest() {
-  pushd ${BUILD_DIR}/${TIMESTAMP}/ior
-  ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
-              MPICC=${MPI_BIN}/mpicc \
-              --with-daos=${LATEST_DAOS} \
-              CPPFLAGS=-I${LATEST_DAOS}/prereq/release/mercury/include \
-              LIBS=-lmpi
-  make clean
-  make
-  make install
+    pushd ${BUILD_DIR}/${TIMESTAMP}/ior
+    ./configure --prefix=${LATEST_DAOS}/ior${MPI_SUFFIX} \
+                MPICC=${MPI_BIN}/mpicc \
+                --with-daos=${LATEST_DAOS} \
+                --with-cuda=no \
+                --with-gpuDirect=no \
+                CPPFLAGS=-I${LATEST_DAOS}/prereq/release/mercury/include \
+                LIBS=-lmpi
+    make clean
+    make
+    make install
 
-  pushd ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin
-  mv -v ior ${IOR_BIN}
-  mv -v mdtest ${MDTEST_BIN}
-  popd
-  popd
+    pushd ${LATEST_DAOS}/ior${MPI_SUFFIX}/bin
+    mv -v ior ${IOR_BIN}
+    mv -v mdtest ${MDTEST_BIN}
+    popd
+    popd
 }
 
 # Perform a basic revision of the built binaries
@@ -332,12 +442,18 @@ function check_retcode(){
 }
 
 function main() {
-  trap 'check_retcode $? ${BASH_COMMAND}' EXIT
+  #trap 'check_retcode $? ${BASH_COMMAND}' EXIT
   set -e
   set -o pipefail
 
-  setup_env
-  install_python_deps
+  get_system_name || exit
+  setup_env || exit
+  install_python_deps || exit
+  install_daos_deps || exit
+
+  # Capture all bad returns
+  trap 'check_retcode $? ${BASH_COMMAND}' EXIT
+
   setup_build_dir
   clone_daos
   build_daos

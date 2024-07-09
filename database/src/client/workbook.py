@@ -80,7 +80,7 @@ class Workbook():
         # Write some aggregate statistics
         if self.options.stat_cols:
             stat_format = self.workbook.add_format()
-            stat_format.set_num_format('[Red][<-5]-General;General')
+            stat_format.set_num_format('General;[Red][<-5]-General;General')
             row_idx = len(rows) + row_offset + 1 # One blank line after last row
             worksheet.write_column(row_idx, len(rows[0]), ['Min', 'Max', 'Mean'])
             for col in self.options.stat_cols:

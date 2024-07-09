@@ -155,26 +155,47 @@ def csv_to_xlsx(csv_list, xlsx_file_path, group_by_col=None, group_by_csv=False,
     # TODO cleaner
     if Workbook is None:
         print_err('Not installed: xlsxwriter')
-        return None
+        return False
     # TODO cleaner
     options = WorkbookOptions(
         stat_cols=['write_gib%', 'read_gib%', 'create%', 'stat%', 'read%', 'remove%'])
     Workbook.from_csv(xlsx_file_path, csv_list, group_by_col, group_by_csv, sheet_names, options)
+    return True
 
-def list_to_output_type(data, output_type='table', file=sys.stdout, data_dims=1, xlsx_sheet_names=None):
+def print_arr_kv(arr, file=sys.stdout):
+    '''Print a 2D array in a KV format, using the first row as the header.
+
+    Args:
+        arr (iter): 2D iterable object. E.g. list of rows.
+            Rows are assumed to have the same length.
+            Each row is assumed to be string-like.
+        file (file): file-like object to print to.
+            Defaut is sys.stdout.
+
+    '''
+    arr = list(arr)
+    header = arr[0]
+    for row in arr[1:]:
+        for col_idx, col_val in enumerate(row):
+            col_val = str(col_val)
+            if ' ' in col_val:
+                col_val = f'"{col_val}"'
+            print(f'{header[col_idx]}={col_val}  ', end='', file=file)
+        print('', file=file)
+
+def list_to_output_type(args, data, data_dims=1, xlsx_sheet_names=None):
     """Convert list(s) of data to various output types.
     
     Args:
+        args (argparse.Namespace): result of ArgumentParser.parse_args().
         data (list): single list of rows, or list of lists of rows.
-        output_type (str, optional): table, csv, or xlsx. Default is table.
-        file (str/obj, optional): if str, the output path. If obj, the open stream to write to.
-            Default is sys.stdout.
         data_dims (int, optional): 1 or 2 for data dimensions.
             E.g.: 1 -> ['a', 'b', 'c']
                   2 -> [['a', 'b', 'c'], ['d', 'e']]
         xlsx_sheet_names (list, optional): list of sheet names for xlsx output.
             len(xlsx_sheet_names) must == len(data).
             Default uses generated tmp names.
+
     Returns:
         bool: True on success. False otherwise.
     """
@@ -184,28 +205,40 @@ def list_to_output_type(data, output_type='table', file=sys.stdout, data_dims=1,
         print_err('data_dims must be 1 or 2')
         return False
 
-    need_open = isinstance(file, str)
+    output_path = args.output_path if args else sys.stdout
+    output_format = args.output_format if args else 'table'
+
+    need_open = isinstance(output_path, str)
+    f = None
     def return_handler(success):
         try:
-            if need_open:
+            if need_open and f:
                 f.close()
         except:
             success = False
-        finally:
-            return success
+        if args and 'email' in args and args.email:
+            if not isinstance(output_path, str):
+                print_err("Please specify an output path for email.")
+            else:
+                success &= send_email(args.email, basename(output_path), "See attached\n", output_path)
+        return success
 
-    f = open(file, 'w') if need_open else file
-    if output_type == 'table':
+    f = open(output_path, 'w') if need_open else output_path
+    if output_format == 'table':
         for d in data:
             print_arr_tabular(d, file=f)
         return return_handler(True)
-    elif output_type == 'csv':
+    elif output_format == 'kv':
+        for d in data:
+            print_arr_kv(d, file=f)
+        return return_handler(True)
+    elif output_format == 'csv':
         writer = csv.writer(f)
         for d in data:
             writer.writerows(d)
         return return_handler(True)
-    elif output_type == 'xlsx':
-        if f in (sys.stdin, sys.stdout, sys.stderr):
+    elif output_format == 'xlsx':
+        if output_path in (sys.stdin, sys.stdout, sys.stderr):
             print_err('Refuse to write xlsx to standard IO')
             return return_handler(False)
         csv_list = []
@@ -216,9 +249,11 @@ def list_to_output_type(data, output_type='table', file=sys.stdout, data_dims=1,
                 os.close(tmp[0])
                 if not list_to_csv(d, tmp[1]):
                     return return_handler(False)
-            return return_handler(csv_to_xlsx(csv_list, file, group_by_csv=True, sheet_names=xlsx_sheet_names))
+            return return_handler(csv_to_xlsx(csv_list, output_path, group_by_csv=True, sheet_names=xlsx_sheet_names))
         finally:
             for path in csv_list:
                 os.remove(path)
+    else:
+        raise ValueError(f'Invalid output_format: {output_format}')
 
     return return_handler(False)

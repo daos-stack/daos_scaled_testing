@@ -28,7 +28,7 @@ tests = [
         ],
         'env_vars': dict(
             env_vars,
-            cont_rf=1,
+            cont_prop='dedup:memcmp,rf:1',
             block_size='100M'),
         'enabled': True
     },
@@ -43,7 +43,7 @@ tests = [
         ],
         'env_vars': dict(
             env_vars,
-            cont_rf=1,
+            cont_prop='dedup:memcmp,rf:1',
             block_size='100M',
             pool_size='256MiB',
             number_of_pools='5'),

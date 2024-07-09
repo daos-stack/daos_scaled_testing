@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# Build and install lmdb from scratch
+#
+# Source: https://www.linuxfromscratch.org/blfs/view/svn/server/lmdb.html
+#
+
+function usage() {
+    echo "Usage: $(basename $0) <install_dir>"
+}
+
+function _install_here() {
+    local install_dir="$1"
+
+    wget https://github.com/LMDB/lmdb/archive/LMDB_0.9.29.tar.gz || return
+    tar -xvzf LMDB_0.9.29.tar.gz || return
+    pushd lmdb-LMDB_0.9.29
+        pushd libraries/liblmdb
+            make || return
+            # Don't install static library
+            sed -i 's| liblmdb.a||' Makefile || return
+            mkdir -p "$install_dir" || return
+            make prefix="$install_dir" install || return
+        popd
+    popd
+}
+
+function install() {
+    local install_dir="$1"
+    local rc=0
+
+    echo "Installing lmdb in $install_dir"
+    tmp_dir="$(mktemp -d 2>/dev/null)"
+    pushd "$tmp_dir"
+        _install_here "$install_dir"
+        rc=$?
+    popd
+    rm -r "$tmp_dir"
+    if [ $rc == 0 ]; then
+        echo "Success!"
+    fi
+    exit $rc
+}
+
+if [ -z "$1" ]; then
+    usage
+    exit 1
+fi
+
+install "$1"
+

@@ -25,11 +25,11 @@ def get_email():
     out = subprocess.run('git config user.email', shell=True, stdout=subprocess.PIPE)
     return out.stdout.decode('utf-8').strip(' \n')
 
-env['JOBNAME']     = "<sbatch_jobname>"
+env['JOBNAME']     = "job-name"
 env['EMAIL']       = "" or get_email()
-env['DAOS_DIR']    = abspath(expandvars("${WORK}/BUILDS/latest/daos")) # Path to daos
+env['DAOS_DIR']    = abspath(expandvars("${WORK}/BUILDS/build_dir/latest/daos")) # Path to daos
 env['DST_DIR']     = abspath(expandvars("../")) # Path to daos_scaled_testing repo
-env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS")) # Path to test results
+env['RES_DIR']     = abspath(expandvars("${WORK}/RESULTS/results_dir")) # Path to test results
 
 env['MPI_TARGET']  = "mvapich2" # mvapich2, openmpi, mpich
 
@@ -281,8 +281,7 @@ class TestList(object):
             if do_skip:
                 continue
             print(f"{idx:03}. Running {env['TESTCASE']} {env['OCLASS']}, "
-                  f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients, "
-                  f"{env['EC_CELL_SIZE']} ec_ell_size")
+                  f"{env['DAOS_SERVERS']} servers, {env['DAOS_CLIENTS']} clients")
             idx += 1
             if not dryrun:
                 if serial:

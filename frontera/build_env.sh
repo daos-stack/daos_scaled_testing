@@ -8,8 +8,9 @@ MPI_TARGET=${1}
 export IOR_BIN=daosior
 export MDTEST_BIN=daosmdt
 
-# Activate mpi
+module unload impi pmix hwloc intel
 
+# Activate mpi and export some vars
 function activate_mpi(){
   NAME=${1}
   MPI_DIR=${2}
@@ -52,4 +53,9 @@ case ${MPI_TARGET} in
     ;;
   *)
     echo "Error unknown target \"${MPI_TARGET}\": mvapich2, openmpi, or mpich"
+    exit 1
 esac
+
+# Make sure the module-loaded python is in PKG_CONFIG_PATH
+export PKG_CONFIG_PATH="$(realpath "$(dirname $(which python3))/../lib/pkgconfig/"):$PKG_CONFIG_PATH"
+

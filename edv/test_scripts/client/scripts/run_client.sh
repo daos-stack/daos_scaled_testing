@@ -8,18 +8,11 @@ date
 export I_MPI_OFI_LIBRARY_INTERNAL=0
 export I_MPI_OFI_PROVIDER="verbs;ofi_rxm"
 export I_MPI_DEBUG=4
-
 export SRV_HOSTLIST="${RUNDIR}/../server/hostlists/srv_hostlist${NSERVER}"
 export CLI_HOSTLIST="${RUNDIR}/hostlists/cli_hostlist${NCLIENT}"
-export envIL=""
 export NPROCESS=$(( $NCLIENT * $PPN ))
 export PLABEL="p_${TESTDIR}"
 export CLABEL="c_${TESTDIR}"
-
-#export EXTRA_ENV="-genv DARSHAN_LOGPATH ${RESULTDIR}/darshanlog -genv LD_PRELOAD /panfs/users/rpadma2/apps/darshan-install-impi/lib/libdarshan.so"
-export EXTRA_ENV=""
-
-mkdir -p ${RESULTDIR}/darshanlog
 
 echo NPROCESS=${NPROCESS}
 
@@ -156,13 +149,32 @@ fi
 #  echo "${MOUNTDIR}/vpic" exists
 #fi
 
-if [[ "$IL" == "1" ]]; then
-  #export envIL="-env DARSHAN_LOGPATH=${RESULTDIR}/darshanlog -env LD_PRELOAD=/panfs/users/rpadma2/apps/darshan-install-impi/lib/libdarshan.so:${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so -env D_IL_REPORT=5 -env D_LOG_MASK=ERR"
-  #export envIL="-env LD_PRELOAD=${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so -env D_IL_REPORT=5 -env D_LOG_MASK=ERR"
-  export envIL="-env LD_PRELOAD=${BUILDDIR}/${TB}/CLIENT/install/lib64/libioil.so -env D_LOG_MASK=ERR"
+LD_PRELOAD_ENV=""
+DARSHAN_ENV=""
+IL_ENV=""
+
+# Set up Darshan
+if [ "$DARSHAN" == "1" ]; then
+        # Path for mpich compiled Darshan
+        DARSHAN_LIB="${RUNDIR}/../apps/${MPI}/darshan/lib/libdarshan.so"
+        export DARSHAN_LOGPATH="${RESULTDIR}/darshanlog"
+        LD_PRELOAD_ENV="-env LD_PRELOAD ${DARSHAN_LIB}"
+        DARSHAN_ENV="-env DARSHAN_LOGPATH ${DARSHAN_LOGPATH}"
+
+        mkdir -p ${DARSHAN_LOGPATH}
 fi
 
-echo
+# Set variables to run with the DAOS Interception Library
+if [[ ! -z "$IL" ]]; then
+        # If we've already set the LD_PRELOAD variable, append to it
+        if [ -z ${LD_PRELOAD_ENV:+x} ]; then
+                LD_PRELOAD_ENV="-env LD_PRELOAD ${DAOS_INSTALL}/lib64/lib${IL}.so"
+        else
+                LD_PRELOAD_ENV="${LD_PRELOAD_ENV}:${DAOS_INSTALL}/lib64/lib${IL}.so"
+        fi
+
+        IL_ENV="-env D_IL_REPORT=5 -env D_LOG_MASK=DEBUG -env DD_MASK=\"trace,io\""
+fi
 
 if [[ "${TEST}" =~ "IOR" ]]; then
   #export IORWRITECMD="${RUNDIR}/../apps/ior/install/bin/ior -a DFS -b 150G -C -e -w -W -g -G 27 -k -i 1 -s 1 -o /testFile -O stoneWallingWearOut=1 -O stoneWallingStatusFile=${SWFILEWRITE} -D 60 -d 5 -t 1M --dfs.cont ${CONT} --dfs.group daos_server --dfs.pool ${POOL} --dfs.oclass SX --dfs.chunk_size 1M -v"
@@ -205,17 +217,14 @@ date
 echo
 #I_MPI_DEBUG=4 mpirun -n ${NPROCESS} --hostfile ${CLI_HOSTLIST} -ppn ${PPN} -genv I_MPI_PIN_PROCESSOR_LIST=0-7 ${TESTCMD}
 
-#export DARSHAN_LOGPATH="${RESULTDIR}/darshanlog"
-#export LD_PRELOAD="/panfs/users/rpadma2/apps/darshan-install-impi/lib/libdarshan.so"
-
 echo "which mpiexec"
 which mpiexec
 echo
 
 echo ROMIO_FSTYPE_FORCE=${ROMIO_FSTYPE_FORCE}
-echo "mpiexec -bootstrap ssh ${EXTRA_ENV} ${envIL} -n ${NPROCESS} --hostfile ${CLI_HOSTLIST} -ppn ${PPN} ${TESTCMD}"
+echo "mpiexec -bootstrap ssh ${LD_PRELOAD_ENV} ${DARSHAN_ENV} ${IL_ENV} -n ${NPROCESS} --hostfile ${CLI_HOSTLIST} -ppn ${PPN} ${TESTCMD}"
 echo
-mpiexec -bootstrap ssh ${EXTRA_ENV} ${envIL} -n ${NPROCESS} --hostfile ${CLI_HOSTLIST} -ppn ${PPN} ${TESTCMD}
+mpiexec -bootstrap ssh ${LD_PRELOAD_ENV} ${DARSHAN_ENV} ${IL_ENV} -n ${NPROCESS} --hostfile ${CLI_HOSTLIST} -ppn ${PPN} ${TESTCMD}
 echo
 
 echo Pool query after ${TEST}
@@ -246,26 +255,11 @@ echo Test Complete
 date
 echo
 
+# Copy DAOS client and server logs
+echo "Copying logs"
 echo
-echo "Copying clientlogs"
+${RUNDIR}/scripts/collect_logs.sh
 echo
-
-rm -rf ${RESULTDIR}/clientlogs
-mkdir -p ${RESULTDIR}/clientlogs
-
-clush --hostfile=${CLI_HOSTLIST} "mkdir -p ${RESULTDIR}/clientlogs/\`hostname\`; cp /tmp/daos_agent-${USER}/daos_client.log ${RESULTDIR}/clientlogs/\`hostname\`/"
-
-echo
-echo "Copying serverlogs"
-echo
-
-rm -rf ${RESULTDIR}/serverlogs
-mkdir -p ${RESULTDIR}/serverlogs
-chmod 777 ${RESULTDIR}/serverlogs
-
-clush --user=daos_server --hostfile=${SRV_HOSTLIST} "export TB=${TB}; cd ${RUNDIR}/../server; source srv_env.sh; daos_metrics -S 0 --csv > /tmp/daos_metrics_0.csv; daos_metrics -S 1 --csv > /tmp/daos_metrics_1.csv; dmesg > /tmp/daos_dmesg.txt"
-
-clush --user=daos_server --hostfile=${SRV_HOSTLIST} "mkdir -p ${RESULTDIR}/serverlogs/\`hostname\`; cp /tmp/daos_*.* ${RESULTDIR}/serverlogs/\`hostname\`/; chmod -R 777 ${RESULTDIR}/serverlogs/\`hostname\`/"
 
 echo Files after run
 date

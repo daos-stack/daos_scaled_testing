@@ -1,0 +1,48 @@
+diff --git a/site_scons/site_tools/compiler_setup.py b/site_scons/site_tools/compiler_setup.py
+index 8c91ff2f5..f2cc763dd 100644
+--- a/site_scons/site_tools/compiler_setup.py
++++ b/site_scons/site_tools/compiler_setup.py
+@@ -55,6 +55,9 @@ def _base_setup(env):
+     env.Append(CCFLAGS=['-g', '-Wextra', '-Wshadow', '-Wall', '-fpic'])
+ 
+     env.AppendIfSupported(CCFLAGS=DESIRED_FLAGS)
++    env.AppendIfSupported(LINKFLAGS=["-fstack-protector-strong"])
++    if '-fstack-protector-strong' in env["CCFLAGS"]:
++        env.AppendENVPath("CGO_LDFLAGS", "-fstack-protector-strong", sep=" ")
+ 
+     if '-Wmismatched-dealloc' in env['CCFLAGS']:
+         env.AppendUnique(CPPDEFINES={'HAVE_DEALLOC': '1'})
+diff --git a/src/gurt/tests/SConscript b/src/gurt/tests/SConscript
+index 6ba63fe61..e5ca3dc69 100644
+--- a/src/gurt/tests/SConscript
++++ b/src/gurt/tests/SConscript
+@@ -23,13 +23,11 @@ def scons():
+     tests = []
+ 
+     for test in TEST_SRC:
+-        flags = []
+         testobj = test_env.Object(test)
+         testname = os.path.splitext(test)[0]
+         testprog = test_env.d_test_program(target=testname,
+                                            source=testobj + gurt_targets,
+-                                           LIBS=test_env["LIBS"] + ['yaml'],
+-                                           LINKFLAGS=flags)
++                                           LIBS=test_env["LIBS"] + ['yaml'])
+         tests.append(testprog)
+ 
+     Default(tests)
+diff --git a/src/tests/ftest/cart/utest/SConscript b/src/tests/ftest/cart/utest/SConscript
+index 28b488441..9e25446f8 100644
+--- a/src/tests/ftest/cart/utest/SConscript
++++ b/src/tests/ftest/cart/utest/SConscript
+@@ -26,9 +26,7 @@ def scons():
+     test_env.AppendUnique(RPATH_FULL=LIBPATH)
+ 
+     for test in TEST_SRC:
+-        flags = []
+-        testprog = test_env.d_test_program(source=[test, cart_targets, swim_targets, gurt_targets],
+-                                           LINKFLAGS=flags)
++        testprog = test_env.d_test_program(source=[test, cart_targets, swim_targets, gurt_targets])
+         Default(testprog)
+ 
+ 

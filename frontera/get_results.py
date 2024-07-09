@@ -647,7 +647,7 @@ class CsvMdtest(CsvBase):
         sw_time = row["sw_time"]
         n_file = row["n_file"]
 
-        mdtest_rates = get_lines_after("SUMMARY rate:", 10, output)
+        mdtest_rates = get_lines_after("SUMMARY rate", 10, output)
         if not mdtest_rates or not row["end_time"]:
             status.fail("did not finish")
 
@@ -667,7 +667,7 @@ class CsvMdtest(CsvBase):
                 status.warn(f"{n_file} sw hit")
 
         if mdtest_rates and sw_time:
-            mdtest_times = get_lines_after("SUMMARY time:", 10, output)
+            mdtest_times = get_lines_after("SUMMARY time", 10, output)
             if mdtest_times:
                 create_time_raw = get_mdtest_metric_max("File creation", mdtest_times)
                 if float(create_time_raw) < float(sw_time):
@@ -1086,7 +1086,7 @@ def main(result_path, tests=["all"], output_format="csv", output_style="full",
                                ("cart", CsvCart)):
         if test in tests:
             print("")
-            csv_name = f"{test}_result_{result_name}.csv"
+            csv_name = f"{test}_{result_name}.csv"
             csv_path = join(result_path, csv_name)
             if generate_results(result_path, test, test_class, csv_path, output_style):
                 output_list.append(csv_path)
