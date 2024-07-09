@@ -44,7 +44,6 @@ elif [ "${MDTEST_API}" == "POSIX+IOIL" ]; then
 fi
 
 # Set common params/paths
-SRUN_CMD="srun -n $SLURM_JOB_NUM_NODES -N $SLURM_JOB_NUM_NODES"
 DAOS_SERVER_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_server.yml"
 DAOS_AGENT_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_agent.yml"
 DAOS_CONTROL_YAML="${RUN_DIR}/${SLURM_JOB_ID}/daos_control.yml"
@@ -411,7 +410,7 @@ function teardown_test(){
     eval "${csh_prefix} -B \"pgrep -a ${PROCESSES}\""
 
     pmsg "${DST_DIR}/frontera/utils/cleanup_node.sh"
-    ${SRUN_CMD} ${DST_DIR}/frontera/utils/cleanup_node.sh
+    clush -S -B -w "$SLURM_JOB_NODELIST" ${DST_DIR}/frontera/utils/cleanup_node.sh
 
     pmsg "Removing empty core dumps"
     find ${DUMP_DIR} -type d -empty -print -delete 
@@ -533,16 +532,38 @@ function wait_for_servers_to_start(){
     pmsg "Started ${num_servers} DAOS servers in ${elapsed_s} seconds"
 }
 
+function gen_hostlists() {
+    local mpi_target="${1}"
+    local num_servers="${2}"
+    local num_clients="${3}"
+
+    if [ "${mpi_target}" == "mvapich2" ] || [ "${mpi_target}" == "mpich" ]; then
+        # Use abbreviated hostname. Remove localhost
+        nodeset -S '\n' -e "$SLURM_JOB_NODELIST" | grep -v "$(hostname | cut -d . -f 1)" > $ALL_HOSTLIST_FILE
+    elif [ "${mpi_target}" == "openmpi" ]; then
+        # Use full hostname
+        nodeset -S '\n' -e "$SLURM_JOB_NODELIST" | grep -v "$(hostname | cut -d . -f 1)" | xargs -n 1 nslookup | grep 'Name:' | sed 's/Name:[[:space:]]*//g' > $ALL_HOSTLIST_FILE
+    else
+        pmsg "gen_hostlists(): Unknown mpi_target ${mpi_target}. Please specify either mvapich2, openmpi, or mpich"
+        return 1
+    fi
+
+    # Split into server and client hostlists
+    cat $ALL_HOSTLIST_FILE | tail -$num_servers > $SERVER_HOSTLIST_FILE
+    cat $ALL_HOSTLIST_FILE | head -$num_clients > $CLIENT_HOSTLIST_FILE
+}
+
+
 #Create server/client hostfile.
 function prepare(){
     # Create core dump and log directories
     mkdir -p ${DUMP_DIR}/{server,ior,mdtest,agent,self_test,cart}
-    ${SRUN_CMD} ${DST_DIR}/frontera/setup_node_dirs.sh ${RUN_DIR}/${SLURM_JOB_ID}/logs
+    clush -S -B -w "$SLURM_JOB_NODELIST" ${DST_DIR}/frontera/setup_node_dirs.sh ${RUN_DIR}/${SLURM_JOB_ID}/logs
 
-    # Generate MPI hostlist
-    ${DST_DIR}/frontera/mpi_gen_hostlist.sh ${MPI_TARGET} ${DAOS_SERVERS} ${DAOS_CLIENTS}
+    pmsg "Generating MPI hostlists"
+    gen_hostlists ${MPI_TARGET} ${DAOS_SERVERS} ${DAOS_CLIENTS}
     if [ $? -ne 0 ]; then
-        teardown_test "Failed to generate mpi hostlist" 1
+        teardown_test "Failed to generate MPI hostlists" 1
     fi
 
     # Use current LD_LIBRARY_PATH if DAOS was built with the full env
@@ -801,7 +822,13 @@ function dfuse_unmount(){
 #Start daos servers
 function start_server(){
     pmsg "Starting server..."
-    local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML --recreate-superblocks"
+    local daos_cmd="daos_server start -i -o $DAOS_SERVER_YAML"
+    run_daos_cmd "daos_server start --help | grep -- '--auto-format'"
+    if [ $? -eq 0 ]; then
+        daos_cmd+=" --auto-format"
+    else
+        daos_cmd+=" --recreate-superblocks"
+    fi
     local cmd="clush --hostfile ${SERVER_HOSTLIST_FILE}
         -f $SLURM_JOB_NUM_NODES \"
         pushd ${DUMP_DIR}/server > /dev/null;
@@ -879,9 +906,9 @@ function run_ior_write(){
     export LD_PRELOAD="$IOR_LD_PRELOAD"
     echo "LD_PRELOAD=${LD_PRELOAD}"
     eval ${wr_cmd}
+    local ior_rc=$?
     export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
 
-    local ior_rc=$?
     popd > /dev/null
 
     daos_cont_query
@@ -937,9 +964,9 @@ function run_ior_read(){
     export LD_PRELOAD="$IOR_LD_PRELOAD"
     echo "LD_PRELOAD=${LD_PRELOAD}"
     eval ${rd_cmd}
+    local ior_rc=$?
     export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
 
-    local ior_rc=$?
     popd > /dev/null
 
     daos_cont_query
@@ -973,6 +1000,7 @@ function run_self_test(){
     local openmpi_cmd="orterun $OMPI_PARAM 
         -x CPATH -x PATH -x LD_LIBRARY_PATH
         -x CRT_PHY_ADDR_STR -x OFI_DOMAIN -x OFI_INTERFACE
+        -x D_PROVIDER -x D_DOMAIN -x D_INTERFACE
         -x FI_UNIVERSE_SIZE
         -x FI_OFI_RXM_USE_SRX
         --timeout $OMPI_TIMEOUT -np 1 --map-by node
@@ -1109,9 +1137,9 @@ function run_mdtest(){
     export LD_PRELOAD="$MDTEST_LD_PRELOAD"
     echo "LD_PRELOAD=${LD_PRELOAD}"
     eval $cmd
+    local mdtest_rc=$?
     export LD_PRELOAD="$ORIGINAL_LD_PRELOAD"
 
-    local mdtest_rc=$?
     popd > /dev/null
 
     daos_cont_query
