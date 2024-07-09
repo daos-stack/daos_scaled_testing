@@ -17,9 +17,9 @@ echo
 echo "Copying clientlogs"
 echo
 
-echo clush --hostfile=${CLI_HOSTLIST} "mkdir -p ${RESULTDIR}/clientlogs/\`hostname\`; cp /tmp/daos_agent-${USER}/daos_client.log ${RESULTDIR}/clientlogs/\`hostname\`/"
+echo clush --hostfile=${CLI_HOSTLIST} "mkdir -p ${RESULTDIR}/clientlogs/\`hostname\`; cp /tmp/daos_agent-${USER}/daos_client.log ${RESULTDIR}/clientlogs/\`hostname\`/; dmesg > ${RESULTDIR}/clientlogs/\`hostname\`/client_dmesg.txt"
 
-clush --hostfile=${CLI_HOSTLIST} "mkdir -p ${RESULTDIR}/clientlogs/\`hostname\`; cp /tmp/daos_agent-${USER}/daos_client.log ${RESULTDIR}/clientlogs/\`hostname\`/"
+clush --hostfile=${CLI_HOSTLIST} "mkdir -p ${RESULTDIR}/clientlogs/\`hostname\`; cp /tmp/daos_agent-${USER}/daos_client.log ${RESULTDIR}/clientlogs/\`hostname\`/; dmesg > ${RESULTDIR}/clientlogs/\`hostname\`/client_dmesg.txt"
 
 echo
 echo "Copying serverlogs"
