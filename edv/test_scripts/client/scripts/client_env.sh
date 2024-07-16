@@ -38,10 +38,6 @@ export PATH=/usr/local/ofed/CURRENT/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/ofed/CURRENT/lib64:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/usr/local/ofed/CURRENT/lib64/libibverbs:$LD_LIBRARY_PATH
 
-# Use crt's fuse libraries since CentOS8 has a very old version
-export PATH=/opt/crtdc/fuse3/bin:$PATH
-export LD_LIBRARY_PATH=/opt/crtdc/fuse3/lib64:$LD_LIBRARY_PATH
-
 daospath=/$DAOS_INSTALL
 prereqpath=/$DAOS_INSTALL/prereq/release
 
@@ -72,6 +68,6 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/
 
 export CPATH=${daospath}/include/:$CPATH
 
-# FUSE3
+# FUSE3 - Use crt's fuse libraries since CentOS8 has an old version
 export PATH=/opt/crtdc/fuse3/bin:$PATH
 export LD_LIBRARY_PATH=/opt/crtdc/fuse3/lib64:$LD_LIBRARY_PATH
