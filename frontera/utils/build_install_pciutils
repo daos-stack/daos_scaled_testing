@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# Build and install pciutils from scratch
+#
+# Source: https://github.com/pciutils/pciutils/blob/1bfc2be0ce96f05536764d6ac230d596aefd8dfa/README
+#
+
+function usage() {
+    echo "Usage: $(basename $0) <install_dir>"
+}
+
+function _install_here() {
+    local install_dir="$1"
+
+    wget https://github.com/pciutils/pciutils/releases/download/v3.13.0/pciutils-3.13.0.tar.gz || return
+    tar -xvzf pciutils-3.13.0.tar.gz || return
+    pushd pciutils-3.13.0
+        mkdir -p "$install_dir" || return
+        make ZLIB="no" CFLAGS="-fPIE -O2 -std=gnu99" PREFIX="$install_dir" install-lib || return
+    popd
+}
+
+function install() {
+    local install_dir="$1"
+    local rc=0
+
+    echo "Installing pciutils in $install_dir"
+    tmp_dir="$(mktemp -d 2>/dev/null)"
+    pushd "$tmp_dir"
+        _install_here "$install_dir"
+        rc=$?
+    popd
+    rm -r "$tmp_dir"
+    if [ $rc == 0 ]; then
+        echo "Success!"
+    fi
+    exit $rc
+}
+
+if [ -z "$1" ]; then
+    usage
+    exit 1
+fi
+
+install "$1"

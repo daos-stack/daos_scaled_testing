@@ -260,6 +260,12 @@ function install_daos_deps() {
         "${CURRENT_DIR}/utils/build_install_capstone" "${WORK}/daos_deps" || return
         "${CURRENT_DIR}/utils/check_for_lib" "capstone" || return
     fi
+    "${CURRENT_DIR}/utils/check_for_lib" "pci"
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        "${CURRENT_DIR}/utils/build_install_pciutils" "${WORK}/daos_deps" || return
+        "${CURRENT_DIR}/utils/check_for_lib" "pci" || return
+    fi
 }
 
 # Setup a new build directory, removing if it already exists
