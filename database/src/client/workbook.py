@@ -3,6 +3,7 @@ import xlsxwriter
 from os.path import isfile, basename
 import csv
 from sys import stderr
+import math
 
 
 class WorkbookOptions():
@@ -37,7 +38,10 @@ class Workbook():
         for idx, val in enumerate(new_row):
             for _type in types:
                 try:
-                    new_row[idx] = _type(val)
+                    _val = _type(val)
+                    if math.isnan(_val) or math.isinf(_val):
+                        continue
+                    new_row[idx] = _val
                     break
                 except:
                     pass
