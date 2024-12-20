@@ -356,6 +356,11 @@ function build_daos() {
         fi
     fi
 
+    # avoid statx calls in dfuse tests
+    if [ $(git_has_commit "732997994d8ba560b674fe1e80b9677fcec049a3") = true ]; then
+            copy_and_apply_patch  daos_scons_dfuse.patch.732997994d8ba560b674fe1e80b9677fcec049a3 |& tee -a ${BUILD_DIR}/${TIMESTAMP}/repo_info.txt
+    fi
+
     scons MPI_PKG=any \
           --build-deps=${SCONS_BUILD_DEPS} \
           --config=force \
