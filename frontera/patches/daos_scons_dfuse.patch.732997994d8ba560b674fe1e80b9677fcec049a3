@@ -1,0 +1,15 @@
+diff --git a/src/tests/suite/SConscript b/src/tests/suite/SConscript
+index a118227fa..150f8115c 100644
+--- a/src/tests/suite/SConscript
++++ b/src/tests/suite/SConscript
+@@ -10,8 +10,8 @@ def scons():
+
+     dfuse_env = base_env.Clone()
+     dfuse_env.compiler_setup()
+-    dfusetest = dfuse_env.d_program(File("dfuse_test.c"), LIBS='cmocka')
+-    denv.Install('$PREFIX/bin/', dfusetest)
++#    dfusetest = dfuse_env.d_program(File("dfuse_test.c"), LIBS='cmocka')
++#    denv.Install('$PREFIX/bin/', dfusetest)
+
+     denv.AppendUnique(LIBPATH=[Dir('../../client/dfs')])
+     denv.AppendUnique(CPPPATH=[Dir('../../client/dfs').srcnode()])
